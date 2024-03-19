@@ -5,15 +5,15 @@ from jax import vmap
 
 import jax.random as jrn
 
-from experiments import build_experiment_coupled
+from neural_fofin.experiments import build_experiment_coupled
 
-from training_coupled import train_models
-from training_coupled import compute_loss_autoencoder
-from training_coupled import compute_loss_piggybacker
+from neural_fofin.training_coupled import train_models
+from neural_fofin.training_coupled import compute_loss_autoencoder
+from neural_fofin.training_coupled import compute_loss_piggybacker
 
-from plotting import plot_smoothed_losses
+from neural_fofin.plotting import plot_smoothed_losses
 
-from serialization import save_model
+from neural_fofin.serialization import save_model
 
 
 # local script parameters
@@ -22,7 +22,7 @@ MODEL_NAMES = ("autoencoder", "decoder")
 
 
 # load yaml file with hyperparameters
-with open("../data/config.yml") as file:
+with open("config.yml") as file:
     config = yaml.load(file, Loader=yaml.FullLoader)
 
 # unpack parameters
@@ -77,11 +77,6 @@ trained_model, trained_piggy_decoder = trained_models
 print("\nTraining completed")
 print(f"Autoencoder last loss: {loss_history[-1][0]:.6f}")
 print(f"Piggybacker last loss: {loss_history[-1][1]:.6f}")
-
-# for load in loads_nodes:
-for load in trained_model.decoder.loads:
-    print(load)
-# raise
 
 # plot loss curves
 print("\nPlotting")
