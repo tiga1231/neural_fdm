@@ -1,0 +1,38 @@
+# randomness
+seed: 91
+# grid
+grid:
+  size: 10.0
+  num_points: 4
+  indices: [15, 13, 5, 7, 14, 12, 4, 6, 10, 8, 0, 2, 11, 9, 1, 3]
+# generator
+generator:
+  name: "saddle"
+  num_uv: 10
+# fd solver parameters
+fdm:
+  name: "shape_based_loads"  # constant, shape_based_loads
+  load: [0.0, 0.0, -0.5]
+# encoder
+encoder: 
+  hidden_layer_size: 256
+  hidden_layer_num: 3
+  activation_fn_name: "elu"
+  final_activation_fn_name: "softplus"
+# decoder
+decoder:
+  hidden_layer_size: 256
+  hidden_layer_num: 3
+  activation_fn_name: "elu"  
+# optimizer
+optimizer:
+  encoder:
+    name: "adam"
+    learning_rate: 3.0e-5  # Be careful with scientific notation!
+  decoder:
+    name: "adam"
+    learning_rate: 3.0e-5  # Be careful with scientific notation!
+# training
+training:
+  steps: 1
+  batch_size: 64
