@@ -10,11 +10,14 @@ htmlcov
 
 src/neural_fofin.egg-info/
 
+data/backup/
 data/cad/
 data/figures/
 
 figures/
+
 scripts/_archive
+
 **/wandb/
 
 **.gh
