@@ -10,12 +10,11 @@ from tqdm import tqdm
 
 
 def compute_loss(model, structure, x):
+    """
+    Compute the model loss.
+    """
     x_hat = jax.vmap(model, in_axes=(0, None))(x, structure)
     error = jnp.abs(x - x_hat)
-
-    # NOTE: Do we need to mean over a particular axis?
-    # NOTE: Return the loss value (scale by 2 because optax scales it by 1/2 under the hood)
-    # error = optax.squared_error(x, x_hat) * 2
     batch_error = jnp.sum(error, axis=-1)
 
     return jnp.mean(batch_error, axis=-1)

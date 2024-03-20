@@ -17,7 +17,7 @@ from neural_fofin.serialization import save_model
 
 
 # local script parameters
-SAVE = False
+SAVE = True
 MODEL_NAMES = ("autoencoder", "decoder")
 
 

@@ -8,40 +8,52 @@ from jax_fdm.equilibrium import EquilibriumModel
 from jax_fdm.equilibrium import nodes_load_from_faces
 
 
+QMIN = -1e-3
+
+
 class ForceDensityModel(eqx.Module):
     """
     A force density model that calculates area loads based on the input shapes.
     """
-    model: EquilibriumModel    
-    loads: Array
+    model: EquilibriumModel
+    load: Float
     mask_edges: Array
     qmin: Float
 
-    def __init__(self, model, loads, mask_edges, qmin=-1e-3):
+    def __init__(self, model, load, mask_edges, qmin=QMIN):
         self.model = model
-        self.loads = loads
+        self.load = load
         self.mask_edges = mask_edges
         self.qmin = qmin
 
     def __call__(self, q, x, structure):
 
-        # NOTE: mask out fully fixed edges 
-        q = q * self.mask_edges + self.qmin 
+        # NOTE: mask out fully fixed edges
+        q = q * self.mask_edges + self.qmin
         xyz_fixed = self.get_xyz_fixed(x, structure)
+        loads = self.get_loads(x, structure)
 
         x_hat = self.model.equilibrium(q,
                                        xyz_fixed,
-                                       self.loads,
+                                       loads,
                                        structure)
-        
+
         return jnp.ravel(x_hat)
-    
+
     def get_xyz_fixed(self, x, structure):
-        
+
         indices = structure.indices_fixed
         x = jnp.reshape(x, (-1, 3))
 
         return x[indices, :]
+
+    def get_vertices_loads(self, x, structure):
+
+        num_vertices = structure.num_vertices
+        vertices_load_xy = jnp.zeros(shape=(num_vertices, 2))  # (num_vertices, xy)
+        vertices_load_z = jnp.ones(shape=(num_vertices, 1)) * self.load   # (num_vertices, xy)
+
+        return jnp.hstack((vertices_load_xy, vertices_load_z))
 
 
 class ForceDensityWithShapeBasedLoads(ForceDensityModel):
@@ -53,28 +65,34 @@ class ForceDensityWithShapeBasedLoads(ForceDensityModel):
 
     def __call__(self, q, x, structure):
 
-        # NOTE: mask out fully fixed edges 
-        q = q * self.mask_edges + self.qmin 
+        # NOTE: mask out fully fixed edges
+        q = q * self.mask_edges + self.qmin
         xyz_fixed = self.get_xyz_fixed(x, structure)
-        point_loads = self.get_point_loads(x, structure)
+        loads = self.get_loads(x, structure)
 
         x_hat = self.model.equilibrium(q,
                                        xyz_fixed,
-                                       point_loads,
+                                       loads,
                                        structure)
-                        
+
         return jnp.ravel(x_hat)
 
-
-    def get_point_loads(self, x, structure):
+    def get_loads(self, x, structure):
 
         x = jnp.reshape(x, (-1, 3))
-        point_loads = nodes_load_from_faces(x,
-                                            self.loads,
-                                            structure,
-                                            is_local=False)
-        
-        return point_loads
+
+        # need to convert loads into face loads
+        num_faces = structure.num_faces
+        faces_load_xy = jnp.zeros(shape=(num_faces, 2))  # (num_faces, xy)
+        faces_load_z = jnp.ones(shape=(num_faces, 1)) * self.load   # (num_faces, xy)
+        faces_load = jnp.hstack((faces_load_xy, faces_load_z))
+
+        vertices_load = nodes_load_from_faces(x,
+                                              faces_load,
+                                              structure,
+                                              is_local=False)
+
+        return vertices_load
 
 
 class AutoEncoder(eqx.Module):
@@ -95,10 +113,10 @@ class AutoEncoder(eqx.Module):
 
         if return_q:
             return x_hat, q
-        
+
         return x_hat
-        
-        
+
+
 class PiggyDecoder(eqx.nn.MLP):
     """
     A MLP decoder that piggybacks on an autoencoder.
@@ -107,20 +125,16 @@ class PiggyDecoder(eqx.nn.MLP):
     mask_edges: Array
     qmin: Float
 
-    def __init__(self, mask_edges, qmin=-1e-3, *args, **kwargs):
-    # def __init__(self, pred_scale, mask_edges, qmin=-1e-3, *args, **kwargs):
-    # def __init__(self, *args, **kwargs):
-        # self.pred_scale = pred_scale
+    def __init__(self, mask_edges, qmin=QMIN, *args, **kwargs):
         self.mask_edges = mask_edges
         self.qmin = qmin
         super().__init__(*args, **kwargs)
-    
+
     # NOTE: x must be a flat vector
     def __call__(self, q):
-        # NOTE: mask out fully fixed edges 
-        q = q * self.mask_edges + self.qmin 
+        # NOTE: mask out fully fixed edges
+        q = q * self.mask_edges + self.qmin
 
         x_hat = super().__call__(q)
 
-        # return x_hat * self.pred_scale
         return x_hat

@@ -116,13 +116,13 @@ def get_activation_fn(name):
 def get_optimizer_fn(name):
     optimizers = {
         "adam": optax.adam,
-        "sgd": optax.sgd,        
+        "sgd": optax.sgd,
     }
 
     optimizer_fn = optimizers.get(name)
     if not optimizer_fn:
         raise KeyError(f"Optimize name: {name} is currently unsupported!")
-    
+
     return optimizer_fn
 
 
@@ -150,7 +150,7 @@ def get_fd_solver_fn(name):
     solver_fn = solvers.get(name)
     if not solver_fn:
         raise KeyError(f"FD model name: {name} is currently unsupported!")
-    
+
     return solver_fn
 
 
@@ -165,7 +165,7 @@ def calculate_edges_mask(mesh):
             mask_val = 0.0
         mask_edges.append(mask_val)
 
-    return jnp.array(mask_edges)
+    return jnp.array(mask_edges, dtype=jnp.int64)
 
 
 def calculate_fd_loads(mesh, name, load):
@@ -178,7 +178,7 @@ def calculate_fd_loads(mesh, name, load):
         num_loads = mesh.number_of_faces()
 
     loads = [load] * num_loads
-    
+
     return jnp.array(loads)
 
 
@@ -193,7 +193,7 @@ def build_fd_model():
         implicit_diff=True,
         verbose=False
         )
-    
+
     return fd_model
 
 
@@ -208,7 +208,7 @@ def build_fd_decoder(mesh, hyperparams):
     fd_model = build_fd_model()
 
     # calculate initial loads
-    loads = calculate_fd_loads(mesh, name, load)
+    # loads = calculate_fd_loads(mesh, name, load)
 
     # get mask of supported edges
     mask_edges = calculate_edges_mask(mesh)
@@ -217,10 +217,10 @@ def build_fd_decoder(mesh, hyperparams):
     fd_solver = get_fd_solver_fn(name)
     decoder = fd_solver(
         fd_model,
-        loads,                            
+        load,
         mask_edges
         )
-    
+
     return decoder
 
 

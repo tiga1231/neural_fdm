@@ -1,6 +1,5 @@
 from setuptools import setup
 
-print("in setup old")
 
 setup(
     name='neural_fofin',
