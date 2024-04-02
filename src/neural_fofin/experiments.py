@@ -37,7 +37,7 @@ def pillow_minmax_values():
         [0.0, 0.0, 0.0],
         [0.0, 0.0, 0.0]
         ]
-    
+
     return minval, maxval
 
 
@@ -58,7 +58,7 @@ def dome_minmax_values():
         [0.0, 5.0, 0.0],
         [0.0, 0.0, 0.0]
         ]
-    
+
     return minval, maxval
 
 
@@ -79,7 +79,7 @@ def saddle_minmax_values():
         [0.0, 5.0, 0.0],
         [0.0, 0.0, 0.0]
         ]
-    
+
     return minval, maxval
 
 
@@ -93,7 +93,7 @@ def get_generator_minmax_values(name):
     values_fn = experiments.get(name)
     if not values_fn:
         raise KeyError(f"Experiment name: {name} is currently unsupported!")
-    
+
     return values_fn
 
 
@@ -109,9 +109,9 @@ def get_activation_fn(name):
     activation_fn = functions.get(name)
     if not activation_fn:
         raise KeyError(f"Activation name: {name} is currently unsupported!")
-    
+
     return activation_fn
-    
+
 
 def get_optimizer_fn(name):
     optimizers = {
@@ -294,13 +294,13 @@ def build_piggy_decoder(mesh, key, hyperparams):
         activation=get_activation_fn(activation_name),
         key=key
         )
-    
+
     return decoder
 
 
 def build_point_grid(hyperparams):
     """
-    """    
+    """
     size = hyperparams["size"]
     num_pts = hyperparams["num_points"]
     indices = hyperparams["indices"]
@@ -308,7 +308,7 @@ def build_point_grid(hyperparams):
     assert num_pts == 4, "Only 4x4 grids are currently supported!"
 
     return PointGrid(size, num_pts, indices)
-    
+
 
 def _build_data_generator(grid, generator_hyperparams):
     """
@@ -326,7 +326,7 @@ def _build_data_generator(grid, generator_hyperparams):
     minval = jnp.array(minval)
     maxval = jnp.array(maxval)
 
-    # Create data generator    
+    # Create data generator
     u = jnp.linspace(0.0, 1.0, num_u)
     v = jnp.linspace(0.0, 1.0, num_v)
 
@@ -344,7 +344,7 @@ def build_data_generator(generator_hyperparams, grid_hyperparams):
 
     # build data generator
     return _build_data_generator(grid, generator_hyperparams)
-    
+
 
 def build_mesh(generator_hyperparams, grid_hyperparams):
     """
@@ -356,7 +356,7 @@ def build_mesh(generator_hyperparams, grid_hyperparams):
     num_u = generator_hyperparams["num_uv"]
     num_v = generator_hyperparams["num_uv"]
 
-    # Create data generator    
+    # Create data generator
     u = jnp.linspace(0.0, 1.0, num_u)
     v = jnp.linspace(0.0, 1.0, num_v)
 
@@ -376,7 +376,7 @@ def build_experiment(config, model_key):
     data = build_data_objects(config)
     neural = build_neural_objects(config, model_key)
     optimizer = build_optimization_object(config)
-    
+
     return data, neural, optimizer
 
 
@@ -386,7 +386,7 @@ def build_experiment_coupled(config, model_key):
     data = build_data_objects(config)
     neural = build_neural_objects(config, model_key)
     optimizers = build_optimization_objects(config)
-    
+
     return data, neural, optimizers
 
 
@@ -403,7 +403,7 @@ def build_data_objects(config):
     # generate base FD mesh
     mesh = build_mesh(generator_params, grid_params)
     structure = build_structure(mesh)
-    
+
     return generator, structure
 
 
@@ -411,13 +411,11 @@ def build_neural_object(config, model_key):
     """
     """
     # unpack parameters
-    seed = config["seed"]
-
     grid_params = config["grid"]
     generator_params = config["generator"]
 
     fd_params = config["fdm"]
-    
+
     encoder_params = config["encoder"]
 
     # generate base FD mesh
@@ -433,13 +431,11 @@ def build_neural_objects(config, model_key):
     """
     """
     # unpack parameters
-    seed = config["seed"]
-
     grid_params = config["grid"]
     generator_params = config["generator"]
 
     fd_params = config["fdm"]
-    
+
     encoder_params = config["encoder"]
     decoder_params = config["decoder"]
 

@@ -9,7 +9,7 @@ import jax.numpy as jnp
 def get_world_mirror_matrix(plane):
     """
     Mirror points across a given plane.
-    
+
     :param points: A numpy array of shape (n, 3), where each row is a 3D point.
     :param plane: A string representing the plane ('xy', 'yz', 'xz').
     :return: Mirrored points as a numpy array of shape (n, 3).
@@ -25,14 +25,14 @@ def get_world_mirror_matrix(plane):
         mirror_matrix = jnp.array([[1, 0, 0], [0, -1, 0], [0, 0, 1]])
     else:
         raise ValueError("Invalid plane. Choose 'xy', 'yz', or 'xz'.")
-    
+
     return mirror_matrix
 
 
 def mirror_points(points, mirror_matrix):
     """
     Mirror points across a given plane.
-    
+
     :param points: A numpy array of shape (n, 3), where each row is a 3D point.
     :param mirror_matrix: A numpy array of shape (3, 3) representing the mirror transformation.
     :return: Mirrored points as a numpy array of shape (n, 3).
@@ -81,11 +81,11 @@ def calculate_grid_faces(nx, ny):
 def calculate_grid_from_tile(tile, indices, num_pts):
     """
     Compute a grid of control points from a unit tile and a wiggle vector.
-    """    
+    """
     grid_points = tile
-    
+
     # 2. generate grid
-    # mirror tile once     
+    # mirror tile once
     mirrored_points = mirror_points(grid_points, get_world_mirror_matrix("yz"))
     grid_points = jnp.concatenate((grid_points, mirrored_points))
 
@@ -105,7 +105,7 @@ def get_wiggled_grid_from_tile(tile, wiggle, indices, num_pts):
     """
     assert tile.shape == wiggle.shape, "Tile and wiggle must have the same shape"
 
-    # 1. apply wiggle on x, y, z to tile 
+    # 1. apply wiggle on x, y, z to tile
     tile = tile + wiggle
 
     return calculate_grid_from_tile(tile, indices, num_pts)
@@ -119,8 +119,8 @@ def get_bezier_surface_points_from_tile(tile, indices, num_pts, u, v):
 
     # sample surface points on bezier
     surface_points = evaluate_bezier_surface(control_points, u, v)
-    
-    return jnp.reshape(surface_points, (-1, 3))   
+
+    return jnp.reshape(surface_points, (-1, 3))
 
 
 def get_bezier_surface_points_from_grid(grid, u, v):
@@ -131,8 +131,8 @@ def get_bezier_surface_points_from_grid(grid, u, v):
 
     # sample surface points on bezier
     surface_points = evaluate_bezier_surface(control_points, u, v)
-    
-    return jnp.reshape(surface_points, (-1, 3))   
+
+    return jnp.reshape(surface_points, (-1, 3))
 
 
 def sample_wiggle(key, shape, minval, maxval):
@@ -150,33 +150,33 @@ class PointGrid:
         self.tile = get_grid_tile(size, num_pts)
         self.num_pts = num_pts
         self.indices = indices
-        
+
     def points(self, transform=None):
         tile = self.tile
         if transform is not None:
             tile = self.tile + transform
         return calculate_grid_from_tile(tile, self.indices, self.num_pts)
-    
+
 
 class BezierSurfacePointGenerator:
     """
-    A generator that outputs point evaluated on a randomly wiggle bezier surface. 
+    A generator that outputs point evaluated on a randomly wiggle bezier surface.
     """
     def __init__(self, grid, u, v, minval, maxval) -> None:
-        self.grid = grid        
+        self.grid = grid
         self.u = u
         self.v = v
         self.minval = minval
         self.maxval = maxval
-    
+
     def wiggle(self, key):
-        shape = self.grid.tile.shape        
+        shape = self.grid.tile.shape
         return sample_wiggle(key, shape, self.minval, self.maxval)
-    
+
     def control_points(self, key):
         wiggle = self.wiggle(key)
         return self.grid.points(transform=wiggle)
-    
+
     def bezier_points(self, key):
         control_pts = self.control_points(key)
         return evaluate_bezier_surface(control_pts, self.u, self.v)

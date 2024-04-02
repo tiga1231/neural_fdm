@@ -131,7 +131,7 @@ class PiggyDecoder(eqx.nn.MLP):
         super().__init__(*args, **kwargs)
 
     # NOTE: x must be a flat vector
-    def __call__(self, q):
+    def __call__(self, q, *args, **kwargs):
         # NOTE: mask out fully fixed edges
         q = q * self.mask_edges + self.qmin
 

@@ -1,3 +1,5 @@
+import os
+
 import yaml
 
 import jax
@@ -15,6 +17,8 @@ from jax_fdm.equilibrium import datastructure_updated
 
 from jax_fdm.visualization import Viewer
 
+from neural_fofin import DATA
+
 from neural_fofin.experiments import build_data_objects
 from neural_fofin.experiments import build_neural_object
 from neural_fofin.experiments import build_mesh
@@ -27,9 +31,9 @@ from neural_fofin.serialization import load_model
 # local script parameters
 SAVE = False
 NAME = "autoencoder"  # "autoencoder"
-COLOR_SCHEME = "force"
+COLOR_SCHEME = "fd"
 START = 0
-STOP = 5
+STOP = 10
 CAMERA_CONFIG = {
     "position": (30.34, 30.28, 42.94),
     "target": (0.956, 0.727, 1.287),
@@ -49,7 +53,8 @@ batch_size = config["training"]["batch_size"]
 
 # randomness
 key = jrn.PRNGKey(seed)
-model_key, generator_key = jax.random.split(key, 2)
+# model_key, generator_key = jax.random.split(key, 2)
+generator_key, model_key = jax.random.split(key, 2)
 
 # create data generator
 generator, structure = build_data_objects(config)
@@ -57,7 +62,8 @@ mesh = build_mesh(generator_params, grid_params)
 model_skeleton = build_neural_object(config, model_key)
 
 # load model
-model = load_model(f"{NAME}.eqx", model_skeleton)
+filepath = os.path.join(DATA, f"{NAME}.eqx")
+model = load_model(filepath, model_skeleton)
 
 # sample data batch
 xyz_batch = vmap(generator)(jrn.split(generator_key, batch_size))
@@ -69,13 +75,11 @@ print(f"Autoencoder start loss: {start_loss:.6f}")
 
 # make (batched) predictions
 for i in range(START, STOP):
-    print(i)
-    xyz = xyz_batch[i]
 
+    xyz = xyz_batch[i]
     xyz_hat = model(xyz, structure)
 
     q = model.encoder(xyz) * -1.0
-
     q_masked = q * model.decoder.mask_edges + model.decoder.qmin
 
     loads = model.decoder.get_loads(xyz, structure)
@@ -104,7 +108,7 @@ for i in range(START, STOP):
     # ==========================================================================
 
     viewer = Viewer(
-        width=1600,
+        width=900,
         height=900,
         show_grid=False,
         viewmode="lighted")
@@ -127,10 +131,10 @@ for i in range(START, STOP):
                edgecolor=COLOR_SCHEME,
                edges=[edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)],
                nodes=[node for node in mesh.vertices() if len(mesh.vertex_neighbors(node)) > 2],
-               show_loads=True,
-               loadscale=1.0,  # 5.0
-               show_reactions=True,
-               reactionscale=1.0)
+               show_loads=False,
+               loadscale=0.5,  # 5.0
+               show_reactions=False,
+               reactionscale=0.5)
 
     # reference network
     mesh_target = mesh.copy()

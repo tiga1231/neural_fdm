@@ -7,7 +7,7 @@ from jax_fdm.datastructures import FDMesh
 
 def create_mesh_from_grid_simple(grid, u, v):
     """
-    Boundary supported mesh.
+    Boundary-supported mesh.
     """
     # generate base FD Mesh
     srf_points = get_bezier_surface_points_from_grid(grid, u, v)
@@ -16,7 +16,7 @@ def create_mesh_from_grid_simple(grid, u, v):
     num_v = v.shape[0]
     faces = calculate_grid_faces(num_u - 1, num_v - 1)
     mesh = FDMesh.from_vertices_and_faces(srf_points, faces)
-    
+
     # define structural system
     mesh.vertices_supports(mesh.vertices_on_boundary())
 
@@ -25,7 +25,7 @@ def create_mesh_from_grid_simple(grid, u, v):
 
 def create_mesh_from_grid(grid, u, v, load, q=-1.0):
     """
-    Boundary supported mesh.
+    Boundary-supported mesh, with loads and force densities.
     """
     # generate base FD Mesh
     srf_points = get_bezier_surface_points_from_grid(grid, u, v)
