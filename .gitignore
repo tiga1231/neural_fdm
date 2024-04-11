@@ -17,6 +17,10 @@ data/figures/
 figures/
 
 scripts/_archive
+scripts/*.png
+scripts/*.ai
+scripts/*.svg
+scripts/*.indd
 
 **/wandb/
 

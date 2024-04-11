@@ -54,13 +54,13 @@ from neural_fofin.serialization import load_model
 # local script parameters
 VIEW = True
 PLOT = True
-SAVE = False
+SAVE = True
 
 NAME_AUTOENCODER = "autoencoder"
 NAME_DECODER = "decoder"
 
-EXAMPLE_NAME = "dome"  # pillow, dome, saddle
-PLOT_MODE = "deltas"  # deltas, residuals, forces
+EXAMPLE_NAME = "pillow"  # pillow, dome, saddle
+PLOT_MODE = "residuals"  # deltas, residuals, forces
 PLOT_TRANSFORM = "top"
 
 # pillow
@@ -386,23 +386,6 @@ if VIEW:
                linewidth=10.0,
                color=Color.black().lightened())
 
-    # width = 0.05
-    # for edge in mesh_target.edges():
-    #     u, v = edge
-    #     plane = Plane(mesh_target.edge_midpoint(u, v), mesh_target.edge_direction(u, v))
-    #     circle = Circle(plane, width / 2.0)
-    #     cylinder = Cylinder(circle, height=mesh_target.edge_length(u, v))
-
-    #     color = Color(0.1, 0.1, 0.1)
-
-    #     viewer.add(
-    #         cylinder,
-    #         facecolor=color,
-    #         linecolor=color,
-    #         show_edges=True,
-    #         opacity=0.75
-    #     )
-
     viewer.show()
 
     # display predictions
@@ -435,7 +418,7 @@ if VIEW:
 
         # edge colors
         color_end = Color.from_rgb255(12, 119, 184)
-        color_start = Color.white()  # color_end.lightened(100)
+        color_start = Color.white()
         cmap = ColorMap.from_two_colors(color_start, color_end)
 
         edgecolor = {}
@@ -450,7 +433,6 @@ if VIEW:
             edgecolor[edge] = _color
 
         viewer.add(network_hat,
-                   # edgewidth=0.1,
                    edgewidth=(0.01, 0.3),
                    edgecolor=edgecolor,
                    show_edges=True,
@@ -468,7 +450,6 @@ if VIEW:
                    show_points=False,
                    linewidth=5.0,
                    color=Color.black().lightened()
-                   # color=Color.grey().lightened()
                    )
 
         # show le crème
@@ -668,7 +649,7 @@ if PLOT:
             show_reactions=show_reactions,
             reactionscale=reaction_scale,
             reactioncolor=reaction_color,
-            sizepolicy="relative",
+            sizepolicy="absolute",
         )
 
         # show le crème

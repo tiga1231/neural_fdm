@@ -1,6 +1,9 @@
+import time
+
 import yaml
 
 import jax
+
 from jax import vmap
 
 import jax.random as jrn
@@ -17,9 +20,8 @@ from neural_fofin.serialization import save_model
 
 
 # local script parameters
-SAVE = True
+SAVE = False
 MODEL_NAMES = ("autoencoder", "decoder")
-
 
 # load yaml file with hyperparameters
 with open("config.yml") as file:
@@ -61,6 +63,7 @@ print("\nTraining")
 models = (model, piggy_decoder)
 optimizers = (optimizer, optimizer_piggyback)
 
+start = time.perf_counter()
 train_data = train_models(
     models,
     structure,
@@ -71,10 +74,12 @@ train_data = train_models(
     key=generator_key,
     callback=None
     )
+end = time.perf_counter()
 
 trained_models, trained_opt_states, loss_history = train_data
 trained_model, trained_piggy_decoder = trained_models
 print("\nTraining completed")
+print(f"Training time: {end:.4f} s")
 print(f"Autoencoder last loss: {loss_history[-1][0]:.6f}")
 print(f"Piggybacker last loss: {loss_history[-1][1]:.6f}")
 
@@ -88,16 +93,16 @@ if SAVE:
     # _filepath = "losses_coupled.txt"
 
     for i, _filename in enumerate(MODEL_NAMES):
-        _filepath = f"losses_{_filename}.txt" 
-                
+        _filepath = f"losses_{_filename}.txt"
+
         with open(_filepath, "w") as file:
             for values in loss_history:
                 _value = values[i].item()
                 file.write(f"{_value}\n")
 
         print(f"Saved loss history to {_filepath}")
-    
+
     for _model, _filename in zip(trained_models, MODEL_NAMES):
-        _filepath = f"{_filename}.eqx" 
+        _filepath = f"{_filename}.eqx"
         save_model(_filepath, _model)
         print(f"Saved model to {_filepath}")
