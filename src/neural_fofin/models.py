@@ -33,6 +33,9 @@ class ForceDensityModel(eqx.Module):
         xyz_fixed = self.get_xyz_fixed(x, structure)
         loads = self.get_loads(x, structure)
 
+        # NOTE: use instead
+        # self.model.nodes_free_positions(q, xyz_fixed, loads_nodes, structure)
+        # to predict only free vertices
         x_hat = self.model.equilibrium(q,
                                        xyz_fixed,
                                        loads,
@@ -47,7 +50,7 @@ class ForceDensityModel(eqx.Module):
 
         return x[indices, :]
 
-    def get_vertices_loads(self, x, structure):
+    def get_loads(self, x, structure):
 
         num_vertices = structure.num_vertices
         vertices_load_xy = jnp.zeros(shape=(num_vertices, 2))  # (num_vertices, xy)
@@ -70,6 +73,9 @@ class ForceDensityWithShapeBasedLoads(ForceDensityModel):
         xyz_fixed = self.get_xyz_fixed(x, structure)
         loads = self.get_loads(x, structure)
 
+        # NOTE: use instead
+        # self.model.nodes_free_positions(q, xyz_fixed, loads_nodes, structure)
+        # to predict only free vertices
         x_hat = self.model.equilibrium(q,
                                        xyz_fixed,
                                        loads,
@@ -84,7 +90,7 @@ class ForceDensityWithShapeBasedLoads(ForceDensityModel):
         # need to convert loads into face loads
         num_faces = structure.num_faces
         faces_load_xy = jnp.zeros(shape=(num_faces, 2))  # (num_faces, xy)
-        faces_load_z = jnp.ones(shape=(num_faces, 1)) * self.load   # (num_faces, xy)
+        faces_load_z = jnp.ones(shape=(num_faces, 1)) * self.load  # (num_faces, xy)
         faces_load = jnp.hstack((faces_load_xy, faces_load_z))
 
         vertices_load = nodes_load_from_faces(x,
@@ -131,10 +137,32 @@ class PiggyDecoder(eqx.nn.MLP):
         super().__init__(*args, **kwargs)
 
     # NOTE: x must be a flat vector
-    def __call__(self, q, *args, **kwargs):
+    def __call__(self, q, x, structure):
         # NOTE: mask out fully fixed edges
         q = q * self.mask_edges + self.qmin
 
-        x_hat = super().__call__(q)
+        x_fixed = self.get_xyz_fixed(x, structure)
+        x_free_hat = super().__call__(q)
 
-        return x_hat
+        return self.get_xyz_hat(x_free_hat, x_fixed, structure)
+
+    def get_xyz_fixed(self, x, structure):
+        """
+        Select the position of the free nodes.
+        """
+        x = jnp.reshape(x, (-1, 3))
+        indices = structure.indices_fixed
+
+        # return jnp.ravel(x[indices, :])
+        return x[indices, :]
+
+    def get_xyz_hat(self, x_free, x_fixed, structure):
+        """
+        Concatenate the position of the free and the fixed nodes.
+        Return a vector, not a matrix.
+        """
+        indices = structure.indices_freefixed
+        x_free = jnp.reshape(x_free, (-1, 3))
+        x_hat = jnp.concatenate((x_free, x_fixed))[indices, :]
+
+        return jnp.ravel(x_hat)

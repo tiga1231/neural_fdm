@@ -9,6 +9,15 @@ import jax.numpy as jnp
 from tqdm import tqdm
 
 
+# TODO: add residual loss
+def compute_loss_shape(model, structure, x):
+    pass
+
+
+def compue_loss_residual(model, structure, x):
+    pass
+
+
 def compute_loss(model, structure, x):
     """
     Compute the model loss.
@@ -46,7 +55,7 @@ def train_model(model, structure, optimizer, generator, *, num_steps, batch_size
     # Initial optimization step
     opt_state = optimizer.init(eqx.filter(model, eqx.is_array))
 
-    loss_vals = []
+    loss_history = []
     for _ in tqdm(range(num_steps)):
 
         # randomnesss
@@ -64,10 +73,10 @@ def train_model(model, structure, optimizer, generator, *, num_steps, batch_size
             )
 
         # store loss
-        loss_vals.append(loss_val)
+        loss_history.append(loss_val)
 
         # callback
         if callback:
             callback(model, opt_state, loss_val)
 
-    return model, opt_state, loss_vals
+    return model, opt_state, loss_history

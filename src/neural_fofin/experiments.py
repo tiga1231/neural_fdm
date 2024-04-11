@@ -207,9 +207,6 @@ def build_fd_decoder(mesh, hyperparams):
     # create FD model
     fd_model = build_fd_model()
 
-    # calculate initial loads
-    # loads = calculate_fd_loads(mesh, name, load)
-
     # get mask of supported edges
     mask_edges = calculate_edges_mask(mesh)
 
@@ -226,7 +223,7 @@ def build_fd_decoder(mesh, hyperparams):
 
 def build_neural_encoder(mesh, key, hyperparams):
     """
-    """    
+    """
     # unpack hyperparameters
     hidden_layer_size = hyperparams["hidden_layer_size"]
     hidden_layer_num = hyperparams["hidden_layer_num"]
@@ -245,10 +242,39 @@ def build_neural_encoder(mesh, key, hyperparams):
         depth=hidden_layer_num,
         activation=get_activation_fn(activation_name),
         final_activation=get_activation_fn(final_activation_name),  # NOTE: needs softplus to ensure positive encoder output
-        key=key    
+        key=key
         )
-    
+
     return encoder
+
+
+def build_neural_model(name, config, model_key):
+    """
+    """
+    # generate base FD mesh
+    generator_params = config["generator"]
+    grid_params = config["grid"]
+    mesh = build_mesh(generator_params, grid_params)
+
+    # build model
+    fd_params = config["fdm"]
+    encoder_params = config["encoder"]
+    decoder_params = config["decoder"]
+
+    # select model
+    if name == "formfinder":
+        build_fn = build_neural_formfinder
+        params = (encoder_params, fd_params)
+    elif name == "autoencoder":
+        build_fn = build_neural_autoencoder
+        params = (encoder_params, decoder_params)
+    else:
+        raise ValueError(f"Model name {name} is unsupported")
+    # elif name == "decoder":
+        # build_fn = build_piggy_decoder
+        # params = decoder_params
+
+    return build_fn(mesh, model_key, params)
 
 
 def build_neural_formfinder(mesh, key, hyperparams):
@@ -259,7 +285,7 @@ def build_neural_formfinder(mesh, key, hyperparams):
 
     # Create MLP encoder
     encoder = build_neural_encoder(mesh, key, nn_hyperparams)
-    
+
     # Build FD decoder
     decoder = build_fd_decoder(mesh, fd_hyperparams)
 
@@ -269,9 +295,27 @@ def build_neural_formfinder(mesh, key, hyperparams):
     return model
 
 
+def build_neural_autoencoder(mesh, key, hyperparams):
+    """
+    """
+    # Unpack hyperparams
+    enc_hyperparams, dec_hyperparams = hyperparams
+
+    # Create MLP encoder
+    encoder = build_neural_encoder(mesh, key, enc_hyperparams)
+
+    # Build FD decoder
+    decoder = build_piggy_decoder(mesh, key, dec_hyperparams)
+
+    # Assemble autoencoder
+    model = AutoEncoder(encoder, decoder)
+
+    return model
+
+
 def build_piggy_decoder(mesh, key, hyperparams):
     """
-    """    
+    """
     # unpack hyperparameters
     hidden_layer_size = hyperparams["hidden_layer_size"]
     hidden_layer_num = hyperparams["hidden_layer_num"]
@@ -285,7 +329,7 @@ def build_piggy_decoder(mesh, key, hyperparams):
     mask_edges = calculate_edges_mask(mesh)
 
     # instantiate MLP
-    decoder = PiggyDecoder(        
+    decoder = PiggyDecoder(
         mask_edges=mask_edges,
         in_size=num_edges,
         out_size=num_vertices_free * 3,

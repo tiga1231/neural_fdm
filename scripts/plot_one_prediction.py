@@ -15,10 +15,6 @@ import jax.random as jrn
 
 from compas.colors import Color
 from compas.colors import ColorMap
-from compas.geometry import Plane
-from compas.geometry import Circle
-from compas.geometry import Cylinder
-from compas.geometry import Line
 from compas.geometry import distance_point_point
 from compas.geometry import length_vector
 from compas.utilities import remap_values
@@ -52,7 +48,7 @@ from neural_fofin.serialization import load_model
 
 
 # local script parameters
-VIEW = True
+VIEW = False
 PLOT = True
 SAVE = True
 
@@ -465,6 +461,10 @@ if PLOT:
 
     for name, data in models_data.items():
         print(f"\n{name}")
+
+        # NOTE: This is temp!
+        if name == "autoencoder":
+            continue
 
         plotter = Plotter(
             figsize=(9, 9),
