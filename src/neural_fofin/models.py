@@ -128,10 +128,12 @@ class PiggyDecoder(eqx.nn.MLP):
     A MLP decoder that piggybacks on an autoencoder.
     """
     # pred_scale: Float
+    load: Float
     mask_edges: Array
     qmin: Float
 
-    def __init__(self, mask_edges, qmin=QMIN, *args, **kwargs):
+    def __init__(self, load, mask_edges, qmin=QMIN, *args, **kwargs):
+        self.load = load
         self.mask_edges = mask_edges
         self.qmin = qmin
         super().__init__(*args, **kwargs)
@@ -166,3 +168,20 @@ class PiggyDecoder(eqx.nn.MLP):
         x_hat = jnp.concatenate((x_free, x_fixed))[indices, :]
 
         return jnp.ravel(x_hat)
+
+    def get_loads(self, x, structure):
+
+        x = jnp.reshape(x, (-1, 3))
+
+        # need to convert loads into face loads
+        num_faces = structure.num_faces
+        faces_load_xy = jnp.zeros(shape=(num_faces, 2))  # (num_faces, xy)
+        faces_load_z = jnp.ones(shape=(num_faces, 1)) * self.load  # (num_faces, xy)
+        faces_load = jnp.hstack((faces_load_xy, faces_load_z))
+
+        vertices_load = nodes_load_from_faces(x,
+                                              faces_load,
+                                              structure,
+                                              is_local=False)
+
+        return vertices_load

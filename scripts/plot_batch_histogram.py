@@ -52,8 +52,8 @@ from neural_fofin.serialization import load_model
 
 
 # local script parameters
-PLOT = True
-SAVE = True
+PLOT = False
+SAVE = False
 
 NAME_AUTOENCODER = "autoencoder"
 NAME_DECODER = "decoder"

@@ -17,15 +17,26 @@ fdm:
 encoder: 
   hidden_layer_size: 256
   hidden_layer_num: 3
-  activation_fn_name: "elu"  # elu
+  activation_fn_name: "elu"
   final_activation_fn_name: "softplus"
 # decoder
 decoder:
   hidden_layer_size: 256
   hidden_layer_num: 3
-  activation_fn_name: "elu"  # elu
+  activation_fn_name: "elu"
+loss:
+  shape:
+    include: True
+    factor: 30.0
+  residual:
+    include: True
+    factor: 0.5
 # optimizer
 optimizer:
+  # for train.py
+  name: "adam"
+  learning_rate: 5.0e-5
+  # for train_coupled.py
   encoder:
     name: "adam"
     learning_rate: 5.0e-5  # 3.0e-5, Be careful with scientific notation!
@@ -34,5 +45,5 @@ optimizer:
     learning_rate: 5.0e-5  # 5.0e-5
 # training
 training:
-  steps: 10000
+  steps: 10000  # 10000
   batch_size: 64

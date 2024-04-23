@@ -8,19 +8,22 @@ def moving_average(data, window_size):
     return np.convolve(data, weights, mode='valid')
 
 
-def plot_smoothed_losses(loss_history, window_size):
+def plot_smoothed_losses(loss_history, window_size, labels=None):
     """
     """
     # Plotting
     plt.figure(figsize=(10, 6))
 
-    colors = ["tab:blue", "tab:orange"]
-    labels = ["Loss autoencoder", "Loss piggybacker"]
+    if not labels:
+        labels = ["Loss autoencoder", "Loss piggybacker"]
 
-    for i, color, label in zip(range(2), colors, labels):
+    tuple_size = len(loss_history[0])
+
+    for i, label in zip(range(tuple_size), labels):
 
         # Loss values
-        loss_values = [vals[i] for vals in loss_history]
+        loss_values = [float(vals[i]) for vals in loss_history]
+
         # Calculate the moving average
         smooth_loss = moving_average(loss_values, window_size)
 
@@ -28,7 +31,8 @@ def plot_smoothed_losses(loss_history, window_size):
         adjusted_loss_values = loss_values[:len(smooth_loss)]
 
         # Plot
-        plt.plot(adjusted_loss_values, alpha=0.5, color=color, label=label)
+        lines = plt.plot(adjusted_loss_values, alpha=0.5, label=label)
+        color = lines[-1].get_color()
         plt.plot(smooth_loss, color=color)
 
     plt.title('Loss')

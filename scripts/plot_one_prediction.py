@@ -29,6 +29,7 @@ from jax_fdm.visualization import Plotter
 from jax_fdm.visualization import Viewer
 
 from neural_fofin import DATA
+from neural_fofin import FIGURES
 
 from neural_fofin.bezier import evaluate_bezier_surface
 
@@ -57,7 +58,6 @@ NAME_DECODER = "decoder"
 
 EXAMPLE_NAME = "pillow"  # pillow, dome, saddle
 PLOT_MODE = "residuals"  # deltas, residuals, forces
-PLOT_TRANSFORM = "top"
 
 # pillow
 TRANSLATION_PILLOW = [
@@ -478,22 +478,6 @@ if PLOT:
         edges_to_plot = [edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)]
         nodesize = 12.0
 
-        # apply transformation
-        if PLOT_TRANSFORM == "3d" and VIEW:
-            P = viewer.view.camera.projection(viewer.width, viewer.height)
-            W = viewer.view.camera.viewworld()
-            P[1, 1] = P[0, 0]
-            T = P @ W
-
-        elif PLOT_TRANSFORM == "top":
-            T = np.eye(4)
-        else:
-            raise ValueError("Plot transformation is unsupported!")
-
-        # mesh = mesh.transformed(T)
-        # mesh_target = mesh_target.transformed(T)
-        # network_hat = network_hat.transformed(T)
-
         # plot sheets
         if PLOT_MODE == "forces":
 
@@ -607,31 +591,7 @@ if PLOT:
                 shading='gouraud',
                 cmap=cmap,
                 zorder=1,
-                # alpha=0.95,
             )
-
-            # plot target mesh lines
-            # for u, v in mesh_target.edges():
-            #     a, b = mesh_target.edge_coordinates(u, v)
-            #     line = Line(a, b)
-
-            #     if mesh.is_edge_fully_supported((u, v)):
-            #         _ls = "solid"
-            #         _c = Color(0.5, 0.5, 0.5)
-            #         _lw = 0.25
-            #     else:
-            #         _ls = (0, (5, 3))  # "dotted", "dashed",
-            #         _c = Color(0.2, 0.2, 0.2)
-            #         _lw = 0.5
-
-            #     plotter.add(
-            #         line,
-            #         draw_as_segment=True,
-            #         color=_c,
-            #         linestyle=_ls,
-            #         linewidth=_lw,
-            #         zorder=1010,  # 1500
-            #     )
 
         # query datastructures
         plotter.add(
@@ -658,10 +618,9 @@ if PLOT:
         if SAVE:
             parts = [EXAMPLE_NAME, name, PLOT_MODE]
             filename = f"{'_'.join(parts)}_plot.png"
-            # HERE = os.path.dirname(__file__)
-            # FILE_OUT = os.path.abspath(os.path.join(HERE, filename))
-            print(f"\nSaving plot to {filename}")
-            plotter.save(filename, bbox_inches=0.0, transparent=True)
+            FILE_OUT = os.path.abspath(os.path.join(FIGURES, filename))
+            print(f"\nSaving plot to {FILE_OUT}")
+            plotter.save(FILE_OUT, bbox_inches=0.0, transparent=True)
 
         plotter.show()
 

@@ -221,6 +221,42 @@ def build_fd_decoder(mesh, hyperparams):
     return decoder
 
 
+def build_piggy_decoder(mesh, key, hyperparams):
+    """
+    """
+    # unpack hyperparameters
+    nn_hyperparams, fd_hyperparams = hyperparams
+
+    # get neural network params
+    hidden_layer_size = nn_hyperparams["hidden_layer_size"]
+    hidden_layer_num = nn_hyperparams["hidden_layer_num"]
+    activation_name = nn_hyperparams["activation_fn_name"]
+
+    # get load
+    load = fd_hyperparams["load"]
+
+    # mesh quantities
+    num_edges = mesh.number_of_edges()
+    num_vertices_free = len(list(mesh.vertices_free()))
+
+    # get mask of supported edges
+    mask_edges = calculate_edges_mask(mesh)
+
+    # instantiate MLP
+    decoder = PiggyDecoder(
+        load=load,
+        mask_edges=mask_edges,
+        in_size=num_edges,
+        out_size=num_vertices_free * 3,
+        width_size=hidden_layer_size,
+        depth=hidden_layer_num,
+        activation=get_activation_fn(activation_name),
+        key=key
+        )
+
+    return decoder
+
+
 def build_neural_encoder(mesh, key, hyperparams):
     """
     """
@@ -246,35 +282,6 @@ def build_neural_encoder(mesh, key, hyperparams):
         )
 
     return encoder
-
-
-def build_neural_model(name, config, model_key):
-    """
-    """
-    # generate base FD mesh
-    generator_params = config["generator"]
-    grid_params = config["grid"]
-    mesh = build_mesh(generator_params, grid_params)
-
-    # build model
-    fd_params = config["fdm"]
-    encoder_params = config["encoder"]
-    decoder_params = config["decoder"]
-
-    # select model
-    if name == "formfinder":
-        build_fn = build_neural_formfinder
-        params = (encoder_params, fd_params)
-    elif name == "autoencoder":
-        build_fn = build_neural_autoencoder
-        params = (encoder_params, decoder_params)
-    else:
-        raise ValueError(f"Model name {name} is unsupported")
-    # elif name == "decoder":
-        # build_fn = build_piggy_decoder
-        # params = decoder_params
-
-    return build_fn(mesh, model_key, params)
 
 
 def build_neural_formfinder(mesh, key, hyperparams):
@@ -313,33 +320,33 @@ def build_neural_autoencoder(mesh, key, hyperparams):
     return model
 
 
-def build_piggy_decoder(mesh, key, hyperparams):
+def build_neural_model(name, config, model_key):
     """
     """
-    # unpack hyperparameters
-    hidden_layer_size = hyperparams["hidden_layer_size"]
-    hidden_layer_num = hyperparams["hidden_layer_num"]
-    activation_name = hyperparams["activation_fn_name"]
+    # generate base FD mesh
+    generator_params = config["generator"]
+    grid_params = config["grid"]
+    mesh = build_mesh(generator_params, grid_params)
 
-    # mesh quantities
-    num_edges = mesh.number_of_edges()
-    num_vertices_free = len(list(mesh.vertices_free()))
+    # build model
+    fd_params = config["fdm"]
+    encoder_params = config["encoder"]
+    decoder_params = config["decoder"]
 
-    # get mask of supported edges
-    mask_edges = calculate_edges_mask(mesh)
+    # select model
+    if name == "formfinder":
+        build_fn = build_neural_formfinder
+        params = (encoder_params, fd_params)
+    elif name == "autoencoder":
+        build_fn = build_neural_autoencoder
+        params = (encoder_params, (decoder_params, fd_params))
+    else:
+        raise ValueError(f"Model name {name} is unsupported")
+    # elif name == "decoder":
+        # build_fn = build_piggy_decoder
+        # params = decoder_params
 
-    # instantiate MLP
-    decoder = PiggyDecoder(
-        mask_edges=mask_edges,
-        in_size=num_edges,
-        out_size=num_vertices_free * 3,
-        width_size=hidden_layer_size,
-        depth=hidden_layer_num,
-        activation=get_activation_fn(activation_name),
-        key=key
-        )
-
-    return decoder
+    return build_fn(mesh, model_key, params)
 
 
 def build_point_grid(hyperparams):
@@ -490,7 +497,7 @@ def build_neural_objects(config, model_key):
     model = build_neural_formfinder(mesh, model_key, (encoder_params, fd_params))
 
     # create MLP piggibacking decoder
-    decoder = build_piggy_decoder(mesh, model_key, decoder_params)
+    decoder = build_piggy_decoder(mesh, model_key, (decoder_params, fd_params))
 
     return model, decoder
 
