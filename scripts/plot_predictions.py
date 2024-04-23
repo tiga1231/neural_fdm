@@ -1,11 +1,8 @@
 """
-Predict the force densities of a batch of target shapes with a pre-trained model.
+Predict the force densities and shapes of a batch of target shapes with a pre-trained model.
 """
-
 import os
-
 from math import fabs
-
 import yaml
 
 import jax
@@ -18,21 +15,17 @@ from compas.colors import Color
 from compas.colors import ColorMap
 
 from jax_fdm.datastructures import FDNetwork
-
-from jax_fdm.equilibrium import LoadState
-from jax_fdm.equilibrium import EquilibriumParametersState
 from jax_fdm.equilibrium import datastructure_updated
-
 from jax_fdm.visualization import Viewer
 
 from neural_fofin import DATA
 
-from neural_fofin.experiments import build_mesh
-from neural_fofin.experiments import build_data_generator
-from neural_fofin.experiments import build_connectivity_structure
-from neural_fofin.experiments import build_neural_model
+from neural_fofin.builders import build_mesh
+from neural_fofin.builders import build_data_generator
+from neural_fofin.builders import build_connectivity_structure
+from neural_fofin.builders import build_neural_model
 
-from neural_fofin.training_coupled import compute_loss_autoencoder
+from neural_fofin.losses import compute_loss
 
 from neural_fofin.serialization import load_model
 
@@ -41,8 +34,7 @@ from neural_fofin.serialization import load_model
 VIEW = True
 SAVE = False
 
-NAME = "autoencoder_pinn"  # "autoencoder"
-COLOR_SCHEME = "fd"
+NAME = "autoencoder_pinn"  # formfinder, autoencoder, autoencoder_pinn
 START = 50
 STOP = 53
 
@@ -60,6 +52,7 @@ with open("config.yml") as file:
 seed = config["seed"]
 training_params = config["training"]
 batch_size = training_params["batch_size"]
+loss_params = config["loss"]
 
 # randomness
 key = jrn.PRNGKey(seed)
@@ -72,24 +65,24 @@ mesh = build_mesh(config)
 
 # load model
 filepath = os.path.join(DATA, f"{NAME}.eqx")
-# TODO: strip out "pinn" if present in shape
-model_skeleton = build_neural_model("autoencoder", config, model_key)
+_model_name = NAME.split("_")[0]
+model_skeleton = build_neural_model(_model_name, config, model_key)
 model = load_model(filepath, model_skeleton)
 
 # sample data batch
 xyz_batch = vmap(generator)(jrn.split(generator_key, batch_size))
 
-# compute loss
-# NOTE: maybe compute loss of sampled object, one by one?
-start_loss, fd_data = compute_loss_autoencoder(model, structure, xyz_batch)
-print(f"Autoencoder start loss: {start_loss:.6f}")
-
 # make (batched) predictions
+print(f"Making predictions with {NAME}")
 for i in range(START, STOP):
     xyz = xyz_batch[i]
 
     xyz_hat = model(xyz, structure)
     eqstate_hat, fd_params_hat = model.predict_states(xyz, structure)
+
+    _, loss_terms = compute_loss(model, structure, xyz[None, :], loss_params, True)
+    train_loss, shape_error, residual_error = loss_terms
+    print(f"Shape {i}\tTrain loss: {train_loss:.4f}\tShape error: {shape_error:.4f}\tResidual error: {residual_error:.4f}")
 
     mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
     network_hat = FDNetwork.from_mesh(mesh_hat)

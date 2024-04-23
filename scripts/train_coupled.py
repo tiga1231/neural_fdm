@@ -8,7 +8,10 @@ from jax import vmap
 
 import jax.random as jrn
 
-from neural_fofin.experiments import build_experiment_coupled
+from neural_fofin.experiments import build_data_generator
+from neural_fofin.experiments import build_connectivity_structure
+from neural_fofin.experiments import build_neural_model
+from neural_fofin.experiments import build_optimizer
 
 from neural_fofin.training_coupled import train_models
 from neural_fofin.training_coupled import compute_loss_autoencoder
@@ -29,21 +32,20 @@ with open("config.yml") as file:
 
 # unpack parameters
 seed = config["seed"]
-grid_params = config["grid"]
 training_params = config["training"]
 batch_size = training_params["batch_size"]
 steps = training_params["steps"]
+loss_params = config["loss"]
 
 # randomness
 key = jrn.PRNGKey(seed)
 model_key, generator_key = jax.random.split(key, 2)
 
-# create data generator
-experiment = build_experiment_coupled(config, model_key)
+# create experiment
+generator = build_data_generator(config)
+structure = build_connectivity_structure(config)
 
 # unpack objects
-data_objects, neural_models, optimizers = experiment
-generator, structure = data_objects
 model, piggy_decoder = neural_models
 optimizer, optimizer_piggyback = optimizers
 

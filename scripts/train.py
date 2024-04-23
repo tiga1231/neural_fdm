@@ -1,32 +1,30 @@
 import os
-
 import time
-
 import yaml
 
 import jax
-
 from jax import vmap
-
 import jax.random as jrn
 
 from neural_fofin import DATA
 
 from neural_fofin.training import train_model
+
 from neural_fofin.losses import compute_loss
 
 from neural_fofin.plotting import plot_smoothed_losses
 
-from neural_fofin.experiments import build_data_generator
-from neural_fofin.experiments import build_connectivity_structure
-from neural_fofin.experiments import build_neural_model
-from neural_fofin.experiments import build_optimizer
+from neural_fofin.builders import build_data_generator
+from neural_fofin.builders import build_connectivity_structure
+from neural_fofin.builders import build_neural_model
+from neural_fofin.builders import build_optimizer
 
 from neural_fofin.serialization import save_model
 
 
 # local script parameters
-SAVE = True
+SAVE_MODEL = True
+SAVE_LOSSES = False
 MODEL_NAME = "autoencoder"  # formfinder, autoencoder
 
 # load yaml file with hyperparameters
@@ -44,7 +42,7 @@ loss_params = config["loss"]
 key = jrn.PRNGKey(seed)
 model_key, generator_key = jax.random.split(key, 2)
 
-# create data generator
+# create experiment
 generator = build_data_generator(config)
 structure = build_connectivity_structure(config)
 optimizer = build_optimizer(config)
@@ -78,7 +76,6 @@ train_data = train_model(
 end = time.perf_counter()
 
 trained_model, trained_opt_states, loss_history = train_data
-# trained_model, trained_piggy_decoder = trained_models
 print("\nTraining completed")
 print(f"Training time: {end:.4f} s")
 
@@ -87,37 +84,32 @@ print(f"{MODEL_NAME} last loss: {end_loss}")
 
 # plot loss curves
 print("\nPlotting")
-loss_labels = ["loss",
-               "shape",
-               "residual"
-               ]
-
+loss_labels = ["loss", "shape", "residual"]
 plot_smoothed_losses(loss_history,
                      window_size=50,
                      labels=loss_labels)
 
 # save models
-if SAVE:
+if SAVE_MODEL or SAVE_LOSSES:
     print("\nSaving results")
 
     _filename = MODEL_NAME
     if loss_params["residual"]["include"] > 0 and MODEL_NAME != "formfinder":
         _filename += "_pinn"
 
-    # save trained model
-    _filepath = os.path.join(DATA, f"{_filename}.eqx")
-    save_model(_filepath, trained_model)
-    print(f"Saved model to {_filepath}")
+    if SAVE_MODEL:
+        _filepath = os.path.join(DATA, f"{_filename}.eqx")
+        save_model(_filepath, trained_model)
+        print(f"Saved model to {_filepath}")
 
-    # save losses
-    for i, _label in enumerate(loss_labels):
+    if SAVE_LOSSES:
+        for i, _label in enumerate(loss_labels):
+            _filename_loss = f"losses_{_filename}_{_label}.txt"
 
-        _filename_loss = f"losses_{_filename}_{_label}.txt"
+            _filepath = os.path.join(DATA, _filename_loss)
+            with open(_filepath, "w") as file:
+                for values in loss_history:
+                    _value = values[i].item()
+                    file.write(f"{_value}\n")
 
-        _filepath = os.path.join(DATA, _filename_loss)
-        with open(_filepath, "w") as file:
-            for values in loss_history:
-                _value = values[i].item()
-                file.write(f"{_value}\n")
-
-        print(f"Saved loss history to {_filepath}")
+            print(f"Saved loss history to {_filepath}")

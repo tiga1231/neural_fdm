@@ -29,13 +29,7 @@ class AutoEncoder(eqx.Module):
     def __call__(self, x, structure, aux_data=False):
         # NOTE: x must be a flat vector
         q = self.encoder(x)
-        pred = self.decoder(q, x, structure, aux_data)
-
-        if aux_data:
-            x_hat, data = pred
-            return x_hat, data
-
-        x_hat = pred
+        x_hat = self.decoder(q, x, structure, aux_data)
 
         return x_hat
 
