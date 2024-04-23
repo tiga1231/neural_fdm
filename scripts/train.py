@@ -13,11 +13,12 @@ import jax.random as jrn
 from neural_fofin import DATA
 
 from neural_fofin.training import train_model
-from neural_fofin.training import compute_loss
+from neural_fofin.losses import compute_loss
 
 from neural_fofin.plotting import plot_smoothed_losses
 
-from neural_fofin.experiments import build_data_objects
+from neural_fofin.experiments import build_data_generator
+from neural_fofin.experiments import build_connectivity_structure
 from neural_fofin.experiments import build_neural_model
 from neural_fofin.experiments import build_optimizer
 
@@ -34,9 +35,7 @@ with open("config.yml") as file:
 
 # unpack parameters
 seed = config["seed"]
-grid_params = config["grid"]
 training_params = config["training"]
-optimizer_params = config["optimizer"]
 batch_size = training_params["batch_size"]
 steps = training_params["steps"]
 loss_params = config["loss"]
@@ -46,8 +45,9 @@ key = jrn.PRNGKey(seed)
 model_key, generator_key = jax.random.split(key, 2)
 
 # create data generator
-generator, structure = build_data_objects(config)
-optimizer = build_optimizer(optimizer_params)
+generator = build_data_generator(config)
+structure = build_connectivity_structure(config)
+optimizer = build_optimizer(config)
 model = build_neural_model(MODEL_NAME, config, model_key)
 print(model)
 
@@ -56,7 +56,7 @@ xyz = vmap(generator)(jrn.split(generator_key, batch_size))
 
 # warmstart
 print("\nWarmstarting")
-start_loss = compute_loss(model, structure, xyz)
+start_loss = compute_loss(model, structure, xyz, loss_params)
 print(f"{loss_params=}")
 print(f"{MODEL_NAME} start loss: {start_loss:.6f}")
 
@@ -82,12 +82,15 @@ trained_model, trained_opt_states, loss_history = train_data
 print("\nTraining completed")
 print(f"Training time: {end:.4f} s")
 
-end_loss = compute_loss(trained_model, structure, xyz)
+end_loss = compute_loss(trained_model, structure, xyz, loss_params)
 print(f"{MODEL_NAME} last loss: {end_loss}")
 
 # plot loss curves
 print("\nPlotting")
-loss_labels = ["loss", "shape", "residual"]
+loss_labels = ["loss",
+               "shape",
+               "residual"
+               ]
 
 plot_smoothed_losses(loss_history,
                      window_size=50,

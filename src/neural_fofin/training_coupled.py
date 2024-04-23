@@ -43,14 +43,9 @@ def compute_loss_piggybacker(model, structure, fd_data):
     # unpack
     x_hat, q = fd_data
 
-    # pick free xyz from encoder predictions
-    # x_hat_free = vmap(select_x_free, in_axes=(0, None))(x_hat, structure)
-
     # predict
     y_hat = jax.vmap(model, in_axes=(0, 0, None))(q, x_hat, structure)
-    # y_hat = jax.vmap(model)(q)
 
-    # error = jnp.abs(x_hat_free - y_hat)
     error = jnp.abs(x_hat - y_hat)
     batch_error = jnp.sum(error, axis=-1)
 

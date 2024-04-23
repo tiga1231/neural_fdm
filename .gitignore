@@ -10,6 +10,7 @@ htmlcov
 
 src/neural_fofin.egg-info/
 
+data/
 data/backup/
 data/cad/
 data/figures/

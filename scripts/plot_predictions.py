@@ -1,3 +1,7 @@
+"""
+Predict the force densities of a batch of target shapes with a pre-trained model.
+"""
+
 import os
 
 from math import fabs
@@ -23,9 +27,10 @@ from jax_fdm.visualization import Viewer
 
 from neural_fofin import DATA
 
-from neural_fofin.experiments import build_data_objects
-from neural_fofin.experiments import build_neural_object
 from neural_fofin.experiments import build_mesh
+from neural_fofin.experiments import build_data_generator
+from neural_fofin.experiments import build_connectivity_structure
+from neural_fofin.experiments import build_neural_model
 
 from neural_fofin.training_coupled import compute_loss_autoencoder
 
@@ -36,10 +41,10 @@ from neural_fofin.serialization import load_model
 VIEW = True
 SAVE = False
 
-NAME = "autoencoder"  # "autoencoder"
+NAME = "autoencoder_pinn"  # "autoencoder"
 COLOR_SCHEME = "fd"
 START = 50
-STOP = 60
+STOP = 53
 
 CAMERA_CONFIG = {
     "position": (30.34, 30.28, 42.94),
@@ -53,22 +58,22 @@ with open("config.yml") as file:
 
 # unpack parameters
 seed = config["seed"]
-grid_params = config["grid"]
-generator_params = config["generator"]
-batch_size = config["training"]["batch_size"]
+training_params = config["training"]
+batch_size = training_params["batch_size"]
 
 # randomness
-# seed = 12
 key = jrn.PRNGKey(seed)
 model_key, generator_key = jax.random.split(key, 2)
 
 # create data generator
-generator, structure = build_data_objects(config)
-mesh = build_mesh(generator_params, grid_params)
-model_skeleton = build_neural_object(config, model_key)
+generator = build_data_generator(config)
+structure = build_connectivity_structure(config)
+mesh = build_mesh(config)
 
 # load model
 filepath = os.path.join(DATA, f"{NAME}.eqx")
+# TODO: strip out "pinn" if present in shape
+model_skeleton = build_neural_model("autoencoder", config, model_key)
 model = load_model(filepath, model_skeleton)
 
 # sample data batch
@@ -81,27 +86,15 @@ print(f"Autoencoder start loss: {start_loss:.6f}")
 
 # make (batched) predictions
 for i in range(START, STOP):
-
     xyz = xyz_batch[i]
+
     xyz_hat = model(xyz, structure)
+    eqstate_hat, fd_params_hat = model.predict_states(xyz, structure)
 
-    q = model.encoder(xyz) * -1.0
-    q_masked = q * model.decoder.mask_edges + model.decoder.qmin
-
-    loads = model.decoder.get_loads(xyz, structure)
-    load_state = LoadState(loads, 0.0, 0.0)
-
-    xyz_fixed = model.decoder.get_xyz_fixed(xyz, structure)
-
-    fdm_params_hat = EquilibriumParametersState(q_masked,
-                                                xyz_fixed,
-                                                load_state)
-
-    eqstate_hat = model.decoder.model(fdm_params_hat, structure)
-
-    mesh_hat = datastructure_updated(mesh, eqstate_hat, fdm_params_hat)
+    mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
     network_hat = FDNetwork.from_mesh(mesh_hat)
 
+    # Create target mesh
     mesh_target = mesh.copy()
     _xyz = jnp.reshape(xyz, (-1, 3)).tolist()
     for idx, key in mesh.index_key().items():

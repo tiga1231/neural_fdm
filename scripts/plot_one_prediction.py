@@ -30,6 +30,7 @@ from jax_fdm.visualization import Viewer
 
 from neural_fofin import DATA
 from neural_fofin import FIGURES
+from neural_fofin import SCRIPTS
 
 from neural_fofin.bezier import evaluate_bezier_surface
 
@@ -49,12 +50,13 @@ from neural_fofin.serialization import load_model
 
 
 # local script parameters
-VIEW = False
+VIEW = True
 PLOT = True
-SAVE = True
+SAVE = False
 
 NAME_AUTOENCODER = "autoencoder"
 NAME_DECODER = "decoder"
+NAME_CONFIG = "config"
 
 EXAMPLE_NAME = "pillow"  # pillow, dome, saddle
 PLOT_MODE = "residuals"  # deltas, residuals, forces
@@ -210,7 +212,8 @@ def predict_neural_neural(models, xyz):
 # ===============================================================================
 
 print("\nCreating experiment")
-with open("config.yml") as file:
+config_dir = os.path.join(SCRIPTS, f"{NAME_CONFIG}.yml")
+with open(config_dir) as file:
     config = yaml.load(file, Loader=yaml.FullLoader)
 
 # unpack parameters
@@ -502,8 +505,6 @@ if PLOT:
             edgecolor = Color(0.1, 0.1, 0.1)
             edgewidth = 1.0
 
-            # nodes_to_plot = [node for node in mesh.vertices() if not mesh.is_vertex_on_boundary(node)]
-            # nodes_to_plot = list.
             edges_to_plot = list(mesh.edges())
 
             show_reactions = False
@@ -531,16 +532,9 @@ if PLOT:
 
             z = residuals
 
-            # nodesize = {}
             nodecolor = {}
             for key, scale in zip(mesh.vertices(), scales):
-                # nodesize[key] = scale * ns_max
                 nodecolor[key] = cmap(scale)
-
-            # plotter.add(mesh,
-            #             show_vertices=False,
-            #             show_edges=False,
-            #             facecolor={fkey: Color(0.95, 0.95, 0.95) for fkey in mesh.faces()})
 
         # delta plotting
         elif PLOT_MODE == "deltas":

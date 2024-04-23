@@ -2,8 +2,6 @@ import os
 
 import yaml
 
-from math import fabs
-
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -17,29 +15,21 @@ import jax.numpy as jnp
 
 import jax.random as jrn
 
-from compas.colors import Color
-from compas.colors import ColorMap
 from compas.geometry import distance_point_point
 from compas.geometry import length_vector
-from compas.utilities import remap_values
 
-from jax_fdm.datastructures import FDNetwork
 
 from jax_fdm.equilibrium import LoadState
 from jax_fdm.equilibrium import EquilibriumParametersState
 from jax_fdm.equilibrium import datastructure_updated
 
-from jax_fdm.visualization import Plotter
-from jax_fdm.visualization import Viewer
-
 from neural_fofin import DATA
-
-from neural_fofin.bezier import evaluate_bezier_surface
+from neural_fofin import FIGURES
+from neural_fofin import SCRIPTS
 
 from neural_fofin.experiments import build_data_objects
 from neural_fofin.experiments import build_neural_objects
 from neural_fofin.experiments import build_mesh
-from neural_fofin.experiments import build_point_grid
 
 from neural_fofin.models import AutoEncoder
 from neural_fofin.models import PiggyDecoder
@@ -57,6 +47,7 @@ SAVE = False
 
 NAME_AUTOENCODER = "autoencoder"
 NAME_DECODER = "decoder"
+NAME_CONFIG = "config"
 
 # Normalization constants
 NORMALIZE = True
@@ -210,7 +201,8 @@ def pretty_matplotlib():
 # ===============================================================================
 
 print("\nCreating experiment")
-with open("config.yml") as file:
+config_dir = os.path.join(SCRIPTS, f"{NAME_CONFIG}.yml")
+with open(config_dir) as file:
     config = yaml.load(file, Loader=yaml.FullLoader)
 
 # unpack parameters
@@ -469,7 +461,9 @@ if PLOT:
 
         if SAVE:
             ext = PLOT_CONFIG['extension']
-            plt.savefig(f"histogram_{statistic_name}.{ext}",
+            filename = f"histogram_{statistic_name}.{ext}"
+            FILE_OUT = os.path.abspath(os.path.join(FIGURES, filename))
+            plt.savefig(FILE_OUT,
                         bbox_inches="tight",
                         pad_inches=0.05,
                         transparent=False)
