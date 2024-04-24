@@ -69,6 +69,8 @@ def vertices_residuals_from_xyz(q, loads, xyz, structure):
     Compute the residual forces on the vertices of the structure.
     """
     connectivity = structure.connectivity
+
+    xyz = jnp.reshape(xyz, (-1, 3))
     vectors = edges_vectors(xyz, connectivity)
 
     return vertices_residuals(q, loads, vectors, connectivity)

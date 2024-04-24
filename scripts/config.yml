@@ -27,12 +27,12 @@ decoder:
 loss:
   shape:
     include: True
-    weight: 50.0
-    scale: 30.0  # 30.0, bbox length
+    weight: 5.0
+    scale: 1.0  # 30.0, bbox length
   residual:  # PINN term
     include: True
     weight: 1.0
-    scale: 0.5  # 0.5, fdm load scale
+    scale: 1.0  # 0.5, fdm load scale
 # optimizer
 optimizer:
   # for train.py

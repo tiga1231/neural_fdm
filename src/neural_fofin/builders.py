@@ -7,10 +7,10 @@ import jax.numpy as jnp
 from jax_fdm.equilibrium import EquilibriumModel
 from jax_fdm.equilibrium import EquilibriumMeshStructure
 
-from neural_fofin.generator import PointGrid
+from neural_fofin.generator import PointGridSymmetricDouble
 from neural_fofin.generator import BezierSurfacePointGenerator
 
-from neural_fofin.mesh import create_mesh_from_grid_simple
+from neural_fofin.mesh import create_mesh_from_grid
 
 from neural_fofin.models import AutoEncoder
 from neural_fofin.models import ForceDensityDecoder
@@ -109,11 +109,10 @@ def build_point_grid(hyperparams):
     """
     size = hyperparams["size"]
     num_pts = hyperparams["num_points"]
-    indices = hyperparams["indices"]
 
     assert num_pts == 4, "Only 4x4 grids are currently supported!"
 
-    return PointGrid(size, num_pts, indices)
+    return PointGridSymmetricDouble(size, num_pts)
 
 
 def build_bezier_point_generator(grid, generator_hyperparams):
@@ -206,28 +205,6 @@ def build_optimizer(config):
     optimizer = optimizer_fn(learning_rate=learning_rate)
 
     return optimizer
-
-
-# def build_optimization_object(config):
-#     """
-#     """
-#     # unpack parameters
-#     optimizer_params = config["optimizer"]["encoder"]
-
-#     return build_optimizer(optimizer_params)
-
-
-# def build_optimization_objects(config):
-#     """
-#     """
-#     # unpack parameters
-#     encoder_params = config["optimizer"]["encoder"]
-#     optimizer = build_optimizer(encoder_params)
-
-#     decoder_params = config["optimizer"]["decoder"]
-#     optimizer_piggyback = build_optimizer(decoder_params)
-
-#     return optimizer, optimizer_piggyback
 
 
 # ===============================================================================
@@ -477,7 +454,7 @@ def build_mesh(config):
     v = jnp.linspace(0.0, 1.0, num_v)
 
     # generate base FD Mesh
-    return create_mesh_from_grid_simple(grid, u, v)
+    return create_mesh_from_grid(grid, u, v)
 
 
 # ===============================================================================
@@ -580,3 +557,16 @@ def build_connectivity_structure(config):
 #     decoder = build_neural_decoder(mesh, model_key, (decoder_params, fd_params))
 
 #     return model, decoder
+
+
+# def build_optimization_objects(config):
+#     """
+#     """
+#     # unpack parameters
+#     encoder_params = config["optimizer"]["encoder"]
+#     optimizer = build_optimizer(encoder_params)
+
+#     decoder_params = config["optimizer"]["decoder"]
+#     optimizer_piggyback = build_optimizer(decoder_params)
+
+#     return optimizer, optimizer_piggyback

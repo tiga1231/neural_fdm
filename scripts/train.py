@@ -24,7 +24,7 @@ from neural_fofin.serialization import save_model
 
 # local script parameters
 SAVE_MODEL = True
-SAVE_LOSSES = False
+SAVE_LOSSES = True
 MODEL_NAME = "autoencoder"  # formfinder, autoencoder
 
 # load yaml file with hyperparameters
@@ -55,6 +55,7 @@ xyz = vmap(generator)(jrn.split(generator_key, batch_size))
 # warmstart
 print("\nWarmstarting")
 start_loss = compute_loss(model, structure, xyz, loss_params)
+print(start_loss)
 print(f"{loss_params=}")
 print(f"{MODEL_NAME} start loss: {start_loss:.6f}")
 

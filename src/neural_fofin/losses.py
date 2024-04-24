@@ -24,17 +24,21 @@ def compute_loss_residual(model, x_hat, data_hat, structure):
         """
         _x_hat: the shape predicted by the model
         _data_hat: the aux data produced by the model
+
+        NOTE: Not using jnp.linalg.norm because we hitted NaNs.
         """
         q_hat, xyz_fixed, loads = _data_hat
-        xyz = jnp.reshape(_x_hat, (-1, 3))
-        residual_vectors = vertices_residuals_from_xyz(q_hat, loads, xyz, structure)
-        residual_vectors_free = residual_vectors[indices_free, :]
+        residual_vectors = vertices_residuals_from_xyz(q_hat, loads, _x_hat, structure)
+        residual_vectors_free = jnp.ravel(residual_vectors[indices_free, :])
 
         # return jnp.linalg.norm(residual_vectors_free, axis=-1)
-        return jnp.sum(jnp.square(residual_vectors_free), axis=-1)
+        # return jnp.sqrt(jnp.sum(jnp.square(residual_vectors_free), axis=-1))
+        # return jnp.square(residual_vectors_free)
+        return jnp.square(residual_vectors_free)
 
     error = vmap(calculate_residuals)(x_hat, data_hat)
-    batch_error = jnp.sum(error, axis=-1)
+    # batch_error = jnp.sum(error, axis=-1)
+    batch_error = jnp.sqrt(jnp.sum(error, axis=-1))
 
     return jnp.mean(batch_error, axis=-1)
 
