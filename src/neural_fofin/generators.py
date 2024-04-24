@@ -1,6 +1,7 @@
 import jax.random as jrn
 import jax.numpy as jnp
 
+from neural_fofin.bezier import BezierSurfaceAsymmetric
 from neural_fofin.bezier import BezierSurfaceSymmetric
 from neural_fofin.bezier import BezierSurfaceSymmetricDouble
 
@@ -66,4 +67,13 @@ class BezierSurfaceSymmetricPointGenerator(BezierSurfacePointGenerator):
     """
     def __init__(self, size, num_pts, u, v, minval, maxval):
         surface = BezierSurfaceSymmetric(size, num_pts)
+        super().__init__(surface, u, v, minval, maxval)
+
+
+class BezierSurfaceAsymmetricPointGenerator(BezierSurfacePointGenerator):
+    """
+    A generator that outputs point evaluated on a wiggled bezier surface.
+    """
+    def __init__(self, size, num_pts, u, v, minval, maxval):
+        surface = BezierSurfaceAsymmetric(size, num_pts)
         super().__init__(surface, u, v, minval, maxval)

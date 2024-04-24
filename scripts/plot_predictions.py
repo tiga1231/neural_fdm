@@ -1,6 +1,7 @@
 """
 Predict the force densities and shapes of a batch of target shapes with a pre-trained model.
 """
+
 import os
 from math import fabs
 import yaml
@@ -34,9 +35,10 @@ from neural_fofin.serialization import load_model
 VIEW = True
 SAVE = False
 
-NAME = "formfinder"  # formfinder, autoencoder, autoencoder_pinn
+NAME = "autoencoder_pinn"  # formfinder, autoencoder, autoencoder_pinn
 START = 50
 STOP = 53
+EDGECOLOR = "fd"  # force, fd
 
 CAMERA_CONFIG = {
     "position": (30.34, 30.28, 42.94),
@@ -67,6 +69,7 @@ mesh = build_mesh_from_generator(generator)
 filepath = os.path.join(DATA, f"{NAME}.eqx")
 _model_name = NAME.split("_")[0]
 model_skeleton = build_neural_model(_model_name, config, generator, model_key)
+print(model_skeleton)
 model = load_model(filepath, model_skeleton)
 
 # sample data batch
@@ -80,7 +83,14 @@ for i in range(START, STOP):
     xyz_hat = model(xyz, structure)
     eqstate_hat, fd_params_hat = model.predict_states(xyz, structure)
 
-    _, loss_terms = compute_loss(model, structure, xyz[None, :], loss_params, True)
+    _, loss_terms = compute_loss(
+        model,
+        structure,
+        xyz[None, :],
+        loss_params,
+        True
+    )
+
     train_loss, shape_error, residual_error = loss_terms
     print(f"Shape {i}\tTrain loss: {train_loss:.4f}\tShape error: {shape_error:.4f}\tResidual error: {residual_error:.4f}")
 
@@ -118,24 +128,28 @@ for i in range(START, STOP):
     )
 
     # edge colors
-    color_end = Color.from_rgb255(12, 119, 184)
-    color_start = Color.white()
-    cmap = ColorMap.from_two_colors(color_start, color_end)
+    if EDGECOLOR == "force":
 
-    edgecolor = {}
-    forces = [fabs(network_hat.edge_force(edge)) for edge in network_hat.edges()]
-    fmin = min(forces)
-    fmax = max(forces)
+        color_end = Color.from_rgb255(12, 119, 184)
+        color_start = Color.white()
+        cmap = ColorMap.from_two_colors(color_start, color_end)
 
-    for edge in network_hat.edges():
-        force = network_hat.edge_force(edge) * -1.0
-        if force < 0.0:
-            _color = Color.from_rgb255(227, 6, 75)
-        else:
-            value = (force - fmin) / (fmax - fmin)
-            _color = cmap(value)
+        edgecolor = {}
+        forces = [fabs(network_hat.edge_force(edge)) for edge in network_hat.edges()]
+        fmin = min(forces)
+        fmax = max(forces)
 
-        edgecolor[edge] = _color
+        for edge in network_hat.edges():
+            force = network_hat.edge_force(edge) * -1.0
+            if force < 0.0:
+                _color = Color.from_rgb255(227, 6, 75)
+            else:
+                value = (force - fmin) / (fmax - fmin)
+                _color = cmap(value)
+
+            edgecolor[edge] = _color
+    else:
+        edgecolor = EDGECOLOR
 
     viewer.add(network_hat,
                edgewidth=(0.01, 0.3),
@@ -143,17 +157,18 @@ for i in range(START, STOP):
                show_edges=True,
                edges=[edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)],
                nodes=[node for node in mesh.vertices() if len(mesh.vertex_neighbors(node)) > 2],
-               show_loads=False,
-               loadscale=0.5,
+               show_loads=True,
+               loadscale=1.0,
+               loadcolor=Color.pink(),
                show_reactions=True,
-               reactionscale=0.5,
+               reactionscale=1.0,
                reactioncolor=Color.from_rgb255(0, 150, 10),
                )
 
     viewer.add(FDNetwork.from_mesh(mesh_target),
                as_wireframe=True,
                show_points=False,
-               linewidth=5.0,
+               linewidth=4.0,
                color=Color.black().lightened()
                )
 

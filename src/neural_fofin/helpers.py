@@ -31,6 +31,20 @@ def calculate_area_loads(x, structure, load):
 
     return vertices_load
 
+
+def calculate_constant_loads(x, structure, load):
+    """
+    Calculate constant vertical vertex loads.
+    """
+    num_vertices = structure.num_vertices
+    # (num_vertices, xy)
+    vertices_load_xy = jnp.zeros(shape=(num_vertices, 2))
+    # (num_vertices, xy)
+    vertices_load_z = jnp.ones(shape=(num_vertices, 1)) * load
+
+    return jnp.hstack((vertices_load_xy, vertices_load_z))
+
+
 # ===============================================================================
 # Form-finding helpers
 # ===============================================================================

@@ -7,16 +7,17 @@ import jax.numpy as jnp
 from jax_fdm.equilibrium import EquilibriumModel
 from jax_fdm.equilibrium import EquilibriumMeshStructure
 
+from neural_fofin.generators import BezierSurfaceAsymmetricPointGenerator
 from neural_fofin.generators import BezierSurfaceSymmetricPointGenerator
 from neural_fofin.generators import BezierSurfaceSymmetricDoublePointGenerator
 
 from neural_fofin.mesh import create_mesh_from_bezier
 
 from neural_fofin.models import AutoEncoder
-from neural_fofin.models import ForceDensityDecoder
-from neural_fofin.models import ForceDensityDecoderWithAreaLoads
 from neural_fofin.models import MLPEncoder
+from neural_fofin.models import FDDecoder
 from neural_fofin.models import MLPDecoder
+from neural_fofin.models import MLPDecoderXL
 
 
 # ===============================================================================
@@ -104,8 +105,11 @@ def get_generator_minmax_values(name, bounds):
     name_parts = name.split("_")
     if "symmetric" in name_parts:
         if "double" not in name_parts:
-            minval = minval + minval  # [::-1]
-            maxval = maxval + maxval  # [::-1]
+            minval = minval + minval
+            maxval = maxval + maxval
+    elif "asymmetric" in name_parts:
+        minval = minval + minval + minval + minval
+        maxval = maxval + maxval + maxval + maxval
 
     # array-ify
     minval = jnp.array(minval)
@@ -117,16 +121,6 @@ def get_generator_minmax_values(name, bounds):
 # ===============================================================================
 # Data generators
 # ===============================================================================
-
-# def build_point_grid(params):
-#     """
-#     """
-#     size = params["size"]
-#     num_pts = params["num_points"]
-
-#     assert num_pts == 4, "Only 4x4 grids are currently supported!"
-
-#     return PointGridSymmetricDouble(size, num_pts)
 
 
 def build_bezier_point_generator(generator_params):
@@ -148,11 +142,14 @@ def build_bezier_point_generator(generator_params):
     v = jnp.linspace(0.0, 1.0, num_v)
 
     # Create data generator
-    if name == "bezier_symmetric":
-        generator = BezierSurfaceSymmetricPointGenerator
-    elif name == "bezier_symmetric_double":
-        generator = BezierSurfaceSymmetricDoublePointGenerator
-    else:
+    generators = {
+        "bezier_symmetric": BezierSurfaceSymmetricPointGenerator,
+        "bezier_symmetric_double": BezierSurfaceSymmetricDoublePointGenerator,
+        "bezier_asymmetric": BezierSurfaceAsymmetricPointGenerator
+    }
+
+    generator = generators.get(name)
+    if not generator:
         raise ValueError(f"Generator {name} is not supported yet!")
 
     return generator(size, num_pts, u, v, minval, maxval)
@@ -172,27 +169,6 @@ def build_data_generator(config):
 # Mesh
 # ===============================================================================
 
-# def build_mesh(config):
-#     """
-#     """
-#     # unpack parameters
-#     grid_params = config["grid"]
-#     generator_params = config["generator"]
-
-#     # build grid
-#     grid = build_point_grid(grid_params)
-
-#     # unpack parameters
-#     num_u = generator_params["num_uv"]
-#     num_v = generator_params["num_uv"]
-
-#     # Create data generator
-#     u = jnp.linspace(0.0, 1.0, num_u)
-#     v = jnp.linspace(0.0, 1.0, num_v)
-
-#     # generate base FD Mesh
-#     return create_mesh_from_grid(grid, u, v)
-
 
 def build_mesh_from_generator(generator):
     """
@@ -209,14 +185,6 @@ def build_mesh_from_generator(generator):
 # ===============================================================================
 # Structure (Graph)
 # ===============================================================================
-
-# def build_connectivity_structure(config):
-#     """
-#     """
-#     # generate base FD mesh
-#     mesh = build_mesh(config)
-
-#     return EquilibriumMeshStructure.from_mesh(mesh)
 
 
 def build_connectivity_structure_from_generator(generator):
@@ -284,19 +252,20 @@ def build_optimizer(config):
 # Force density solver
 # ===============================================================================
 
-def get_fd_decoder_fn(name):
+def build_fd_model():
     """
+    Dense, because batching rule is undefined to vmap a sparse model.
     """
-    decoders = {
-        "constant": ForceDensityDecoder,
-        "area_loads": ForceDensityDecoderWithAreaLoads,
-    }
+    fd_model = EquilibriumModel(
+        tmax=1,
+        eta=1e-6,
+        is_load_local=False,
+        itersolve_fn=None,
+        implicit_diff=True,
+        verbose=False
+        )
 
-    decoder_fn = decoders.get(name)
-    if not decoder_fn:
-        raise KeyError(f"FD decoder name: {name} is currently unsupported!")
-
-    return decoder_fn
+    return fd_model
 
 
 def calculate_edges_mask(mesh):
@@ -313,35 +282,6 @@ def calculate_edges_mask(mesh):
     return jnp.array(mask_edges, dtype=jnp.int64)
 
 
-def calculate_fd_loads(mesh, name, load):
-    """
-    """
-    # Get loads
-    num_loads = mesh.number_of_vertices()
-
-    if name == "shape_based_loads":
-        num_loads = mesh.number_of_faces()
-
-    loads = [load] * num_loads
-
-    return jnp.array(loads)
-
-
-def build_fd_model():
-    """
-    """
-    fd_model = EquilibriumModel(
-        tmax=1,
-        eta=1e-6,
-        is_load_local=False,
-        itersolve_fn=None,
-        implicit_diff=True,
-        verbose=False
-        )
-
-    return fd_model
-
-
 # ===============================================================================
 # Decoders
 # ===============================================================================
@@ -350,7 +290,6 @@ def build_fd_decoder(mesh, hyperparams):
     """
     """
     # unpack hyperparams
-    name = hyperparams["name"]
     load = hyperparams["load"]
 
     # create FD model
@@ -360,8 +299,7 @@ def build_fd_decoder(mesh, hyperparams):
     mask_edges = calculate_edges_mask(mesh)
 
     # instantiate FD decoder
-    fd_decoder_fn = get_fd_decoder_fn(name)
-    decoder = fd_decoder_fn(
+    decoder = FDDecoder(
         fd_model,
         load,
         mask_edges
@@ -377,6 +315,7 @@ def build_neural_decoder(mesh, key, hyperparams):
     nn_hyperparams, fd_hyperparams = hyperparams
 
     # get neural network params
+    include_xl = nn_hyperparams["include_params_xl"]
     hidden_layer_size = nn_hyperparams["hidden_layer_size"]
     hidden_layer_num = nn_hyperparams["hidden_layer_num"]
     activation_name = nn_hyperparams["activation_fn_name"]
@@ -385,17 +324,28 @@ def build_neural_decoder(mesh, key, hyperparams):
     load = fd_hyperparams["load"]
 
     # mesh quantities
+    num_vertices = mesh.number_of_vertices()
     num_edges = mesh.number_of_edges()
     num_vertices_free = len(list(mesh.vertices_free()))
+    num_vertices_fixed = len(list(mesh.vertices_fixed()))
 
     # get mask of supported edges
     mask_edges = calculate_edges_mask(mesh)
 
+    # define size of input layer
+    in_size = num_edges
+    decoder_cls = MLPDecoder
+
+    if include_xl:
+        in_size += num_vertices_fixed * 3
+        in_size += num_vertices
+        decoder_cls = MLPDecoderXL
+
     # instantiate MLP
-    decoder = MLPDecoder(
+    decoder = decoder_cls(
         load=load,
         mask_edges=mask_edges,
-        in_size=num_edges,
+        in_size=in_size,
         out_size=num_vertices_free * 3,
         width_size=hidden_layer_size,
         depth=hidden_layer_num,
@@ -495,112 +445,10 @@ def build_neural_model(name, config, generator, model_key):
     elif name == "autoencoder":
         build_fn = build_neural_autoencoder
         params = (encoder_params, (decoder_params, fd_params))
-    else:
-        raise ValueError(f"Model name {name} is unsupported")
-    # elif name == "decoder":
+    # elif name == "autoencoder_piggy":
         # build_fn = build_piggy_decoder
         # params = decoder_params
+    else:
+        raise ValueError(f"Model name {name} is unsupported")
 
     return build_fn(mesh, model_key, params)
-
-
-# ===============================================================================
-# Experiments
-# ===============================================================================
-
-# def build_experiment(config, model_key):
-#     """
-#     """
-#     data = build_data_objects(config)
-#     neural = build_neural_objects(config, model_key)
-#     optimizer = build_optimization_object(config)
-
-#     return data, neural, optimizer
-
-
-# def build_experiment_coupled(config, model_key):
-#     """
-#     """
-#     data = build_data_objects(config)
-#     neural = build_neural_objects(config, model_key)
-#     optimizers = build_optimization_objects(config)
-
-#     return data, neural, optimizers
-
-
-# ===============================================================================
-# TODO: Miscelaneous - to be deprecated!
-# ===============================================================================
-
-# def build_data_objects(config):
-#     """
-#     """
-#     # unpack parameters
-#     grid_params = config["grid"]
-#     generator_params = config["generator"]
-
-#     # create data generator
-#     generator = build_data_generator(generator_params, grid_params)
-
-#     # generate base FD mesh
-#     mesh = build_mesh(generator_params, grid_params)
-#     structure = build_structure(mesh)
-
-#     return generator, structure
-
-
-# def build_neural_object(config, model_key):
-#     """
-#     """
-#     # unpack parameters
-#     grid_params = config["grid"]
-#     generator_params = config["generator"]
-
-#     fd_params = config["fdm"]
-
-#     encoder_params = config["encoder"]
-
-#     # generate base FD mesh
-#     mesh = build_mesh(generator_params, grid_params)
-
-#     # assemble autoencoder
-#     model = build_neural_formfinder(mesh, model_key, (encoder_params, fd_params))
-
-#     return model
-
-
-# def build_neural_objects(config, model_key):
-#     """
-#     """
-#     # unpack parameters
-#     grid_params = config["grid"]
-#     generator_params = config["generator"]
-
-#     fd_params = config["fdm"]
-
-#     encoder_params = config["encoder"]
-#     decoder_params = config["decoder"]
-
-#     # generate base FD mesh
-#     mesh = build_mesh(generator_params, grid_params)
-
-#     # assemble autoencoder
-#     model = build_neural_formfinder(mesh, model_key, (encoder_params, fd_params))
-
-#     # create MLP piggibacking decoder
-#     decoder = build_neural_decoder(mesh, model_key, (decoder_params, fd_params))
-
-#     return model, decoder
-
-
-# def build_optimization_objects(config):
-#     """
-#     """
-#     # unpack parameters
-#     encoder_params = config["optimizer"]["encoder"]
-#     optimizer = build_optimizer(encoder_params)
-
-#     decoder_params = config["optimizer"]["decoder"]
-#     optimizer_piggyback = build_optimizer(decoder_params)
-
-#     return optimizer, optimizer_piggyback

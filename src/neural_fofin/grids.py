@@ -58,13 +58,12 @@ def get_grid_tile_quarter(grid_size, grid_num_pts):
     return jnp.array([pt0, pt1, pt2, pt3])
 
 
-def calculate_grid_from_tile_quarter(tile, indices, num_pts):
+def calculate_grid_from_tile_quarter(tile):
     """
     Generate an ordered grid of control points from a quarter tile.
     """
     grid_points = tile
 
-    # 2. generate grid
     # mirror tile once
     mirrored_points = mirror_points(grid_points, get_world_mirror_matrix("yz"))
     grid_points = jnp.concatenate((grid_points, mirrored_points))
@@ -73,10 +72,7 @@ def calculate_grid_from_tile_quarter(tile, indices, num_pts):
     mirrored_points = mirror_points(grid_points, get_world_mirror_matrix("xz"))
     grid_points = jnp.concatenate((grid_points, mirrored_points))
 
-    # reindex grid
-    grid_points = reindex_grid(grid_points, indices)
-
-    return jnp.reshape(grid_points, (num_pts, num_pts, 3))
+    return grid_points
 
 
 def get_grid_tile_half(grid_size, grid_num_pts):
@@ -91,7 +87,7 @@ def get_grid_tile_half(grid_size, grid_num_pts):
     return jnp.concatenate((tile_quarter, mirrored_points))
 
 
-def calculate_grid_from_tile_half(tile, indices, num_pts):
+def calculate_grid_from_tile_half(tile):
     """
     Generate an ordered grid of control points from a half tile.
     """
@@ -101,17 +97,25 @@ def calculate_grid_from_tile_half(tile, indices, num_pts):
     mirrored_points = mirror_points(grid_points, get_world_mirror_matrix("xz"))
     grid_points = jnp.concatenate((grid_points, mirrored_points))
 
-    # reindex grid
-    grid_points = reindex_grid(grid_points, indices)
-
-    return jnp.reshape(grid_points, (num_pts, num_pts, 3))
+    return grid_points
 
 
-def reindex_grid(grid, indices):
+def get_grid_tile_full(grid_size, grid_num_pts):
     """
-    Reconfigure the grid using hard-coded indices (from Rhino).
+    Get the 2D coordinates of a full tile.
     """
-    return grid[indices, :]
+    tile = get_grid_tile_quarter(grid_size, grid_num_pts)
+
+    return calculate_grid_from_tile_quarter(tile)
+
+
+def calculate_grid_from_tile_full(tile):
+    """
+    Generate an ordered grid of control points from a half tile.
+    """
+    grid_points = tile
+
+    return grid_points
 
 
 # ===============================================================================
@@ -141,9 +145,19 @@ class PointGrid:
         tile = self.tile
         if transform is not None:
             tile = self.tile + transform
-        return self._points(tile)
 
-    def _points(self, tile):
+        points = self.points_grid(tile)
+        grid_points = self.reindex_grid(points)
+
+        return jnp.reshape(grid_points, (self.num_pts, self.num_pts, 3))
+
+    def reindex_grid(self, points):
+        """
+        Reconfigure the grid using hard-coded indices.
+        """
+        return points[self.indices, :]
+
+    def points_grid(self, tile):
         raise NotImplementedError
 
 
@@ -155,8 +169,8 @@ class PointGridSymmetricDouble(PointGrid):
         tile = get_grid_tile_quarter(size, num_pts)
         super().__init__(tile, num_pts)
 
-    def _points(self, tile):
-        return calculate_grid_from_tile_quarter(tile, self.indices, self.num_pts)
+    def points_grid(self, tile):
+        return calculate_grid_from_tile_quarter(tile)
 
 
 class PointGridSymmetric(PointGrid):
@@ -164,9 +178,20 @@ class PointGridSymmetric(PointGrid):
     A symmetric grid of control points.
     """
     def __init__(self, size, num_pts):
-        # NOTE: indices are hard-coded from Rhino
         tile = get_grid_tile_half(size, num_pts)
         super().__init__(tile, num_pts)
 
-    def _points(self, tile):
-        return calculate_grid_from_tile_half(tile, self.indices, self.num_pts)
+    def points_grid(self, tile):
+        return calculate_grid_from_tile_half(tile)
+
+
+class PointGridAsymmetric(PointGrid):
+    """
+    An asymmetric grid of control points.
+    """
+    def __init__(self, size, num_pts):
+        tile = get_grid_tile_full(size, num_pts)
+        super().__init__(tile, num_pts)
+
+    def points_grid(self, tile):
+        return calculate_grid_from_tile_full(tile)

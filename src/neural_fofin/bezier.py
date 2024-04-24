@@ -5,8 +5,10 @@ import jax.numpy as jnp
 
 import matplotlib.pyplot as plt
 
+from neural_fofin.grids import PointGridAsymmetric
 from neural_fofin.grids import PointGridSymmetric
 from neural_fofin.grids import PointGridSymmetricDouble
+
 
 # ===============================================================================
 # Functions
@@ -92,7 +94,7 @@ def evaluate_bezier_surface(control_points, u, v):
     return fn(control_points, u, v)
 
 
-def evaluate_bezier_surface_2(control_points, u, v):
+def evaluate_bezier_surface_einsum(control_points, u, v):
     """
     Vectorized computation of a point on a Bezier surface.
     control_points is a 3D numpy array of shape (n+1, m+1, 3).
@@ -153,8 +155,16 @@ class BezierSurfaceSymmetricDouble(BezierSurface):
         super().__init__(grid)
 
 
+class BezierSurfaceAsymmetric(BezierSurface):
+    """
+    """
+    def __init__(self, size, num_pts):
+        grid = PointGridAsymmetric(size, num_pts)
+        super().__init__(grid)
+
+
 # ===============================================================================
-# Surfaces
+# Main
 # ===============================================================================
 
 if __name__ == "__main__":
@@ -200,7 +210,7 @@ if __name__ == "__main__":
     u_grid, v_grid = jnp.meshgrid(u, v)
 
     # surface_points = bezier_surface(control_points, u_grid, v_grid)
-    surface_points = bezier_surface_vmap(control_points, u, v)
+    surface_points = evaluate_bezier_surface(control_points, u, v)
     print("Surface Points Shape:", surface_points.shape)  # Should be (10, 10, 3)
 
     fig = plt.figure()
@@ -214,5 +224,5 @@ if __name__ == "__main__":
                control_points[:, :, 1],
                control_points[:, :, 2],
                edgecolors="face")
-    
+
     plt.show()

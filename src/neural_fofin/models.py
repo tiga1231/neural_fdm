@@ -111,21 +111,6 @@ class Decoder(eqx.Module):
         self.mask_edges = mask_edges
         self.qmin = qmin
 
-    def get_q(self, q_hat):
-        """
-        TODO: A better model should not be predicting and then masking edges.
-        """
-        return q_hat * self.mask_edges + self.qmin
-
-    @staticmethod
-    def get_xyz_fixed(x, structure):
-        """
-        """
-        indices = structure.indices_fixed
-        x = jnp.reshape(x, (-1, 3))
-
-        return x[indices, :]
-
     def __call__(self, q, x, structure, aux_data=False):
         """
         """
@@ -143,6 +128,20 @@ class Decoder(eqx.Module):
 
         return x_hat
 
+    def get_q(self, q_hat):
+        """
+        TODO: A better model should not be first predicting and then masking edges.
+        """
+        return q_hat * self.mask_edges + self.qmin
+
+    def get_xyz_fixed(self, x, structure):
+        """
+        """
+        indices = structure.indices_fixed
+        x = jnp.reshape(x, (-1, 3))
+
+        return x[indices, :]
+
     def get_loads(self, x, structure):
         """
         """
@@ -158,7 +157,7 @@ class Decoder(eqx.Module):
 # Physics-based decoders
 # ===============================================================================
 
-class ForceDensityDecoder(Decoder):
+class FDDecoder(Decoder):
     """
     A force density model that calculates area loads based on the input shapes.
     """
@@ -185,24 +184,6 @@ class ForceDensityDecoder(Decoder):
         """
         Calculate applied vertex loads.
         """
-        num_vertices = structure.num_vertices
-        vertices_load_xy = jnp.zeros(shape=(num_vertices, 2))  # (num_vertices, xy)
-        vertices_load_z = jnp.ones(shape=(num_vertices, 1)) * self.load   # (num_vertices, xy)
-
-        return jnp.hstack((vertices_load_xy, vertices_load_z))
-
-
-class ForceDensityDecoderWithAreaLoads(ForceDensityDecoder):
-    """
-    A force density model that calculates area loads based on the input shapes.
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def get_loads(self, x, structure):
-        """
-        Calculate vertex loads.
-        """
         return calculate_area_loads(x, structure, self.load)
 
 
@@ -212,7 +193,7 @@ class ForceDensityDecoderWithAreaLoads(ForceDensityDecoder):
 
 class MLPDecoder(Decoder, eqx.nn.MLP):
     """
-    A MLP decoder that piggybacks on an autoencoder.
+    A MLP decoder maps q to xyz.
     NOTE: Should the inheritance order be reversed?
     """
     def __init__(self, *args, **kwargs):
@@ -221,11 +202,11 @@ class MLPDecoder(Decoder, eqx.nn.MLP):
     def get_xyz(self, params, structure):
         """
         """
+        # unpack parameters
         q, x_fixed, lodas = params
-        # x_free = super().__call__(q)
-        # NOTE: using this exotic way to call __call__ to map q to x
-        # due to multiple inheritance
-        x_free = eqx.nn.MLP.__call__(self, q)
+
+        # predict x
+        x_free = self._get_xyz(params)
 
         # Concatenate the position of the free and the fixed nodes
         indices = structure.indices_freefixed
@@ -234,8 +215,39 @@ class MLPDecoder(Decoder, eqx.nn.MLP):
 
         return jnp.ravel(x_hat)
 
+    def _get_xyz(self, params):
+        """
+        """
+        # unpack parameters
+        q, x_fixed, loads = params
+
+        # NOTE: using this exotic way to call __call__ to map q to x
+        # due to multiple inheritance
+        return eqx.nn.MLP.__call__(self, q)
+
     def get_loads(self, x, structure):
         """
         Calculate vertex loads.
         """
         return calculate_area_loads(x, structure, self.load)
+
+
+class MLPDecoderXL(MLPDecoder):
+    """
+    A MLP decoder that maps q, xyz_fixed, and loads to xyz.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def _get_xyz(self, params):
+        """
+        """
+        # unpack parameters
+        q, x_fixed, loads = params
+
+        # concatenate long array
+        x_fixed = jnp.ravel(x_fixed)
+        loads_z = loads[:, 2]  # only z component, x and y are always 0
+        params = jnp.concatenate((q, x_fixed, loads_z))
+
+        return eqx.nn.MLP.__call__(self, params)

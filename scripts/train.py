@@ -47,13 +47,12 @@ generator = build_data_generator(config)
 structure = build_connectivity_structure_from_generator(generator)
 optimizer = build_optimizer(config)
 model = build_neural_model(MODEL_NAME, config, generator, model_key)
-print(model)
+print(f"\nTraining {MODEL_NAME}")
 
 # sample initial data batch
 xyz = vmap(generator)(jrn.split(generator_key, batch_size))
 
 # warmstart
-print("\nWarmstarting")
 start_loss = compute_loss(model, structure, xyz, loss_params)
 print(start_loss)
 print(f"{loss_params=}")

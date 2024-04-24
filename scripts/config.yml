@@ -1,21 +1,16 @@
 # randomness
 seed: 91
-# grid
-grid:
-  size: 10.0
-  num_points: 4
 # data generator
 generator:
-  # "bezier_symmetric_double", "bezier_symmetric"
+  # options: "bezier_symmetric_double", "bezier_symmetric", "bezier_asymmetric"
   name: "bezier_symmetric"
-  bounds: "saddle"
+  bounds: "saddle"  # options: pillow, dome, saddle
   num_uv: 10
   size: 10.0
   num_points: 4
-# mechanical simulation
+# fd simulation
 fdm:
-  name: "area_loads"  # constant, area_loads
-  load: -0.5  # scale of vertical load
+  load: -0.5  # -0.5, scale of vertical area load
 # encoder
 encoder: 
   hidden_layer_size: 256
@@ -24,6 +19,8 @@ encoder:
   final_activation_fn_name: "softplus"  # needs softplus to ensure positive output
 # decoder
 decoder:
+  # If true, the decoder maps (q, boundary conditions) -> x. Otherwise, q -> x.
+  include_params_xl: True
   hidden_layer_size: 256
   hidden_layer_num: 3
   activation_fn_name: "elu"
@@ -38,16 +35,8 @@ loss:
     scale: 1.0  # 0.5, fdm load scale
 # optimizer
 optimizer:
-  # for train.py
   name: "adam"
   learning_rate: 5.0e-5  # 3.0e-5, Be careful with scientific notation!
-  # for train_coupled.py
-  encoder:
-    name: "adam"
-    learning_rate: 5.0e-5  # 3.0e-5, Be careful with scientific notation!
-  decoder:
-    name: "adam"
-    learning_rate: 5.0e-5  # 5.0e-5
 # training
 training:
   steps: 10000  # 10000
