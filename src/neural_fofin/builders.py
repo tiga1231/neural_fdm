@@ -7,10 +7,10 @@ import jax.numpy as jnp
 from jax_fdm.equilibrium import EquilibriumModel
 from jax_fdm.equilibrium import EquilibriumMeshStructure
 
-from neural_fofin.generator import PointGridSymmetricDouble
-from neural_fofin.generator import BezierSurfacePointGenerator
+from neural_fofin.generators import BezierSurfaceSymmetricPointGenerator
+from neural_fofin.generators import BezierSurfaceSymmetricDoublePointGenerator
 
-from neural_fofin.mesh import create_mesh_from_grid
+from neural_fofin.mesh import create_mesh_from_bezier
 
 from neural_fofin.models import AutoEncoder
 from neural_fofin.models import ForceDensityDecoder
@@ -86,73 +86,146 @@ def saddle_minmax_values():
     return minval, maxval
 
 
-def get_generator_minmax_values(name):
+def get_generator_minmax_values(name, bounds):
     experiments = {
         "pillow": pillow_minmax_values,
         "dome": dome_minmax_values,
         "saddle": saddle_minmax_values
     }
 
-    values_fn = experiments.get(name)
+    values_fn = experiments.get(bounds)
     if not values_fn:
-        raise KeyError(f"Experiment name: {name} is currently unsupported!")
+        raise KeyError(f"Experiment bounds: {bounds} is currently unsupported!")
 
-    return values_fn
+    # generate values on a quarter tile
+    minval, maxval = values_fn()
+
+    # concatenate bounds based on whether generator is symmetric or 2-symmetric
+    name_parts = name.split("_")
+    if "symmetric" in name_parts:
+        if "double" not in name_parts:
+            minval = minval + minval  # [::-1]
+            maxval = maxval + maxval  # [::-1]
+
+    # array-ify
+    minval = jnp.array(minval)
+    maxval = jnp.array(maxval)
+
+    return minval, maxval
 
 
 # ===============================================================================
 # Data generators
 # ===============================================================================
 
-def build_point_grid(hyperparams):
-    """
-    """
-    size = hyperparams["size"]
-    num_pts = hyperparams["num_points"]
+# def build_point_grid(params):
+#     """
+#     """
+#     size = params["size"]
+#     num_pts = params["num_points"]
 
-    assert num_pts == 4, "Only 4x4 grids are currently supported!"
+#     assert num_pts == 4, "Only 4x4 grids are currently supported!"
 
-    return PointGridSymmetricDouble(size, num_pts)
+#     return PointGridSymmetricDouble(size, num_pts)
 
 
-def build_bezier_point_generator(grid, generator_hyperparams):
+def build_bezier_point_generator(generator_params):
     """
     """
     # unpack parameters
-    num_u = generator_hyperparams["num_uv"]
-    num_v = generator_hyperparams["num_uv"]
-    name = generator_hyperparams["name"]
+    name = generator_params["name"]
+    num_u = generator_params["num_uv"]
+    num_v = generator_params["num_uv"]
+    size = generator_params["size"]
+    num_pts = generator_params["num_points"]
+    bounds = generator_params["bounds"]
 
     # wiggle bounds for task
-    minmax_fn = get_generator_minmax_values(name)
-    minval, maxval = minmax_fn()
-
-    # array-ify
-    minval = jnp.array(minval)
-    maxval = jnp.array(maxval)
+    minval, maxval = get_generator_minmax_values(name, bounds)
 
     # Create data generator
     u = jnp.linspace(0.0, 1.0, num_u)
     v = jnp.linspace(0.0, 1.0, num_v)
 
     # Create data generator
-    generator = BezierSurfacePointGenerator(grid, u, v, minval, maxval)
+    if name == "bezier_symmetric":
+        generator = BezierSurfaceSymmetricPointGenerator
+    elif name == "bezier_symmetric_double":
+        generator = BezierSurfaceSymmetricDoublePointGenerator
+    else:
+        raise ValueError(f"Generator {name} is not supported yet!")
 
-    return generator
+    return generator(size, num_pts, u, v, minval, maxval)
 
 
 def build_data_generator(config):
     """
     """
     # unpack parameters
-    grid_params = config["grid"]
     generator_params = config["generator"]
 
-    # build grid
-    grid = build_point_grid(grid_params)
-
     # build bezier generator
-    return build_bezier_point_generator(grid, generator_params)
+    return build_bezier_point_generator(generator_params)
+
+
+# ===============================================================================
+# Mesh
+# ===============================================================================
+
+# def build_mesh(config):
+#     """
+#     """
+#     # unpack parameters
+#     grid_params = config["grid"]
+#     generator_params = config["generator"]
+
+#     # build grid
+#     grid = build_point_grid(grid_params)
+
+#     # unpack parameters
+#     num_u = generator_params["num_uv"]
+#     num_v = generator_params["num_uv"]
+
+#     # Create data generator
+#     u = jnp.linspace(0.0, 1.0, num_u)
+#     v = jnp.linspace(0.0, 1.0, num_v)
+
+#     # generate base FD Mesh
+#     return create_mesh_from_grid(grid, u, v)
+
+
+def build_mesh_from_generator(generator):
+    """
+    """
+    # unpack parameters
+    surface = generator.surface
+    u = generator.u
+    v = generator.v
+
+    # generate base FD Mesh
+    return create_mesh_from_bezier(surface, u, v)
+
+
+# ===============================================================================
+# Structure (Graph)
+# ===============================================================================
+
+# def build_connectivity_structure(config):
+#     """
+#     """
+#     # generate base FD mesh
+#     mesh = build_mesh(config)
+
+#     return EquilibriumMeshStructure.from_mesh(mesh)
+
+
+def build_connectivity_structure_from_generator(generator):
+    """
+    """
+    # generate base FD mesh
+    mesh = build_mesh_from_generator(generator)
+
+    return EquilibriumMeshStructure.from_mesh(mesh)
 
 
 # ===============================================================================
@@ -404,11 +477,11 @@ def build_neural_autoencoder(mesh, key, hyperparams):
     return model
 
 
-def build_neural_model(name, config, model_key):
+def build_neural_model(name, config, generator, model_key):
     """
     """
     # generate base FD mesh
-    mesh = build_mesh(config)
+    mesh = build_mesh_from_generator(generator)
 
     # build model
     fd_params = config["fdm"]
@@ -429,45 +502,6 @@ def build_neural_model(name, config, model_key):
         # params = decoder_params
 
     return build_fn(mesh, model_key, params)
-
-
-# ===============================================================================
-# Mesh
-# ===============================================================================
-
-def build_mesh(config):
-    """
-    """
-    # unpack parameters
-    grid_params = config["grid"]
-    generator_params = config["generator"]
-
-    # build grid
-    grid = build_point_grid(grid_params)
-
-    # unpack parameters
-    num_u = generator_params["num_uv"]
-    num_v = generator_params["num_uv"]
-
-    # Create data generator
-    u = jnp.linspace(0.0, 1.0, num_u)
-    v = jnp.linspace(0.0, 1.0, num_v)
-
-    # generate base FD Mesh
-    return create_mesh_from_grid(grid, u, v)
-
-
-# ===============================================================================
-# Structure (Graph)
-# ===============================================================================
-
-def build_connectivity_structure(config):
-    """
-    """
-    # generate base FD mesh
-    mesh = build_mesh(config)
-
-    return EquilibriumMeshStructure.from_mesh(mesh)
 
 
 # ===============================================================================

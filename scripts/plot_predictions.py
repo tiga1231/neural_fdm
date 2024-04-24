@@ -20,9 +20,9 @@ from jax_fdm.visualization import Viewer
 
 from neural_fofin import DATA
 
-from neural_fofin.builders import build_mesh
+from neural_fofin.builders import build_mesh_from_generator
 from neural_fofin.builders import build_data_generator
-from neural_fofin.builders import build_connectivity_structure
+from neural_fofin.builders import build_connectivity_structure_from_generator
 from neural_fofin.builders import build_neural_model
 
 from neural_fofin.losses import compute_loss
@@ -34,7 +34,7 @@ from neural_fofin.serialization import load_model
 VIEW = True
 SAVE = False
 
-NAME = "autoencoder_pinn"  # formfinder, autoencoder, autoencoder_pinn
+NAME = "formfinder"  # formfinder, autoencoder, autoencoder_pinn
 START = 50
 STOP = 53
 
@@ -60,13 +60,13 @@ model_key, generator_key = jax.random.split(key, 2)
 
 # create data generator
 generator = build_data_generator(config)
-structure = build_connectivity_structure(config)
-mesh = build_mesh(config)
+structure = build_connectivity_structure_from_generator(generator)
+mesh = build_mesh_from_generator(generator)
 
 # load model
 filepath = os.path.join(DATA, f"{NAME}.eqx")
 _model_name = NAME.split("_")[0]
-model_skeleton = build_neural_model(_model_name, config, model_key)
+model_skeleton = build_neural_model(_model_name, config, generator, model_key)
 model = load_model(filepath, model_skeleton)
 
 # sample data batch

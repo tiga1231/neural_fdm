@@ -15,7 +15,7 @@ from neural_fofin.losses import compute_loss
 from neural_fofin.plotting import plot_smoothed_losses
 
 from neural_fofin.builders import build_data_generator
-from neural_fofin.builders import build_connectivity_structure
+from neural_fofin.builders import build_connectivity_structure_from_generator
 from neural_fofin.builders import build_neural_model
 from neural_fofin.builders import build_optimizer
 
@@ -44,9 +44,9 @@ model_key, generator_key = jax.random.split(key, 2)
 
 # create experiment
 generator = build_data_generator(config)
-structure = build_connectivity_structure(config)
+structure = build_connectivity_structure_from_generator(generator)
 optimizer = build_optimizer(config)
-model = build_neural_model(MODEL_NAME, config, model_key)
+model = build_neural_model(MODEL_NAME, config, generator, model_key)
 print(model)
 
 # sample initial data batch

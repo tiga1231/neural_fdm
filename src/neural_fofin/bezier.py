@@ -5,6 +5,12 @@ import jax.numpy as jnp
 
 import matplotlib.pyplot as plt
 
+from neural_fofin.grids import PointGridSymmetric
+from neural_fofin.grids import PointGridSymmetricDouble
+
+# ===============================================================================
+# Functions
+# ===============================================================================
 
 def factorial(n):
     """
@@ -107,6 +113,49 @@ def evaluate_bezier_surface_2(control_points, u, v):
 
     return surface_points
 
+
+# ===============================================================================
+# Surfaces
+# ===============================================================================
+
+
+class BezierSurface:
+    """
+    """
+    def __init__(self, grid):
+        self.grid = grid
+
+    def control_points(self, transform=None):
+        """
+        """
+        return self.grid.points(transform)
+
+    def evaluate_points(self, u, v, transform=None):
+        """
+        """
+        control_points = self.control_points(transform)
+        return evaluate_bezier_surface(control_points, u, v)
+
+
+class BezierSurfaceSymmetric(BezierSurface):
+    """
+    """
+    def __init__(self, size, num_pts):
+        grid = PointGridSymmetric(size, num_pts)
+        super().__init__(grid)
+
+
+class BezierSurfaceSymmetricDouble(BezierSurface):
+    """
+    """
+    def __init__(self, size, num_pts):
+        grid = PointGridSymmetricDouble(size, num_pts)
+        super().__init__(grid)
+
+
+# ===============================================================================
+# Surfaces
+# ===============================================================================
 
 if __name__ == "__main__":
 

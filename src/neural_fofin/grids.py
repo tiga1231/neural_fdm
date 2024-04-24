@@ -1,13 +1,9 @@
-import jax.random as jrn
 import jax.numpy as jnp
-
-from neural_fofin.bezier import evaluate_bezier_surface
 
 
 # ===============================================================================
 # Transformations
 # ===============================================================================
-
 
 def get_world_mirror_matrix(plane):
     """
@@ -64,7 +60,7 @@ def get_grid_tile_quarter(grid_size, grid_num_pts):
 
 def calculate_grid_from_tile_quarter(tile, indices, num_pts):
     """
-    Compute a grid of control points from a unit tile and a wiggle vector.
+    Generate an ordered grid of control points from a quarter tile.
     """
     grid_points = tile
 
@@ -89,13 +85,26 @@ def get_grid_tile_half(grid_size, grid_num_pts):
     """
     tile_quarter = get_grid_tile_quarter(grid_size, grid_num_pts)
 
-    raise NotImplementedError
+    # mirror tile once
+    mirrored_points = mirror_points(tile_quarter, get_world_mirror_matrix("yz"))
+
+    return jnp.concatenate((tile_quarter, mirrored_points))
 
 
 def calculate_grid_from_tile_half(tile, indices, num_pts):
     """
+    Generate an ordered grid of control points from a half tile.
     """
-    raise NotImplementedError
+    grid_points = tile
+
+    # mirror tile once
+    mirrored_points = mirror_points(grid_points, get_world_mirror_matrix("xz"))
+    grid_points = jnp.concatenate((grid_points, mirrored_points))
+
+    # reindex grid
+    grid_points = reindex_grid(grid_points, indices)
+
+    return jnp.reshape(grid_points, (num_pts, num_pts, 3))
 
 
 def reindex_grid(grid, indices):
@@ -112,11 +121,21 @@ def reindex_grid(grid, indices):
 class PointGrid:
     """
     A grid of control points.
+
+    Notes
+    -----
+    The order of the points in a 4x4 grid must be:
+
+    3 7 11 15
+    2 6 10 14
+    1 5  9 13
+    0 4  8 12
     """
-    def __init__(self, tile, num_pts, indices) -> None:
+    def __init__(self, tile, num_pts) -> None:
         self.tile = tile
         self.num_pts = num_pts
-        self.indices = indices
+        # NOTE: indices are hard-coded from Rhino to match expected grid order.
+        self.indices = [15, 13, 5, 7, 14, 12, 4, 6, 10, 8, 0, 2, 11, 9, 1, 3]
 
     def points(self, transform=None):
         tile = self.tile
@@ -133,11 +152,8 @@ class PointGridSymmetricDouble(PointGrid):
     A doubly-symmetric grid of control points.
     """
     def __init__(self, size, num_pts):
-        # NOTE: indices are hard-coded from Rhino
-        indices = [15, 13, 5, 7, 14, 12, 4, 6, 10, 8, 0, 2, 11, 9, 1, 3]
         tile = get_grid_tile_quarter(size, num_pts)
-
-        super().__init__(tile, num_pts, indices)
+        super().__init__(tile, num_pts)
 
     def _points(self, tile):
         return calculate_grid_from_tile_quarter(tile, self.indices, self.num_pts)
@@ -149,66 +165,8 @@ class PointGridSymmetric(PointGrid):
     """
     def __init__(self, size, num_pts):
         # NOTE: indices are hard-coded from Rhino
-        indices = None
-        super().__init__(size, num_pts, indices)
+        tile = get_grid_tile_half(size, num_pts)
+        super().__init__(tile, num_pts)
 
     def _points(self, tile):
         return calculate_grid_from_tile_half(tile, self.indices, self.num_pts)
-
-
-# ===============================================================================
-# Generators
-# ===============================================================================
-
-class BezierSurfacePointGenerator:
-    """
-    A generator that outputs point evaluated on a randomly wiggle bezier surface.
-    """
-    def __init__(self, grid, u, v, minval, maxval) -> None:
-        self.grid = grid
-        self.u = u
-        self.v = v
-        self.minval = minval
-        self.maxval = maxval
-
-    def wiggle(self, key):
-        """
-        Sample a translation vector from a uniform distribution.
-        """
-        shape = self.grid.tile.shape
-        return jrn.uniform(key, shape=shape, minval=self.minval, maxval=self.maxval)
-
-    def control_points(self, key):
-        wiggle = self.wiggle(key)
-        return self.grid.points(transform=wiggle)
-
-    def bezier_points(self, key):
-        control_pts = self.control_points(key)
-        return evaluate_bezier_surface(control_pts, self.u, self.v)
-
-    def __call__(self, key):
-        return jnp.ravel(self.bezier_points(key))
-
-
-# def get_wiggled_grid_from_tile(tile, wiggle, indices, num_pts):
-#     """
-#     Compute a grid of control points from a unit tile and a wiggle vector.
-#     """
-#     assert tile.shape == wiggle.shape, "Tile and wiggle must have the same shape"
-
-#     # 1. apply wiggle on x, y, z to tile
-#     tile = tile + wiggle
-
-#     return calculate_grid_from_tile(tile, indices, num_pts)
-
-
-# def get_bezier_surface_points_from_tile(tile, indices, num_pts, u, v):
-#     """
-#     """
-#     # generate control points grid
-#     control_points = calculate_grid_from_tile(tile, indices, num_pts)
-
-#     # sample surface points on bezier
-#     surface_points = evaluate_bezier_surface(control_points, u, v)
-
-#     return jnp.reshape(surface_points, (-1, 3))
