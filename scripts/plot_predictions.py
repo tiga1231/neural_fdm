@@ -35,7 +35,7 @@ from neural_fofin.serialization import load_model
 VIEW = True
 SAVE = False
 
-NAME = "autoencoder_pinn"  # formfinder, autoencoder, autoencoder_pinn
+NAME = "piggy_pinn"  # formfinder, autoencoder, autoencoder_pinn
 START = 50
 STOP = 53
 EDGECOLOR = "fd"  # force, fd

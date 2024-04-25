@@ -8,6 +8,46 @@ from tqdm import tqdm
 
 from neural_fofin.losses import compute_loss
 
+import jax.tree_util as jtu
+
+
+@eqx.filter_jit
+def train_step_piggy(model, structure, optimizer, generator, opt_state, *, loss_params, batch_size, key):
+    """
+    One step to train a piggy model.
+    """
+    # sample fresh data
+    keys = jrn.split(key, batch_size)
+    x = vmap(generator)(keys)
+
+    # model split
+    # filter_spec = jtu.tree_map(lambda _: False, model)
+    # filter_spec = eqx.tree_at(
+    #     lambda tree: tree.autoencoder,
+    #     filter_spec,
+    #     replace=True
+    # )
+
+    # model_main, model_piggy = eqx.partition(model, filter_spec)
+    model_main = model.main
+    model_piggy = model.piggy
+
+    # calculate updates for main model
+    val_grad_fn = eqx.filter_value_and_grad(compute_loss, has_aux=True)
+    (loss, loss_vals), grads_main = val_grad_fn(model_main, structure, x, loss_params, True)
+
+    # calculate updates for piggybacker
+    val_grad_fn = eqx.filter_value_and_grad(compute_loss_piggy, has_aux=True)
+    (loss_piggy, loss_vals_piggy), grads_piggy = val_grad_fn(model_piggy, structure, x, loss_params, True)
+
+    # apply updates
+    # grads = eqx.combine(grads_main, grads_piggy)
+    grads = type(model)(grads_main, grads_piggy)
+    updates, opt_state = optimizer.update(grads, opt_state)
+    model = eqx.apply_updates(model, updates)
+
+    return loss_vals, model, opt_state
+
 
 @eqx.filter_jit
 def train_step(model, structure, optimizer, generator, opt_state, *, loss_params, batch_size, key):

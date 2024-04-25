@@ -3,7 +3,7 @@ seed: 91
 # data generator
 generator:
   # options: "bezier_symmetric_double", "bezier_symmetric", "bezier_asymmetric"
-  name: "bezier_symmetric"
+  name: "bezier_symmetric_double"
   bounds: "saddle"  # options: pillow, dome, saddle
   num_uv: 10
   size: 10.0
@@ -27,16 +27,16 @@ decoder:
 loss:
   shape:
     include: True
-    weight: 5.0
-    scale: 1.0  # 30.0, bbox length
+    weight: 1.0  # weight of the shape error term in the loss function
+    scale: 1.0  # 30.0, bbox length (used for normalization)
   residual:  # PINN term
     include: True
-    weight: 1.0
-    scale: 1.0  # 0.5, fdm load scale
+    weight: 1.0  # weight of the residual error term in the loss function
+    scale: 1.0  # 0.5, fdm load scale (used for normalization)
 # optimizer
 optimizer:
   name: "adam"
-  learning_rate: 5.0e-5  # 3.0e-5, Be careful with scientific notation!
+  learning_rate: 5.0e-5  # 3.0e-5, Be careful with scientific notation in YAML!
 # training
 training:
   steps: 10000  # 10000

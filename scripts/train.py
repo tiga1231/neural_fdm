@@ -25,7 +25,7 @@ from neural_fofin.serialization import save_model
 # local script parameters
 SAVE_MODEL = True
 SAVE_LOSSES = True
-MODEL_NAME = "autoencoder"  # formfinder, autoencoder
+MODEL_NAME = "formfinder"  # formfinder, autoencoder, piggy
 
 # load yaml file with hyperparameters
 with open("config.yml") as file:

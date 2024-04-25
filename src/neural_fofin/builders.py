@@ -14,6 +14,7 @@ from neural_fofin.generators import BezierSurfaceSymmetricDoublePointGenerator
 from neural_fofin.mesh import create_mesh_from_bezier
 
 from neural_fofin.models import AutoEncoder
+from neural_fofin.models import AutoEncoderPiggy
 from neural_fofin.models import MLPEncoder
 from neural_fofin.models import FDDecoder
 from neural_fofin.models import MLPDecoder
@@ -286,11 +287,11 @@ def calculate_edges_mask(mesh):
 # Decoders
 # ===============================================================================
 
-def build_fd_decoder(mesh, hyperparams):
+def build_fd_decoder(mesh, params):
     """
     """
     # unpack hyperparams
-    load = hyperparams["load"]
+    load = params["load"]
 
     # create FD model
     fd_model = build_fd_model()
@@ -308,20 +309,20 @@ def build_fd_decoder(mesh, hyperparams):
     return decoder
 
 
-def build_neural_decoder(mesh, key, hyperparams):
+def build_neural_decoder(mesh, key, params):
     """
     """
     # unpack hyperparameters
-    nn_hyperparams, fd_hyperparams = hyperparams
+    nn_params, fd_params = params
 
     # get neural network params
-    include_xl = nn_hyperparams["include_params_xl"]
-    hidden_layer_size = nn_hyperparams["hidden_layer_size"]
-    hidden_layer_num = nn_hyperparams["hidden_layer_num"]
-    activation_name = nn_hyperparams["activation_fn_name"]
+    include_xl = nn_params["include_params_xl"]
+    hidden_layer_size = nn_params["hidden_layer_size"]
+    hidden_layer_num = nn_params["hidden_layer_num"]
+    activation_name = nn_params["activation_fn_name"]
 
     # get load
-    load = fd_hyperparams["load"]
+    load = fd_params["load"]
 
     # mesh quantities
     num_vertices = mesh.number_of_vertices()
@@ -360,14 +361,14 @@ def build_neural_decoder(mesh, key, hyperparams):
 # Encoders
 # ===============================================================================
 
-def build_neural_encoder(mesh, key, hyperparams):
+def build_neural_encoder(mesh, key, params):
     """
     """
     # unpack hyperparameters
-    hidden_layer_size = hyperparams["hidden_layer_size"]
-    hidden_layer_num = hyperparams["hidden_layer_num"]
-    activation_name = hyperparams["activation_fn_name"]
-    final_activation_name = hyperparams["final_activation_fn_name"]
+    hidden_layer_size = params["hidden_layer_size"]
+    hidden_layer_num = params["hidden_layer_num"]
+    activation_name = params["activation_fn_name"]
+    final_activation_name = params["final_activation_fn_name"]
 
     # mesh quantities
     num_vertices = mesh.number_of_vertices()
@@ -391,17 +392,17 @@ def build_neural_encoder(mesh, key, hyperparams):
 # Autoencoder models
 # ===============================================================================
 
-def build_neural_formfinder(mesh, key, hyperparams):
+def build_neural_formfinder(mesh, key, params):
     """
     """
     # Unpack hyperparams
-    nn_hyperparams, fd_hyperparams = hyperparams
+    nn_params, fd_params = params
 
     # Create MLP encoder
-    encoder = build_neural_encoder(mesh, key, nn_hyperparams)
+    encoder = build_neural_encoder(mesh, key, nn_params)
 
     # Build FD decoder
-    decoder = build_fd_decoder(mesh, fd_hyperparams)
+    decoder = build_fd_decoder(mesh, fd_params)
 
     # Assemble autoencoder
     model = AutoEncoder(encoder, decoder)
@@ -409,20 +410,42 @@ def build_neural_formfinder(mesh, key, hyperparams):
     return model
 
 
-def build_neural_autoencoder(mesh, key, hyperparams):
+def build_neural_autoencoder(mesh, key, params):
     """
     """
     # Unpack hyperparams
-    enc_hyperparams, dec_hyperparams = hyperparams
+    enc_params, dec_params = params
 
     # Create MLP encoder
-    encoder = build_neural_encoder(mesh, key, enc_hyperparams)
+    encoder = build_neural_encoder(mesh, key, enc_params)
 
-    # Build FD decoder
-    decoder = build_neural_decoder(mesh, key, dec_hyperparams)
+    # Build MLP decoder
+    decoder = build_neural_decoder(mesh, key, dec_params)
 
     # Assemble autoencoder
     model = AutoEncoder(encoder, decoder)
+
+    return model
+
+
+def build_neural_autoencoder_piggy(mesh, key, params):
+    """
+    """
+    # Unpack hyperparams
+
+    enc_params, dec_params, fd_params = params
+
+    # Create MLP encoder
+    encoder = build_neural_encoder(mesh, key, enc_params)
+
+    # Build FD decoder
+    decoder = build_fd_decoder(mesh, fd_params)
+
+    # Build MLP decoder
+    decoder_piggy = build_neural_decoder(mesh, key, dec_params)
+
+    # Assemble autoencoder
+    model = AutoEncoderPiggy(encoder, decoder, decoder_piggy)
 
     return model
 
@@ -445,9 +468,9 @@ def build_neural_model(name, config, generator, model_key):
     elif name == "autoencoder":
         build_fn = build_neural_autoencoder
         params = (encoder_params, (decoder_params, fd_params))
-    # elif name == "autoencoder_piggy":
-        # build_fn = build_piggy_decoder
-        # params = decoder_params
+    elif name == "piggy":
+        build_fn = build_neural_autoencoder_piggy
+        params = (encoder_params, (decoder_params, fd_params), fd_params)
     else:
         raise ValueError(f"Model name {name} is unsupported")
 

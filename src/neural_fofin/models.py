@@ -2,6 +2,8 @@ import jax.numpy as jnp
 
 import equinox as eqx
 
+from jax.lax import stop_gradient
+
 from jaxtyping import Array, Float
 
 from jax_fdm.equilibrium import EquilibriumModel as FDModel
@@ -38,10 +40,16 @@ class AutoEncoder(eqx.Module):
         To interface with JAX FDM visualization.
         """
         # Predict shape
-        xyz_hat, data = self(x, structure, True)
+        x_hat, params = self(x, structure, True)
 
+        return self.build_states(x_hat, params, structure)
+
+    def build_states(self, xyz_hat, params, structure):
+        """
+        Assemble equilibrium and parameter states for visualization.
+        """
         # Unpack aux data
-        q, xyz_fixed, loads = data
+        q, xyz_fixed, loads = params
 
         # Equilibrium parameters
         fd_params_state = calculate_fd_params_state(
@@ -61,6 +69,47 @@ class AutoEncoder(eqx.Module):
         )
 
         return eq_state, fd_params_state
+
+
+class AutoEncoderPiggy(AutoEncoder):
+    """
+    An autoencoder with a piggybacking decoder.
+    """
+    decoder_piggy: eqx.Module
+
+    def __init__(self, encoder, decoder, decoder_piggy):
+        super().__init__(encoder, decoder)
+        self.decoder_piggy = decoder_piggy
+
+    def __call__(self, x, structure, aux_data=False, stop_grad=True):
+        """
+        Make prediction.
+        """
+        q = self.encoder(x)
+        x_hat = self.decoder(q, x, structure, aux_data)
+
+        # TODO: How do we stop gradient flow from y_hat to q to encoder?
+        # from jax.lax import stop_gradient
+        # y_hat = stop_gradient(self.decoder_piggy(q, x, structure, aux_data)
+        # But using stop_gradients might zero out all the gradients of the decoder_piggy!
+        # We still want to be able to do parameter updates on decoder_piggy
+        # y_hat = self.decoder_piggy(q, x, structure, aux_data)
+        if stop_grad:
+            y_hat = stop_gradient(self.decoder_piggy(q, x, structure, aux_data))
+        else:
+            y_hat = self.decoder_piggy(q, x, structure, aux_data)
+
+        return x_hat, y_hat
+
+    def predict_states(self, x, structure):
+        """
+        To interface with JAX FDM visualization.
+        """
+        # Predict shape
+        _, pred_piggy = self(x, structure, True)
+        x_hat, params = pred_piggy
+
+        return self.build_states(x_hat, params, structure)
 
 
 # ===============================================================================
