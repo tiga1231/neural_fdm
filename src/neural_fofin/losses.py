@@ -1,4 +1,5 @@
 from jax import vmap
+
 import jax.numpy as jnp
 
 from neural_fofin.models import AutoEncoderPiggy
@@ -6,56 +7,63 @@ from neural_fofin.models import AutoEncoderPiggy
 from neural_fofin.helpers import vertices_residuals_from_xyz
 
 
-def compute_loss(model, structure, x, loss_params, aux_data=False):
+def compute_loss(model, structure, x, loss_params, aux_data=False, piggy_mode=True):
     """
     Compute the model loss according to the model type.
     """
-    x_hat, data_hat = vmap(model, in_axes=(0, None, None))(x, structure, True)
+    predict_fn = vmap(model, in_axes=(0, None, None, None))
+    x_hat, data_hat = predict_fn(x, structure, True, piggy_mode)
 
     loss_fn = _compute_loss
     if isinstance(model, AutoEncoderPiggy):
         loss_fn = _compute_loss_piggy
 
-    return loss_fn(x, x_hat, data_hat, structure, loss_params, aux_data)
+    return loss_fn(x, x_hat, data_hat, structure, loss_params, aux_data, piggy_mode)
 
 
-def _compute_loss_piggy(x, x_hat, y_hat, structure, loss_params, aux_data):
+def _compute_loss_piggy(x, x_data_hat, y_data_hat, structure, loss_params, aux_data, piggy_mode=True):
     """
     Compute the model loss of a piggy autoencoder.
     """
-    x_hat, x_params_hat = x_hat
-    loss_fd = _compute_loss(
-        x,
-        x_hat,
-        x_params_hat,
-        structure,
-        loss_params,
-        aux_data
-    )
+    x_hat, x_params_hat = x_data_hat
 
-    y_hat, y_params_hat = y_hat
-    loss_piggy = _compute_loss(
-        x_hat,
-        y_hat,
-        y_params_hat,
-        structure,
-        loss_params,
-        aux_data
+    if not piggy_mode:
+        loss_data = _compute_loss(
+            x,
+            x_hat,
+            x_params_hat,
+            structure,
+            loss_params,
+            aux_data
         )
+    else:
+        y_hat, y_params_hat = y_data_hat
+        q, xyz_fixed, loads = y_params_hat
 
-    if aux_data:
-        loss_fd, loss_fd_terms = loss_fd
-        loss_piggy, loss_piggy_terms = loss_piggy
+        loss_data = _compute_loss(
+            x_hat,
+            y_hat,
+            y_params_hat,
+            structure,
+            loss_params,
+            aux_data
+            )
 
-        return loss_fd, loss_fd_terms
-
-    # return loss_fd + loss_piggy
-    return loss_fd
+    return loss_data
 
 
-def _compute_loss(x, x_hat, params_hat, structure, loss_params, aux_data):
+def _compute_loss(x, x_hat, params_hat, structure, loss_params, aux_data, *args):
     """
     Compute the model loss.
+
+    Parameters
+    ----------
+    x : target
+    x_hat : prediction
+    params_hat : parameters prediction (aux data)
+    structure : the connectivity graph of the structure
+    loss_params : the scaling parameters to combine the loss' error terms
+    aux_data : if true, returns auxiliary data
     """
     shape_params = loss_params["shape"]
     factor_shape = shape_params["weight"] / shape_params["scale"]

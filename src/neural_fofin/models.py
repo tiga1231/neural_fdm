@@ -28,7 +28,7 @@ class AutoEncoder(eqx.Module):
         self.encoder = encoder
         self.decoder = decoder
 
-    def __call__(self, x, structure, aux_data=False):
+    def __call__(self, x, structure, aux_data=False, *args, **kwargs):
         # NOTE: x must be a flat vector
         q = self.encoder(x)
         x_hat = self.decoder(q, x, structure, aux_data)
@@ -81,23 +81,24 @@ class AutoEncoderPiggy(AutoEncoder):
         super().__init__(encoder, decoder)
         self.decoder_piggy = decoder_piggy
 
-    def __call__(self, x, structure, aux_data=False, stop_grad=True):
+    def __call__(self, x, structure, aux_data=False, piggy_mode=True):
         """
         Make prediction.
         """
         q = self.encoder(x)
         x_hat = self.decoder(q, x, structure, aux_data)
 
+        if piggy_mode:
+            q = stop_gradient(q)
+            x_hat = stop_gradient(x_hat)
+
         # TODO: How do we stop gradient flow from y_hat to q to encoder?
         # from jax.lax import stop_gradient
         # y_hat = stop_gradient(self.decoder_piggy(q, x, structure, aux_data)
         # But using stop_gradients might zero out all the gradients of the decoder_piggy!
         # We still want to be able to do parameter updates on decoder_piggy
-        # y_hat = self.decoder_piggy(q, x, structure, aux_data)
-        if stop_grad:
-            y_hat = stop_gradient(self.decoder_piggy(q, x, structure, aux_data))
-        else:
-            y_hat = self.decoder_piggy(q, x, structure, aux_data)
+
+        y_hat = self.decoder_piggy(q, x, structure, aux_data)
 
         return x_hat, y_hat
 

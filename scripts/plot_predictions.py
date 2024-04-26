@@ -35,7 +35,7 @@ from neural_fofin.serialization import load_model
 VIEW = True
 SAVE = False
 
-NAME = "piggy_pinn"  # formfinder, autoencoder, autoencoder_pinn
+NAME = "formfinder"  # formfinder, autoencoder, autoencoder_pinn, piggy
 START = 50
 STOP = 53
 EDGECOLOR = "fd"  # force, fd
@@ -157,9 +157,8 @@ for i in range(START, STOP):
                show_edges=True,
                edges=[edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)],
                nodes=[node for node in mesh.vertices() if len(mesh.vertex_neighbors(node)) > 2],
-               show_loads=True,
+               show_loads=False,
                loadscale=1.0,
-               loadcolor=Color.pink(),
                show_reactions=True,
                reactionscale=1.0,
                reactioncolor=Color.from_rgb255(0, 150, 10),
