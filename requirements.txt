@@ -3,3 +3,4 @@ jax-fdm
 tqdm
 optax
 pyyaml
+fire
