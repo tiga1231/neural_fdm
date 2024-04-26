@@ -92,12 +92,6 @@ class AutoEncoderPiggy(AutoEncoder):
             q = stop_gradient(q)
             x_hat = stop_gradient(x_hat)
 
-        # TODO: How do we stop gradient flow from y_hat to q to encoder?
-        # from jax.lax import stop_gradient
-        # y_hat = stop_gradient(self.decoder_piggy(q, x, structure, aux_data)
-        # But using stop_gradients might zero out all the gradients of the decoder_piggy!
-        # We still want to be able to do parameter updates on decoder_piggy
-
         y_hat = self.decoder_piggy(q, x, structure, aux_data)
 
         return x_hat, y_hat

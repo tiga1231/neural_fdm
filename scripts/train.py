@@ -22,87 +22,101 @@ from neural_fofin.builders import build_optimizer
 from neural_fofin.serialization import save_model
 
 
-# local script parameters
-SAVE_MODEL = True
-SAVE_LOSSES = True
-MODEL_NAME = "formfinder"  # formfinder, autoencoder, piggy
+# ===============================================================================
+# Script function
+# ===============================================================================
 
-# load yaml file with hyperparameters
-with open("config.yml") as file:
-    config = yaml.load(file, Loader=yaml.FullLoader)
+def train(model, save=True, config="config"):
+    """
+    Train a model to approximate a family of arbitrary shapes with mechanically-feasible geometries.
 
-# unpack parameters
-seed = config["seed"]
-training_params = config["training"]
-batch_size = training_params["batch_size"]
-steps = training_params["steps"]
-loss_params = config["loss"]
+    Parameters
+    ___________
+    model: `str`
+        The model name.
+        Supported models are formfinder, autoencoder, and piggy.
+    save: `bool`
+        If `True`, save the trained model and the loss histories.
+    config: `str`
+        The filepath (without extension) of the YAML config file with the training hyperparameters.
+    """
+    MODEL_NAME = model
+    SAVE = save
+    CONFIG_NAME = config
 
-# randomness
-key = jrn.PRNGKey(seed)
-model_key, generator_key = jax.random.split(key, 2)
+    # load yaml file with hyperparameters
+    with open(f"{CONFIG_NAME}.yml") as file:
+        config = yaml.load(file, Loader=yaml.FullLoader)
 
-# create experiment
-generator = build_data_generator(config)
-structure = build_connectivity_structure_from_generator(generator)
-optimizer = build_optimizer(config)
-model = build_neural_model(MODEL_NAME, config, generator, model_key)
-print(f"\nTraining {MODEL_NAME}")
+    # unpack parameters
+    seed = config["seed"]
+    training_params = config["training"]
+    batch_size = training_params["batch_size"]
+    steps = training_params["steps"]
+    loss_params = config["loss"]
 
-# sample initial data batch
-xyz = vmap(generator)(jrn.split(generator_key, batch_size))
+    # randomness
+    key = jrn.PRNGKey(seed)
+    model_key, generator_key = jax.random.split(key, 2)
 
-# warmstart
-start_loss = compute_loss(model, structure, xyz, loss_params)
-print(start_loss)
-print(f"{loss_params=}")
-print(f"{MODEL_NAME} start loss: {start_loss:.6f}")
+    # create experiment
+    generator = build_data_generator(config)
+    structure = build_connectivity_structure_from_generator(generator)
+    optimizer = build_optimizer(config)
+    model = build_neural_model(MODEL_NAME, config, generator, model_key)
+    print(f"\nTraining {MODEL_NAME}")
 
-# train models
-print("\nTraining")
+    # sample initial data batch
+    xyz = vmap(generator)(jrn.split(generator_key, batch_size))
 
-start = time.perf_counter()
-train_data = train_model(
-    model,
-    structure,
-    optimizer,
-    generator,
-    loss_params=loss_params,
-    num_steps=steps,
-    batch_size=batch_size,
-    key=generator_key,
-    callback=None
-    )
-end = time.perf_counter()
+    # warmstart
+    start_loss = compute_loss(model, structure, xyz, loss_params)
+    print(f"{loss_params=}")
+    print(f"{MODEL_NAME} start loss: {start_loss:.6f}")
 
-trained_model, trained_opt_states, loss_history = train_data
-print("\nTraining completed")
-print(f"Training time: {end:.4f} s")
+    # train models
+    print("\nTraining")
 
-end_loss = compute_loss(trained_model, structure, xyz, loss_params)
-print(f"{MODEL_NAME} last loss: {end_loss}")
+    start = time.perf_counter()
+    train_data = train_model(
+        model,
+        structure,
+        optimizer,
+        generator,
+        loss_params=loss_params,
+        num_steps=steps,
+        batch_size=batch_size,
+        key=generator_key,
+        callback=None
+        )
+    end = time.perf_counter()
 
-# plot loss curves
-print("\nPlotting")
-loss_labels = ["loss", "shape", "residual"]
-plot_smoothed_losses(loss_history,
-                     window_size=50,
-                     labels=loss_labels)
+    trained_model, trained_opt_states, loss_history = train_data
+    print("\nTraining completed")
+    print(f"Training time: {end - start:.4f} s")
 
-# save models
-if SAVE_MODEL or SAVE_LOSSES:
-    print("\nSaving results")
+    end_loss = compute_loss(trained_model, structure, xyz, loss_params)
+    print(f"{MODEL_NAME} last loss: {end_loss}")
 
-    _filename = MODEL_NAME
-    if loss_params["residual"]["include"] > 0 and MODEL_NAME != "formfinder":
-        _filename += "_pinn"
+    # plot loss curves
+    print("\nPlotting")
+    loss_labels = ["loss", "shape", "residual"]
+    plot_smoothed_losses(loss_history,
+                         window_size=50,
+                         labels=loss_labels)
 
-    if SAVE_MODEL:
+    # save models
+    if SAVE:
+        print("\nSaving results")
+
+        _filename = MODEL_NAME
+        if loss_params["residual"]["include"] > 0 and MODEL_NAME != "formfinder":
+            _filename += "_pinn"
+
         _filepath = os.path.join(DATA, f"{_filename}.eqx")
         save_model(_filepath, trained_model)
         print(f"Saved model to {_filepath}")
 
-    if SAVE_LOSSES:
         for i, _label in enumerate(loss_labels):
             _filename_loss = f"losses_{_filename}_{_label}.txt"
 
@@ -113,3 +127,14 @@ if SAVE_MODEL or SAVE_LOSSES:
                     file.write(f"{_value}\n")
 
             print(f"Saved loss history to {_filepath}")
+
+
+# ===============================================================================
+# Main
+# ===============================================================================
+
+if __name__ == "__main__":
+
+    from fire import Fire
+
+    Fire(train)
