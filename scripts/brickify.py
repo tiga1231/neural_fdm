@@ -1,9 +1,6 @@
 """
 Generate bricks on the faces of a mesh.
 """
-# import open3d as o3d
-from open3d.t.geometry import TriangleMesh
-
 import os
 from random import randint
 
