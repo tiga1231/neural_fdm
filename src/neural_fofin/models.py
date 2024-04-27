@@ -29,15 +29,30 @@ class AutoEncoder(eqx.Module):
         self.decoder = decoder
 
     def __call__(self, x, structure, aux_data=False, *args, **kwargs):
+        """
+        Predict a funicular shape given a target shape for a structure.
+        """
         # NOTE: x must be a flat vector
         q = self.encoder(x)
         x_hat = self.decoder(q, x, structure, aux_data)
 
         return x_hat
 
+    def encode(self, x):
+        """
+        Generate the latent representation of an input vector.
+        """
+        return self.encoder(x)
+
+    def decode(self, q, *args, **kwargs):
+        """
+        Map a latent representation back to input space.
+        """
+        return self.decoder(q, *args, **kwargs)
+
     def predict_states(self, x, structure):
         """
-        To interface with JAX FDM visualization.
+        Predict equilibrium and parameter states for visualization.
         """
         # Predict shape
         x_hat, params = self(x, structure, True)
@@ -95,6 +110,12 @@ class AutoEncoderPiggy(AutoEncoder):
         y_hat = self.decoder_piggy(q, x, structure, aux_data)
 
         return x_hat, y_hat
+
+    def decode(self, q, *args, **kwargs):
+        """
+        Map a latent representation back to input space.
+        """
+        return self.decoder_piggy(q, *args, **kwargs)
 
     def predict_states(self, x, structure):
         """
@@ -188,8 +209,9 @@ class Decoder(eqx.Module):
 
     def get_loads(self, x, structure):
         """
+        Calculate applied vertex loads.
         """
-        raise NotImplementedError
+        return calculate_area_loads(x, structure, self.load)
 
     def get_xyz(self, params, structure):
         """
@@ -223,13 +245,6 @@ class FDDecoder(Decoder):
                                        structure)
 
         return jnp.ravel(x_hat)
-
-    def get_loads(self, x, structure):
-        """
-        Calculate applied vertex loads.
-        """
-        return calculate_area_loads(x, structure, self.load)
-
 
 # ===============================================================================
 # Neural decoders
@@ -268,12 +283,6 @@ class MLPDecoder(Decoder, eqx.nn.MLP):
         # NOTE: using this exotic way to call __call__ to map q to x
         # due to multiple inheritance
         return eqx.nn.MLP.__call__(self, q)
-
-    def get_loads(self, x, structure):
-        """
-        Calculate vertex loads.
-        """
-        return calculate_area_loads(x, structure, self.load)
 
 
 class MLPDecoderXL(MLPDecoder):
