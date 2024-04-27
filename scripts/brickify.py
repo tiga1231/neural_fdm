@@ -430,11 +430,11 @@ def brickify(name, thickness, scale=1.0, dual=True, label=False, save=False, sav
     viewer.view.camera.distance = CAMERA_CONFIG["distance"]
 
     # viewer.add(mesh_unified)
-    if label:
-        viewer.add(text_mesh, color=Color.blue())
+    # if label:
+        # viewer.add(text_mesh, color=Color.blue())
         # viewer.add(bbox_mesh)
         # viewer.add(face_mesh, color=Color.pink())
-        viewer.add(brick)
+        # viewer.add(brick)
 
     if save_scaffold:
         viewer.add(scaffold_mesh)
@@ -443,13 +443,13 @@ def brickify(name, thickness, scale=1.0, dual=True, label=False, save=False, sav
         r, g, b = [randint(0, 255) for _ in range(3)]
         color = Color.from_rgb255(r, g, b)
 
-        # viewer.add(
-        #     brick,
-        #     color=color,
-        #     show_points=False,
-        #     show_edges=True,
-        #     opacity=0.5
-        # )
+        viewer.add(
+            brick,
+            color=color,
+            show_points=False,
+            show_edges=True,
+            # opacity=0.5
+        )
 
     # show le crème
     viewer.show()

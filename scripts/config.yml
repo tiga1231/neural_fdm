@@ -3,14 +3,15 @@ seed: 91
 # data generator
 generator:
   # options: "bezier_symmetric_double", "bezier_symmetric", "bezier_asymmetric"
-  name: "bezier_asymmetric"
-  bounds: "dome"  # options: pillow, dome, saddle
-  num_uv: 10
+  name: "bezier_symmetric_double"
+  bounds: "saddle"  # options: pillow, dome, saddle
+  num_uv: 20
   size: 10.0
   num_points: 4
 # fd simulation
 fdm:
   load: -0.5  # -0.5, scale of vertical area load
+  # add support type? options: boundary, corners, etc
 # encoder
 encoder: 
   hidden_layer_size: 256

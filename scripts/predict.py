@@ -1,5 +1,5 @@
 """
-Predict the force densities and shapes of a batch of target shapes with a pre-trained model.
+Predict the force densities and shapes of a batch of target shapes with a pretrained model.
 """
 
 import os
@@ -129,7 +129,7 @@ def predict_batch(model, save=False, batch_size=None, start=50, stop=53, seed=No
         network_hat = FDNetwork.from_mesh(mesh_hat)
 
         # export prediction
-        if save:
+        if SAVE:
             filename = f"mesh_{i}"
             filepath = os.path.join(DATA, f"{filename}.json")
             mesh_hat.to_json(filepath)
