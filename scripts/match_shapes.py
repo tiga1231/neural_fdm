@@ -129,12 +129,12 @@ optimizer = optimizer()
 recorder = OptimizationRecorder(optimizer) if record else None
 
 mesh = constrained_fdm(mesh0,
-                          optimizer=optimizer,
-                          loss=loss,
-                          parameters=parameters,
-                          maxiter=maxiter,
-                          tol=tol,
-                          callback=recorder)
+                       optimizer=optimizer,
+                       loss=loss,
+                       parameters=parameters,
+                       maxiter=maxiter,
+                       tol=tol,
+                       callback=recorder)
 
 # ==========================================================================
 # Export optimization history

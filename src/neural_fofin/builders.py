@@ -17,6 +17,7 @@ from neural_fofin.models import AutoEncoder
 from neural_fofin.models import AutoEncoderPiggy
 from neural_fofin.models import MLPEncoder
 from neural_fofin.models import FDDecoder
+from neural_fofin.models import FDDecoderParametrized
 from neural_fofin.models import MLPDecoder
 from neural_fofin.models import MLPDecoderXL
 
@@ -286,6 +287,29 @@ def calculate_edges_mask(mesh):
 # ===============================================================================
 # Decoders
 # ===============================================================================
+
+def build_fd_decoder_parametrized(q0, mesh, params):
+    """
+    """
+    # unpack hyperparams
+    load = params["load"]
+
+    # create FD model
+    fd_model = build_fd_model()
+
+    # get mask of supported edges
+    mask_edges = calculate_edges_mask(mesh)
+
+    # instantiate FD decoder
+    decoder = FDDecoderParametrized(
+        q0,
+        fd_model,
+        load,
+        mask_edges
+        )
+
+    return decoder
+
 
 def build_fd_decoder(mesh, params):
     """

@@ -144,7 +144,7 @@ def predict_batch(
     print(f"Batch\tLoss: {loss_val:.4f}\tShape error: {loss_shape:.4f}\tResidual error: {loss_res:.4f}")
 
     # make individual predictions
-    print(f"\nPredicing shapes one by one")
+    print(f"\nPredicing shapes in sequence")
     for i in range(START, STOP):
         xyz = xyz_batch[i]
 

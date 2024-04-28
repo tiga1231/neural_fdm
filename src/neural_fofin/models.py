@@ -6,7 +6,7 @@ from jax.lax import stop_gradient
 
 from jaxtyping import Array, Float
 
-from jax_fdm.equilibrium import EquilibriumModel as FDModel
+from jax_fdm.equilibrium import EquilibriumModel
 
 from neural_fofin.helpers import calculate_area_loads
 from neural_fofin.helpers import calculate_equilibrium_state
@@ -57,33 +57,7 @@ class AutoEncoder(eqx.Module):
         # Predict shape
         x_hat, params = self(x, structure, True)
 
-        return self.build_states(x_hat, params, structure)
-
-    def build_states(self, xyz_hat, params, structure):
-        """
-        Assemble equilibrium and parameter states for visualization.
-        """
-        # Unpack aux data
-        q, xyz_fixed, loads = params
-
-        # Equilibrium parameters
-        fd_params_state = calculate_fd_params_state(
-            q,
-            xyz_fixed,
-            loads
-        )
-
-        # Equilibrium state
-        xyz_hat = jnp.reshape(xyz_hat, (-1, 3))
-
-        eq_state = calculate_equilibrium_state(
-            q,
-            xyz_hat,  # xyz_free | xyz_fixed
-            loads,
-            structure
-        )
-
-        return eq_state, fd_params_state
+        return build_states(x_hat, params, structure)
 
 
 class AutoEncoderPiggy(AutoEncoder):
@@ -125,7 +99,7 @@ class AutoEncoderPiggy(AutoEncoder):
         _, pred_piggy = self(x, structure, True)
         x_hat, params = pred_piggy
 
-        return self.build_states(x_hat, params, structure)
+        return build_states(x_hat, params, structure)
 
 
 # ===============================================================================
@@ -225,9 +199,9 @@ class Decoder(eqx.Module):
 
 class FDDecoder(Decoder):
     """
-    A force density model that calculates area loads based on the input shapes.
+    A fixed force density decoder.
     """
-    model: FDModel
+    model: EquilibriumModel
 
     def __init__(self, model, *args, **kwargs):
         self.model = model
@@ -245,6 +219,32 @@ class FDDecoder(Decoder):
                                        structure)
 
         return jnp.ravel(x_hat)
+
+
+class FDDecoderParametrized(FDDecoder):
+    """
+    A parametrized force density decoder.
+    """
+    q: Array
+
+    def __init__(self, q, *args, **kwargs):
+        self.q = q
+        super().__init__(*args, **kwargs)
+
+    def __call__(self, x, structure, aux_data=False, *args, **kwargs):
+        """
+        """
+        return super().__call__(self.q, x, structure, aux_data)
+
+    def predict_states(self, x, structure):
+        """
+        Predict equilibrium and parameter states for visualization.
+        """
+        # Predict shape
+        x_hat, params = self(x, structure, True)
+
+        return build_states(x_hat, params, structure)
+
 
 # ===============================================================================
 # Neural decoders
@@ -304,3 +304,34 @@ class MLPDecoderXL(MLPDecoder):
         params = jnp.concatenate((q, x_fixed, loads_z))
 
         return eqx.nn.MLP.__call__(self, params)
+
+
+# ===============================================================================
+# Helpers
+# ===============================================================================
+
+def build_states(xyz_hat, params, structure):
+    """
+    Assemble equilibrium and parameter states for visualization.
+    """
+    # Unpack aux data
+    q, xyz_fixed, loads = params
+
+    # Equilibrium parameters
+    fd_params_state = calculate_fd_params_state(
+        q,
+        xyz_fixed,
+        loads
+    )
+
+    # Equilibrium state
+    xyz_hat = jnp.reshape(xyz_hat, (-1, 3))
+
+    eq_state = calculate_equilibrium_state(
+        q,
+        xyz_hat,  # xyz_free | xyz_fixed
+        loads,
+        structure
+    )
+
+    return eq_state, fd_params_state
