@@ -9,7 +9,7 @@ from compas.colors import Color
 from compas.datastructures import Mesh
 from compas.datastructures import mesh_dual
 from compas.datastructures import mesh_thicken
-from compas.datastructures import mesh_unify_cycles
+from compas.datastructures import mesh_offset
 from compas.datastructures import mesh_delete_duplicate_vertices
 
 from compas.geometry import Sphere
@@ -42,10 +42,259 @@ from text_2_mesh import text_2_mesh
 
 
 # ===============================================================================
+# Helper functions
+# ===============================================================================
+
+def triangulate_face_quad(face, reverse=False):
+    """
+    Triangulate a mesh quad face.
+    """
+    a, b, c, d = face
+    if not reverse:
+        face_a = [a, b, d]
+        face_b = [b, c, d]
+    else:
+        face_a = [a, b, c]
+        face_b = [c, d, a]
+
+    return [face_a, face_b]
+
+
+def triangulate_face_ngon(face, vertices):
+    """
+    Triangulate a mesh ngon face.
+    """
+    midpoint = centroid_points([vertices[vkey] for vkey in face])
+    vertices.append(midpoint)
+    ckey = len(vertices) - 1
+
+    # create new faces
+    new_faces = []
+    for a, b in pairwise(face + face[:1]):
+        _face = [a, b, ckey]
+        new_faces.append(_face)
+
+    return new_faces
+
+
+def triangulate_face(face, vertices, reverse=False):
+    """
+    Triangulates a mesh face.
+    The face is a list of indices pointing to a list with the vertices xyz coordinates.
+    """
+    assert len(face) > 2
+
+    new_faces = []
+    # triangle
+    if len(face) == 3:
+        new_faces = [face]
+    # quad
+    elif len(face) == 4:
+        new_faces = triangulate_face_quad(face, reverse)
+    # ngon
+    else:
+        new_faces = triangulate_face_ngon(face, vertices)
+
+    return new_faces
+
+
+def generate_bricks(mesh, thickness):
+    """
+    Generate a solid brick per mesh face.
+    """
+    half_thick = thickness / 2.0
+
+    mesh_bottom = mesh_offset(mesh, half_thick)
+    mesh_top = mesh_offset(mesh, half_thick * -1.0)
+
+    bricks = {}
+    halfedges_visited = set()
+
+    for i, fkey in enumerate(mesh.faces()):
+
+        # adding side faces
+        faces = []
+
+        num_vertices = len(mesh.face_vertices(fkey))
+        face_bottom = list(range(num_vertices))
+        face_top = list(range(num_vertices, 2 * num_vertices))
+
+        xyz_bottom = mesh_bottom.face_coordinates(fkey)
+        xyz_top = mesh_top.face_coordinates(fkey)
+        vertices = xyz_bottom + xyz_top
+
+        halfedges = mesh.face_halfedges(fkey)
+        iterable = zip(
+            pairwise(face_top + face_top[:1]),
+            pairwise(face_bottom + face_bottom[:1]),
+            halfedges
+        )
+
+        for edge_1, edge_2, halfedge in iterable:
+            a, b = edge_1
+            d, c = edge_2
+            face = [a, b, c, d]
+            # triangulate
+            is_visited = halfedge in halfedges_visited
+            tri_faces = triangulate_face_quad(face, is_visited)
+            faces.extend(tri_faces)
+
+        # face half edges
+        halfedges_visited.update(halfedges)
+        halfedges_reversed = [(v, u) for u, v in halfedges]
+        halfedges_visited.update(halfedges_reversed)
+
+        # triangulate top and bottom faces
+        tri_faces = triangulate_face(face_bottom, vertices)
+        faces.extend(tri_faces)
+
+        tri_faces = triangulate_face(face_top, vertices)
+        faces.extend([face[::-1] for face in tri_faces])
+
+        # make mesh from face
+        brick = Mesh.from_vertices_and_faces(vertices, faces)
+
+        # store brick
+        bricks[fkey] = brick
+
+    return bricks, (mesh_bottom, mesh_top)
+
+
+def add_text_engraving(fkey, bricks, mesh_bottom, text, depth=1):
+    """
+    Engrave the underside of a brick mesh with text.
+    """
+    # generate text mesh
+    text_mesh = text_2_mesh(text)
+    vertices, _ = text_mesh.to_vertices_and_faces()
+
+    # calculate bounding box and properties
+    bbox = oriented_bounding_box_numpy(vertices)
+    bbox = Box.from_bounding_box(bbox)
+    bbox_largest = max([bbox.width, bbox.depth, bbox.height])
+
+    # find face in brick
+    brick = bricks[fkey]
+
+    # generate face plane
+    vertices = mesh_bottom.face_coordinates(fkey)  # faces_topbottom[fkey][0]  # NOTE: or -1?
+    face = list(range(len(vertices)))
+    tri_faces = triangulate_face(face, vertices)
+
+    # take face with largest area
+    tri_faces = sorted(tri_faces, key=lambda x: area_triangle([vertices[v] for v in x]))
+    big_face = tri_faces[-1]
+    big_face_vertices = [vertices[v] for v in big_face]
+    _, radius = circle_from_points(*big_face_vertices)
+
+    big_face_mesh = Mesh.from_vertices_and_faces(vertices, [big_face])
+
+    center = centroid_points(big_face_vertices)
+    normal = normal_triangle(big_face_vertices)
+    # normal = scale_vector(normal, -1.0)
+    plane = Plane(center, normal)
+    brick_frame = Frame.from_plane(plane)
+
+    # box again
+    ratio = (0.4 * radius) / bbox_largest
+    S = Scale.from_factors(factors=[ratio] * 3)
+    bbox.transform(S)
+
+    # text again
+    text_origin = [x for x in bbox.frame.point]
+    text_frame = Frame(text_origin, [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0])
+    text_mesh.transform(S)
+    T = Transformation.from_frame_to_frame(text_frame, brick_frame)
+    text_mesh.transform(T)
+
+    B = text_mesh.to_vertices_and_faces(triangulated=True)
+    B = mesh_remesh(B, radius/30.0, 10)
+    text_mesh = Mesh.from_vertices_and_faces(*B)
+
+    text_mesh = mesh_thicken(text_mesh, depth)
+
+    vertices, faces = bbox.to_vertices_and_faces()
+    bbox_mesh = Mesh.from_vertices_and_faces(vertices, faces)
+
+    A = brick.to_vertices_and_faces()
+    B = text_mesh.to_vertices_and_faces(triangulated=True)
+
+    V, F = boolean_difference_mesh_mesh(A, B)
+    brick = Mesh.from_vertices_and_faces(V, F)
+
+    return text_mesh, bbox_mesh, big_face_mesh, brick
+
+
+def generate_scaffolding(mesh, thickness):
+    """
+    Generate the scaffolding platform under the bricks.
+    """
+    # convert
+    scaffold_mesh = mesh_offset(mesh, 1.0 * thickness / 2.0)
+    vertices, faces = scaffold_mesh.to_vertices_and_faces()
+
+    # triangulate existing faces
+    faces_tri = []
+    for face in faces:
+        faces_tri.extend(triangulate_face(face, vertices))
+
+    # add boundary face
+    key_index = scaffold_mesh.key_index()
+    face_bnd = [key_index[fkey] for fkey in scaffold_mesh.vertices_on_boundary()][::-1]
+    faces_tri.extend(triangulate_face(face_bnd, vertices))
+
+    # create mesh
+    return Mesh.from_vertices_and_faces(vertices, faces_tri)
+
+
+def add_registration_spheres(brick, radius, fkey, mesh):
+
+    count = 0
+    for edge in mesh.face_halfedges(fkey):
+        xyz = mesh.edge_midpoint(*edge)
+        sphere = Sphere(xyz, radius)
+        A = brick.to_vertices_and_faces(triangulated=True)
+        B = sphere.to_vertices_and_faces(u=16, v=16, triangulated=True)
+        B = mesh_remesh(B, radius / 50.0, 50)
+        V, F = boolean_union_mesh_mesh(A, B)
+        brick = Mesh.from_vertices_and_faces(V, F)
+        count += 1
+
+    return brick
+
+
+def carve_registration_spheres(brick, radius, fkey, mesh):
+
+    count = 0
+    for edge in mesh.face_halfedges(fkey):
+        xyz = mesh.edge_midpoint(*edge)
+        sphere = Sphere(xyz, radius)
+        A = brick.to_vertices_and_faces(triangulated=True)
+        # A = mesh_remesh(A, radius / 5., 50)
+        B = sphere.to_vertices_and_faces(u=16, v=16, triangulated=True)
+        # B = mesh_remesh(B, radius / 5., 50)
+        V, F = boolean_difference_mesh_mesh(A, B)
+        brick = Mesh.from_vertices_and_faces(V, F)
+        count += 1
+
+    return brick
+
+
+# ===============================================================================
 # Script function
 # ===============================================================================
 
-def brickify(name, thickness, scale=1.0, dual=True, label=False, save=False, save_scaffold=False):
+def brickify(
+        name,
+        thickness,
+        scale=1.0,
+        dual=True,
+        do_bricks=False,
+        do_label=False,
+        do_scaffold=False,
+        do_support=False,
+        save=False
+):
     """
     Generate bricks on the faces of a mesh.
     One face = one brick.
@@ -59,13 +308,17 @@ def brickify(name, thickness, scale=1.0, dual=True, label=False, save=False, sav
     scale: `float`
         The mesh scale.
     dual: `bool`
-        If `True`, it will generate the bricks on the dual of the mesh.
-    label: `bool`
-        If `True`, it will engrave the bricks with labels via mesh boolean differences.
+        If `True`, the script will work on the dual of the input mesh.
+    do_bricks: `bool`
+        If `True`, engrave the bricks with labels via mesh boolean differences.
+    do_label: `bool`
+        If `True`, it engraves the bricks with labels via mesh boolean differences.
+    do_scaffold: `bool`
+        If `True`, it generates scaffolding platform.
+    do_support: `bool`
+        If `True`, it creates the perimetral support for the bricks.
     save: `bool`
-        If `True`, it will save the bricks as independent JSON and OBJ files.
-    save_scaffold: `bool`
-        If `True`, it will save a scaffolding platform a a JSON and OBJ files.
+        If `True`, it will save all generated data as both JSON and OBJ files.
     """
     CAMERA_CONFIG = {
         "position": (30.34, 30.28, 42.94),
@@ -88,330 +341,45 @@ def brickify(name, thickness, scale=1.0, dual=True, label=False, save=False, sav
         S = Scale.from_factors(factors=[scale] * 3)
         mesh.transform(S)
 
-    # make brick meshes
-    half_thick = thickness / 2.0
-    faces_topbottom = {}
-    bricks = {}
-    halfedges_visited = set()
-    for i, fkey in enumerate(mesh.faces()):
-
-        # top and bottom faces
-        vertices = []
-        faces_0 = []
-        vertices_0 = []
-
-        vkey_counter = 0
-        for direction in (1.0, -1.0):
-
-            face = []
-            for vkey in mesh.face_vertices(fkey):
-
-                xyz = mesh.vertex_coordinates(vkey)
-                normal = mesh.vertex_normal(vkey)
-                vector_extr = scale_vector(normal, half_thick * direction)
-                xyz_extr = add_vectors(xyz, vector_extr)
-                vertices.append(xyz_extr)
-
-                face.append(vkey_counter)
-                vkey_counter += 1
-
-            faces_0.append(face)
-            vertices_0.append([vertices[v] for v in face])
-
-        # side faces
-        faces_topbottom[fkey] = vertices_0
-        face_top, face_bottom = faces_0
-        face_top = face_top + face_top[:1]
-        face_bottom = face_bottom + face_bottom[:1]
-
-        # adding side faces
-        faces = []
-        halfedges = mesh.face_halfedges(fkey)
-        for edge_top, edge_bottom, halfedge in zip(pairwise(face_bottom), pairwise(face_top), halfedges):
-            a, b = edge_top
-            d, c = edge_bottom
-            # triangulate
-            if halfedge in halfedges_visited:
-                face_a = [a, b, d]
-                face_b = [b, c, d]
-            else:
-                face_a = [a, b, c]
-                face_b = [c, d, a]
-
-            faces.append(face_a)
-            faces.append(face_b)
-
-        # face half edges
-        halfedges_visited.update(halfedges)
-        halfedges_reversed = [(v, u) for u, v in halfedges]
-        halfedges_visited.update(halfedges_reversed)
-
-        # triangulate top and bottom faces
-        for j, face in enumerate(faces_0):
-            # triangle
-            if len(face) == 3:
-                _faces = [face]
-            # quad
-            elif len(face) == 4:
-                a, b, c, d = face
-                face_a = [a, b, d]
-                face_b = [b, c, d]
-                _faces = [face_a, face_b]
-            # ngon
-            else:
-                # triangulate to midpoint
-                midpoint = centroid_points([vertices[vkey] for vkey in face])
-                vertices.append(midpoint)
-
-                # create new faces
-                _faces = []
-                for a, b in pairwise(face + face[:1]):
-                    _face = [a, b, vkey_counter]
-                    _faces.append(_face)
-
-                vkey_counter += 1
-
-            # reverse bottom faces
-            for _face in _faces:
-                if j == 1:
-                    _face = _face[::-1]
-                faces.append(_face)
-
-        # make mesh from face
-        brick = Mesh.from_vertices_and_faces(vertices, faces)
-
-        # store brick
-        bricks[fkey] = brick
-
+    # do bricks
+    if do_bricks:
+        bricks, meshes = generate_bricks(mesh, thickness)
+        mesh_bottom, mesh_top = meshes
 
     # generate scaffolding
-    if save_scaffold:
+    if do_scaffold:
+        scaffold_mesh = generate_scaffolding(mesh, thickness)
 
-        # move scaffold
-        scaffold_mesh = mesh.copy()
-
-        for vkey in scaffold_mesh.vertices():
-
-            xyz = mesh.vertex_coordinates(vkey)
-            normal = mesh.vertex_normal(vkey)
-            vector_extr = scale_vector(normal, half_thick * 1.0)
-            xyz_extr = add_vectors(xyz, vector_extr)
-            scaffold_mesh.vertex_attributes(vkey, "xyz", xyz_extr)
-
-        # convert
-        vertices, faces = scaffold_mesh.to_vertices_and_faces()
-
-        # triangulate faces
-        vkey_counter = len(vertices)
-        faces_tri = []
-        for face in faces:
-            # triangle
-            if len(face) == 3:
-                _faces = [face]
-            # quad
-            elif len(face) == 4:
-                a, b, c, d = face
-                face_a = [a, b, d]
-                face_b = [b, c, d]
-                _faces = [face_a, face_b]
-            # ngon
-            else:
-                # triangulate to midpoint
-                midpoint = centroid_points([vertices[vkey] for vkey in face])
-                vertices.append(midpoint)
-
-                # create new faces
-                _faces = []
-                for a, b in pairwise(face + face[:1]):
-                    _face = [a, b, vkey_counter]
-                    _faces.append(_face)
-
-                vkey_counter += 1
-
-            # store faces
-            for _face in _faces:
-                faces_tri.append(_face)
-
-        # add boundary face
-        key_index = scaffold_mesh.key_index()
-        face = [key_index[fkey] for fkey in scaffold_mesh.vertices_on_boundary()][::-1]
-
-        # assume it is an ngon
-        # triangulate to midpoint
-        midpoint = centroid_points([vertices[vkey] for vkey in face])
-        vertices.append(midpoint)
-
-        # create new faces
-        _faces = []
-        for a, b in pairwise(face + face[:1]):
-            _face = [a, b, vkey_counter]
-            faces_tri.append(_face)
-
-        vkey_counter += 1
-
-        # create mesh
-        scaffold_mesh = Mesh.from_vertices_and_faces(vertices, faces_tri)
-
-        # save mesh
-        filepath = os.path.join(DATA, f"scaffold.json")
-        scaffold_mesh.to_json(filepath)
-        print(f"Saved scaffold to {filepath}")
-        filepath = os.path.join(DATA, f"scaffold.obj")
-        scaffold_mesh.to_obj(filepath)
-        print(f"Saved scaffold to {filepath}")
-
-    # add registration spheres
-
-    # test union sphere
-    def add_registration_spheres(brick, radius, fkey, mesh):
-
-        count = 0
-        for edge in mesh.face_halfedges(fkey):
-            # if count > 0:
-                # continue
-            xyz = mesh.edge_midpoint(*edge)
-            sphere = Sphere(xyz, radius)
-            A = brick.to_vertices_and_faces(triangulated=True)
-            B = sphere.to_vertices_and_faces(u=16, v=16, triangulated=True)
-            B = mesh_remesh(B, radius / 50.0, 50)
-            V, F = boolean_union_mesh_mesh(A, B)
-            brick = Mesh.from_vertices_and_faces(V, F)
-            count += 1
-
-        return brick
-
-    def carve_registration_spheres(brick, radius, fkey, mesh):
-
-        count = 0
-        for edge in mesh.face_halfedges(fkey):
-            xyz = mesh.edge_midpoint(*edge)
-            sphere = Sphere(xyz, radius)
-            A = brick.to_vertices_and_faces(triangulated=True)
-            # A = mesh_remesh(A, radius / 5., 50)
-            B = sphere.to_vertices_and_faces(u=16, v=16, triangulated=True)
-            # B = mesh_remesh(B, radius / 5., 50)
-            V, F = boolean_difference_mesh_mesh(A, B)
-            brick = Mesh.from_vertices_and_faces(V, F)
-            count += 1
-
-        return brick
-
-    def add_text_engraving(fkey, bricks, faces_topbottom, text, depth=1):
-        """
-        Engrave a brick with text.
-        """
-        text_mesh = text_2_mesh(text)
-        vertices, _ = text_mesh.to_vertices_and_faces()
-        bbox = oriented_bounding_box_numpy(vertices)
-        bbox = Box.from_bounding_box(bbox)
-        bbox_largest = max([bbox.width, bbox.depth, bbox.height])
-
-        # find face in brick
-        brick = bricks[fkey]
-
-        # generate face plane
-        vertices = faces_topbottom[fkey][0]  # NOTE: or -1?
-        face = list(range(len(vertices)))
-        # triangle
-        if len(face) == 3:
-            _faces = [face]
-        # quad
-        elif len(face) == 4:
-            a, b, c, d = face
-            face_a = [a, b, d]
-            face_b = [b, c, d]
-            _faces = [face_a, face_b]
-        # ngon
-        else:
-            # triangulate to midpoint
-            midpoint = centroid_points([vertices[vkey] for vkey in face])
-            ckey = len(vertices) - 1
-            vertices.append(midpoint)
-            # create new faces
-            _faces = []
-            for a, b in pairwise(face + face[:1]):
-                _face = [a, b, ckey]
-                _faces.append(_face)
-
-        # take face with largest area
-        _faces = sorted(_faces, key=lambda x: area_triangle([vertices[v] for v in x]))
-        big_face = _faces[-1]
-        big_face_vertices = [vertices[v] for v in big_face]
-        _, radius = circle_from_points(*big_face_vertices)
-
-        big_face_mesh = Mesh.from_vertices_and_faces(vertices, [big_face])
-
-        center = centroid_points(big_face_vertices)
-        normal = normal_triangle(big_face_vertices)
-        # normal = scale_vector(normal, -1.0)
-        plane = Plane(center, normal)
-        brick_frame = Frame.from_plane(plane)
-
-        # box again
-        ratio = (0.4 * radius) / bbox_largest
-        S = Scale.from_factors(factors=[ratio] * 3)
-        bbox.transform(S)
-
-        # text again
-        text_origin = [x for x in bbox.frame.point]
-        text_frame = Frame(text_origin, [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0])
-        text_mesh.transform(S)
-        T = Transformation.from_frame_to_frame(text_frame, brick_frame)
-        text_mesh.transform(T)
-
-        B = text_mesh.to_vertices_and_faces(triangulated=True)
-        B = mesh_remesh(B, radius/30.0, 10)
-        text_mesh = mesh.from_vertices_and_faces(*B)
-
-        text_mesh = mesh_thicken(text_mesh, depth)
-
-        vertices, faces = bbox.to_vertices_and_faces()
-        bbox_mesh = Mesh.from_vertices_and_faces(vertices, faces)
-
-        A = brick.to_vertices_and_faces()
-        B = text_mesh.to_vertices_and_faces(triangulated=True)
-
-        V, F = boolean_difference_mesh_mesh(A, B)
-        brick = Mesh.from_vertices_and_faces(V, F)
-
-        return text_mesh, bbox_mesh, big_face_mesh, brick
-
-
-    if label:
-        # fkey = list(mesh.faces())[-1]
-        # brick = list(bricks.values())[-1]
-
-        # data = add_text_engraving(
-        #     fkey,
-        #     bricks,
-        #     faces_topbottom,
-        #     "99",
-        #     depth=thickness/2.0
-        # )
+    # engrave labels
+    if do_bricks and do_label:
         for i, fkey in enumerate(mesh.faces()):
-             data = add_text_engraving(
-                 fkey,
-                 bricks,
-                 faces_topbottom,
-                 f"{i}",
-                 depth=thickness/2.0
-             )
-
-             text_mesh, bbox_mesh, face_mesh, brick = data
-             bricks[fkey] = brick
+            data = add_text_engraving(
+                fkey,
+                bricks,
+                mesh_bottom,
+                f"{i}",
+                depth=thickness/2.0
+            )
+            text_mesh, bbox_mesh, face_mesh, brick = data
+            bricks[fkey] = brick
 
     if save:
-        for i, brick in enumerate(bricks.values()):
-            filepath = os.path.join(DATA, f"brick_{i}.json")
-            brick.to_json(filepath)
-            print(f"Saved brick to {filepath}")
+        if do_bricks:
+            for i, brick in enumerate(bricks.values()):
+                filepath = os.path.join(DATA, f"brick_{i}.json")
+                brick.to_json(filepath)
+                print(f"Saved brick to {filepath}")
+                filepath = os.path.join(DATA, f"brick_{i}.obj")
+                brick.to_obj(filepath)
+                print(f"Saved brick to {filepath}")
 
-            filepath = os.path.join(DATA, f"brick_{i}.obj")
-            brick.to_obj(filepath)
-            print(f"Saved brick to {filepath}")
-
-    # radius = thickness * 0.25
-    # mesh_unified = carve_registration_spheres(brick, radius, fkey, mesh)
+        if do_scaffold:
+            filepath = os.path.join(DATA, "scaffold.json")
+            scaffold_mesh.to_json(filepath)
+            print(f"Saved scaffold to {filepath}")
+            filepath = os.path.join(DATA, "scaffold.obj")
+            scaffold_mesh.to_obj(filepath)
+            print(f"Saved scaffold to {filepath}")
 
     # visualization
     viewer = Viewer(
@@ -426,27 +394,20 @@ def brickify(name, thickness, scale=1.0, dual=True, label=False, save=False, sav
     viewer.view.camera.target = CAMERA_CONFIG["target"]
     viewer.view.camera.distance = CAMERA_CONFIG["distance"]
 
-    # viewer.add(mesh_unified)
-    # if label:
-        # viewer.add(text_mesh, color=Color.blue())
-        # viewer.add(bbox_mesh)
-        # viewer.add(face_mesh, color=Color.pink())
-        # viewer.add(brick)
-
-    if save_scaffold:
+    if do_scaffold:
         viewer.add(scaffold_mesh)
 
-    for fkey, brick in bricks.items():
-        r, g, b = [randint(0, 255) for _ in range(3)]
-        color = Color.from_rgb255(r, g, b)
+    if do_bricks:
+        for fkey, brick in bricks.items():
+            r, g, b = [randint(0, 255) for _ in range(3)]
+            color = Color.from_rgb255(r, g, b)
 
-        viewer.add(
-            brick,
-            color=color,
-            show_points=False,
-            show_edges=True,
-            # opacity=0.5
-        )
+            viewer.add(
+                brick,
+                color=color,
+                show_points=False,
+                show_edges=True
+            )
 
     # show le crème
     viewer.show()
