@@ -12,22 +12,25 @@ from compas.datastructures import mesh_thicken
 from compas.datastructures import mesh_offset
 from compas.datastructures import mesh_delete_duplicate_vertices
 
+from compas.geometry import Line
 from compas.geometry import Sphere
 from compas.geometry import Box
 from compas.geometry import centroid_points
 from compas.geometry import oriented_bounding_box_numpy
-from compas.geometry import oriented_bounding_box_xy_numpy
 from compas.geometry import Transformation
 from compas.geometry import Scale
 from compas.geometry import Frame
 from compas.geometry import Plane
-from compas.geometry import scale_vector
-from compas.geometry import add_vectors
+from compas.geometry import intersection_line_plane
 from compas.geometry import area_triangle
 from compas.geometry import normal_triangle
 from compas.geometry import circle_from_points
+from compas.geometry import normalize_vector
+from compas.geometry import add_vectors
+from compas.geometry import subtract_vectors
 
 from compas.utilities import pairwise
+from compas.utilities import geometric_key
 
 from compas_cgal.booleans import boolean_union_mesh_mesh
 from compas_cgal.booleans import boolean_difference_mesh_mesh
@@ -130,11 +133,11 @@ def generate_bricks(mesh, thickness):
             halfedges
         )
 
+        # triangulate
         for edge_1, edge_2, halfedge in iterable:
             a, b = edge_1
             d, c = edge_2
             face = [a, b, c, d]
-            # triangulate
             is_visited = halfedge in halfedges_visited
             tri_faces = triangulate_face_quad(face, is_visited)
             faces.extend(tri_faces)
@@ -247,6 +250,129 @@ def generate_scaffolding(mesh, thickness):
     return Mesh.from_vertices_and_faces(vertices, faces_tri)
 
 
+def calculate_vertex_nbr_line(vkey, mesh):
+    """
+    """
+    # sift neighbors
+    nbrs_boundary = []
+    nbrs_interior = []
+    for nkey in mesh.vertex_neighbors(vkey):
+        if nkey == vkey:
+            continue
+        if mesh.is_vertex_on_boundary(nkey):
+            nbrs_boundary.append(nkey)
+        else:
+            nbrs_interior.append(nkey)
+    # cases
+    num_nbrs_interior = len(nbrs_interior)
+    if num_nbrs_interior == 1:
+        start = mesh.vertex_coordinates(vkey)
+        end = mesh.vertex_coordinates(nbrs_interior[0])
+        line = (start, end)
+
+    elif num_nbrs_interior == 0:
+        assert len(nbrs_boundary) == 2
+        start = mesh.vertex_coordinates(vkey)
+        lines = []
+        for nkey in nbrs_boundary:
+            line = calculate_vertex_nbr_line(nkey, mesh)
+            lines.append(line)
+
+        assert len(lines) > 0
+
+        end = start
+        for line in lines:
+            a, b = line
+            vector = normalize_vector(subtract_vectors(b, a))
+            end = add_vectors(end, vector)
+        line = (start, end)
+    else:
+        raise ValueError
+
+    return line
+
+
+def generate_boundary_support(mesh, thickness):
+    """
+    Generate the support mesh bearing the bricks at the boundary.
+    """
+    half_thick = thickness / 2.0
+
+    mesh_bottom = mesh_offset(mesh, half_thick)
+    mesh_top = mesh_offset(mesh, half_thick * -2.0)
+
+    # generate xyz polygon bottom
+    polygon_bottom = [mesh_bottom.vertex_coordinates(vkey) for vkey in mesh.vertices_on_boundary()]
+    # if polygon_bottom[0] == polygon_bottom[-1]:
+    #    polygon_bottom.pop()
+
+    # generate xyz polygon top
+    polygon_top = [mesh_top.vertex_coordinates(vkey) for vkey in mesh.vertices_on_boundary()]
+    # if polygon_top[0] == polygon_top[-1]:
+    #    polygon_top.pop()
+
+    # generate xyz polygon that intersects with ground plane
+    lines = []
+    polygon_offset = []
+    polygon_squashed = []
+    ground_level = -half_thick
+    plane = Plane([0.0, 0.0, ground_level], [0.0, 0.0, 1.0])
+
+    for vkey in mesh.vertices_on_boundary():
+
+        start = mesh_top.vertex_coordinates(vkey)
+        line = calculate_vertex_nbr_line(vkey, mesh_top)
+        point = intersection_line_plane(line, plane)
+        if not point:
+            raise ValueError("No intersection found!")
+
+        line = Line(start, point)
+        point = line.point(0.75)
+
+        line = Line(start, point)
+        lines.append(line)
+
+        polygon_offset.append(point)
+        point = point[:]
+        point[2] = ground_level
+        polygon_squashed.append(point)
+
+    # now, weave polygons to make mesh
+    polygons = [
+        polygon_bottom,
+        polygon_top,
+        polygon_offset,
+        polygon_squashed,
+    ]
+
+    # add polygons' points to main vertex list
+    max_vkey = 0
+    gkey_vkey = {}
+    points = []
+
+    for polygon in polygons:
+        for point in polygon:
+            gkey = geometric_key(point)
+            if gkey in gkey_vkey:
+                continue
+            points.append(point)
+            gkey_vkey[gkey] = max_vkey
+            max_vkey += 1
+
+    # weave faces
+    faces = []
+    for polyline in zip(*(pairwise(polygon) for polygon in polygons)):
+        for line_a, line_b in pairwise(polyline + polyline[:1]):
+            a, b = (gkey_vkey[geometric_key(pt)] for pt in line_a)
+            d, c = (gkey_vkey[geometric_key(pt)] for pt in line_b)
+            face = [a, b, c, d]
+            faces.append(face)
+
+    support_mesh = Mesh.from_vertices_and_faces(points, faces)
+
+    return support_mesh
+
+
 def add_registration_spheres(brick, radius, fkey, mesh):
 
     count = 0
@@ -350,6 +476,10 @@ def brickify(
     if do_scaffold:
         scaffold_mesh = generate_scaffolding(mesh, thickness)
 
+    # generate perimetral support base
+    if do_support:
+        support_mesh = generate_boundary_support(mesh, thickness)
+
     # engrave labels
     if do_bricks and do_label:
         for i, fkey in enumerate(mesh.faces()):
@@ -381,6 +511,14 @@ def brickify(
             scaffold_mesh.to_obj(filepath)
             print(f"Saved scaffold to {filepath}")
 
+        if do_support:
+            filepath = os.path.join(DATA, "support.json")
+            support_mesh.to_json(filepath)
+            print(f"Saved scaffold to {filepath}")
+            filepath = os.path.join(DATA, "support.obj")
+            support_mesh.to_obj(filepath)
+            print(f"Saved scaffold to {filepath}")
+
     # visualization
     viewer = Viewer(
         width=900,
@@ -396,6 +534,9 @@ def brickify(
 
     if do_scaffold:
         viewer.add(scaffold_mesh)
+
+    if do_support:
+        viewer.add(support_mesh)
 
     if do_bricks:
         for fkey, brick in bricks.items():
