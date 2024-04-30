@@ -25,6 +25,7 @@ decoder:
   hidden_layer_size: 256
   hidden_layer_num: 3
   activation_fn_name: "elu"
+# loss function
 loss:
   shape:
     include: True
