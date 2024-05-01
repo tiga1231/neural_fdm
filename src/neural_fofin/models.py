@@ -141,14 +141,12 @@ class Decoder(eqx.Module):
     """
     load: Float
     mask_edges: Array
-    qmin: Float
 
-    def __init__(self, load, mask_edges, qmin=-1e-3, *args, **kwargs):
+    def __init__(self, load, mask_edges, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.load = load
         self.mask_edges = mask_edges
-        self.qmin = qmin
 
     def __call__(self, q, x, structure, aux_data=False):
         """
@@ -171,7 +169,7 @@ class Decoder(eqx.Module):
         """
         TODO: A better model should not be first predicting and then masking edges.
         """
-        return q_hat * self.mask_edges + self.qmin
+        return q_hat * self.mask_edges
 
     def get_xyz_fixed(self, x, structure):
         """
