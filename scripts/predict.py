@@ -115,8 +115,11 @@ def predict_batch(
     mesh = build_mesh_from_generator(generator)
     compute_loss = build_loss_function(config, generator)
 
-    # load model
+    # print info
     print(f"Making predictions with {NAME} on {generator_name} dataset with {bounds_name} bounds\n")
+    print(f"Structure size: {structure.num_vertices} vertices, {structure.num_edges} edges")
+
+    # load model
     filepath = os.path.join(DATA, f"{NAME}_{CONFIG_NAME}.eqx")
     _model_name = NAME.split("_")[0]
     model_skeleton = build_neural_model(_model_name, config, generator, model_key)
@@ -162,6 +165,7 @@ def predict_batch(
         mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
         network_hat = FDNetwork.from_mesh(mesh_hat)
         network_hat.print_stats()
+        print()
 
         # export prediction
         if SAVE:
@@ -191,12 +195,12 @@ def predict_batch(
             viewer.view.camera.distance = CAMERA_CONFIG["distance"]
 
             # approximated mesh
-            viewer.add(
-                mesh_hat,
-                show_points=False,
-                show_edges=False,
-                opacity=0.2
-            )
+            # viewer.add(
+            #     mesh_hat,
+            #     show_points=False,
+            #     show_edges=False,
+            #     opacity=0.2
+            # )
 
             # edge colors
             if EDGECOLOR == "force":
@@ -223,7 +227,8 @@ def predict_batch(
                 edgecolor = EDGECOLOR
 
             viewer.add(network_hat,
-                       edgewidth=(0.01, 0.3),
+                       # edgewidth=(0.01, 0.3),
+                       edgewith=0.01,
                        edgecolor=edgecolor,
                        show_edges=True,
                        edges=[edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)],
@@ -231,7 +236,7 @@ def predict_batch(
                        show_loads=False,
                        loadscale=1.0,
                        show_reactions=True,
-                       reactionscale=1.0,
+                       reactionscale=5.0,
                        reactioncolor=Color.from_rgb255(0, 150, 10),
                        )
 

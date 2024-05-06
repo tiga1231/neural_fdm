@@ -113,13 +113,15 @@ def train_model_from_config(model, config, callback=None):
     training_params = config["training"]
     batch_size = training_params["batch_size"]
     steps = training_params["steps"]
+    generator_name = config['generator']['name']
+    bounds_name = config['generator']['bounds']
 
     # randomness
     key = jrn.PRNGKey(seed)
     model_key, generator_key = jax.random.split(key, 2)
 
     # create experiment
-    print(f"\nTraining {MODEL_NAME}")
+    print(f"\nTraining {MODEL_NAME} on {generator_name} dataset with {bounds_name} bounds")
     generator = build_data_generator(config)
     structure = build_connectivity_structure_from_generator(generator)
     optimizer = build_optimizer(config)
@@ -131,6 +133,7 @@ def train_model_from_config(model, config, callback=None):
 
     # warmstart
     start_loss = compute_loss(model, structure, xyz)
+    print(f"Structure size: {structure.num_vertices} vertices, {structure.num_edges} edges")
     print(f"{MODEL_NAME} start loss: {start_loss:.6f}")
 
     # train models

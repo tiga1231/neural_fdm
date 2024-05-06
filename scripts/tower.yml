@@ -2,13 +2,13 @@
 seed: 91
 # data generator
 generator:
-  name: "tower_ellipse"  # options: tower_ellipse, tower_circle
+  name: "tower_circle"  # options: tower_ellipse, tower_circle
   bounds: "straight"  # options: straight, twisted
   height: 10.0
   radius: 2.0
-  num_sides: 8
+  num_sides: 16
   num_levels: 21
-  num_rings: 3  # 2 of them are fixed (top and bottom rings)
+  num_rings: 3  # must be >=3, 2 of them are the top and bottom supports
 # fd simulation
 fdm:
   load: 0.0  # -0.5, scale of vertical area load

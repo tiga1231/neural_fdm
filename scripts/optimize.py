@@ -299,7 +299,8 @@ def match_batch(
                 edgecolor = EDGECOLOR
 
             viewer.add(network_hat,
-                       edgewidth=(0.01, 0.2),
+                       # edgewidth=(0.01, 0.2),
+                       edgewith=0.01,
                        edgecolor=edgecolor,
                        show_edges=True,
                        edges=[edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)],
@@ -307,7 +308,7 @@ def match_batch(
                        show_loads=False,
                        loadscale=1.0,
                        show_reactions=True,
-                       reactionscale=1.0,
+                       reactionscale=5.0,
                        reactioncolor=Color.from_rgb255(0, 150, 10),
                        )
 
