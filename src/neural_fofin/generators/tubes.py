@@ -1,5 +1,9 @@
+import numpy as np
+
 from jax import vmap
+
 import jax.random as jrn
+
 import jax.numpy as jnp
 
 
@@ -7,7 +11,21 @@ import jax.numpy as jnp
 # Generators
 # ===============================================================================
 
-class EllipticalTubePointGenerator:
+class TubePointGenerator:
+    """
+    A generator that outputs point evaluated on a wiggled tube.
+    """
+    pass
+
+
+class CircularTubePointGenerator(TubePointGenerator):
+    """
+    A generator that outputs point evaluated on a wiggled elliptical tube.
+    """
+    pass
+
+
+class EllipticalTubePointGenerator(TubePointGenerator):
     """
     A generator that outputs point evaluated on a wiggled elliptical tube.
     """
@@ -20,18 +38,35 @@ class EllipticalTubePointGenerator:
             num_rings,
             minval,
             maxval):
+
         # sanity checks
-        assert num_rings >= 2
+        assert num_rings >= 3, "Must include at least 1 ring in the middle!"
         self._check_array_shapes(num_rings, minval, maxval)
 
         self.height = height
         self.radius = radius
+
         self.num_sides = num_sides
         self.num_levels = num_levels
         self.num_rings = num_rings
+
         self.minval = minval
         self.maxval = maxval
-        self.indices = self._calculate_ring_indices()
+
+        self.indices_rings = self._calculate_ring_indices()
+        self.indices_rings_free = self._calculate_ring_indices_free()
+
+        self.shape_tube = (num_levels, num_sides, 3)
+        self.shape_rings = (num_rings, num_sides, 3)
+
+    def __call__(self, key, wiggle=True):
+        """
+        Generate points.
+        """
+        # points = self.points_on_ellipses(key)
+        points = self.points_on_tube(key, wiggle)
+
+        return jnp.ravel(points)
 
     def _calculate_ring_indices(self):
         """
@@ -43,6 +78,20 @@ class EllipticalTubePointGenerator:
         indices = jnp.array(indices, dtype=jnp.int64)
 
         assert indices.size == self.num_rings
+
+        return indices
+
+    def _calculate_ring_indices_free(self):
+        """
+        Compute the indices of the rings in the sequence of levels.
+        """
+        indices = []
+        for index in self.indices_rings[1:-1]:
+            start = index * self.num_sides
+            end = start + self.num_sides
+            indices.extend(range(start, end))
+
+        indices = jnp.array(indices, dtype=jnp.int64)
 
         return indices
 
@@ -72,14 +121,6 @@ class EllipticalTubePointGenerator:
 
         return jrn.uniform(key, shape=shape, minval=minval, maxval=maxval)
 
-    def __call__(self, key, wiggle=True):
-        """
-        """
-        # points = self.points_on_ellipses(key)
-        points = self.points_on_tube(key, True)
-        # serve raveled
-        return jnp.ravel(points)
-
     def points_on_tube(self, key=None, wiggle=False):
         """
         """
@@ -90,10 +131,8 @@ class EllipticalTubePointGenerator:
         if wiggle:
             wiggle_radii, wiggle_angle = self.wiggle(key)
             wiggle_radii = wiggle_radii * self.radius
-            radii = radii.at[self.indices, :].set(wiggle_radii)
-            angles = angles.at[self.indices].set(wiggle_angle)
-            # print(f"{wiggle_angle.shape=}, {wiggle_angle=}")
-            # print(f"{wiggle_radii.shape=}, {wiggle_radii=}")
+            radii = radii.at[self.indices_rings, :].set(wiggle_radii)
+            angles = angles.at[self.indices_rings].set(wiggle_angle)
 
         points = points_on_ellipses(
             radii[:, 0],
@@ -133,6 +172,24 @@ class EllipticalTubePointGenerator:
 
         assert minval_shape == shape, f"{minval_shape} vs. {shape}"
         assert maxval_shape == shape, f"{maxval_shape} vs. {shape}"
+
+    def _indices_ravel(self):
+        """
+        TODO: Probably delete me.
+        """
+        slice = np.s_[self.indices, :, :]
+        slice = np.s_[self.indices, 0:self.num_rings, 0:3]
+
+        ones = np.ones((self.num_sides * 3,), dtype=np.int32)
+        a = [i for index in self.indices for i in (ones * index).tolist()]
+        b = list(range(self.num_sides)) * (self.num_rings * 3)
+        c = list(range(3)) * (self.num_rings * self.num_sides)
+        assert len(a) == len(b) == len(c)
+        slice = [a, b, c]
+        shape = (self.num_rings, self.num_sides, 3)
+        indices = np.ravel_multi_index(slice, shape)
+
+        return indices
 
 
 # ===============================================================================
@@ -240,6 +297,8 @@ if __name__ == "__main__":
         maxval=jnp.array([2.0, 2.0, 0.0]),
     )
 
+    print(generator.indices_rings, generator.shape_tube)
+
     # randomness
     seed = 91
     key = jrn.PRNGKey(seed)
@@ -249,13 +308,16 @@ if __name__ == "__main__":
     # sample data batch
     xyz_batch = vmap(generator)(jrn.split(generator_key, batch_size))
     print(f"{xyz_batch.shape=}")
+    xyz_ellipse_batch = vmap(generator.points_on_ellipses)(jrn.split(generator_key, batch_size))
 
     # xyz_batch = jnp.reshape(xyz_batch, (batch_size, num_levels, num_sides, 3))
     # print(f"{xyz_batch.shape=}")
 
-    # for xyzs in xyz_batch:
-    #     print(f"{xyzs.shape=}")
-    #     # assert xyzs.shape == (num_levels, num_sides, 3)
+    for xyzs, xyzs_ellipse in zip(xyz_batch, xyz_ellipse_batch):
+        print(f"{xyzs.shape=}")
+        xyzs = jnp.reshape(xyzs, generator.shape_rings)
+        assert jnp.allclose(xyzs, xyzs_ellipse)
+    raise
     #     assert xyzs.shape == (num_rings, num_sides, 3)
     #     print("Generated")
 
