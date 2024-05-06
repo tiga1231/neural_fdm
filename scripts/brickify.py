@@ -101,14 +101,24 @@ def triangulate_face(face, vertices, reverse=False):
     return new_faces
 
 
+def calculate_brick_thicknesses(thickness):
+    """
+    Calculate the top and bottom thicknesses of a brick.
+    """
+    thick_bottom = thickness / 3.0
+    thick_top = 2.0 * thickness / 3.0
+
+    return thick_bottom, thick_top
+
+
 def generate_bricks(mesh, thickness):
     """
     Generate a solid brick per mesh face.
     """
-    half_thick = thickness / 2.0
+    thick_bottom, thick_top = calculate_brick_thicknesses(thickness)
 
-    mesh_bottom = mesh_offset(mesh, half_thick)
-    mesh_top = mesh_offset(mesh, half_thick * -1.0)
+    mesh_bottom = mesh_offset(mesh, thick_bottom)
+    mesh_top = mesh_offset(mesh, thick_top * -1.0)
 
     bricks = {}
     halfedges_visited = set()
@@ -296,26 +306,22 @@ def generate_boundary_support(mesh, thickness):
     """
     Generate the support mesh bearing the bricks at the boundary.
     """
-    half_thick = thickness / 2.0
+    thick_bottom, thick_top = calculate_brick_thicknesses(thickness)
 
-    mesh_bottom = mesh_offset(mesh, half_thick)
-    mesh_top = mesh_offset(mesh, half_thick * -2.0)
+    mesh_bottom = mesh_offset(mesh, thick_bottom)
+    mesh_top = mesh_offset(mesh, thick_top * -2.0)
 
     # generate xyz polygon bottom
     polygon_bottom = [mesh_bottom.vertex_coordinates(vkey) for vkey in mesh.vertices_on_boundary()]
-    # if polygon_bottom[0] == polygon_bottom[-1]:
-    #    polygon_bottom.pop()
 
     # generate xyz polygon top
     polygon_top = [mesh_top.vertex_coordinates(vkey) for vkey in mesh.vertices_on_boundary()]
-    # if polygon_top[0] == polygon_top[-1]:
-    #    polygon_top.pop()
 
     # generate xyz polygon that intersects with ground plane
     lines = []
     polygon_offset = []
     polygon_squashed = []
-    ground_level = -half_thick
+    ground_level = -thick_bottom
     plane = Plane([0.0, 0.0, ground_level], [0.0, 0.0, 1.0])
 
     for vkey in mesh.vertices_on_boundary():
@@ -406,6 +412,21 @@ def carve_registration_spheres(brick, radius, fkey, mesh):
     return brick
 
 
+def mesh_order_faces_xy(mesh):
+    """
+    Order the faces based on their X coordinate.
+    """
+    vertices, faces = mesh.to_vertices_and_faces()
+
+    def sort_fn(face):
+        x, y, z = centroid_points([mesh.vertex_coordinates(vkey) for vkey in face])
+        return x, y
+
+    faces_sorted = sorted(faces, key=sort_fn)
+
+    return Mesh.from_vertices_and_faces(vertices, faces_sorted)
+
+
 # ===============================================================================
 # Script function
 # ===============================================================================
@@ -461,6 +482,9 @@ def brickify(
     if dual:
         mesh = mesh_dual(mesh, include_boundary=True)
         mesh_delete_duplicate_vertices(mesh)
+
+        # reorder faces according to x, y coordinates because dual messes it up
+        # mesh = mesh_order_faces_xy(mesh)
 
     # scale mesh
     if scale != 1.0:
@@ -524,7 +548,7 @@ def brickify(
         width=900,
         height=900,
         show_grid=True,
-        viewmode="ghosted"
+        viewmode="lighted"
     )
 
     # modify view
