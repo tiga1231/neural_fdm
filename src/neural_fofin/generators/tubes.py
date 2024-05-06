@@ -18,13 +18,6 @@ class TubePointGenerator:
     pass
 
 
-class CircularTubePointGenerator(TubePointGenerator):
-    """
-    A generator that outputs point evaluated on a wiggled elliptical tube.
-    """
-    pass
-
-
 class EllipticalTubePointGenerator(TubePointGenerator):
     """
     A generator that outputs point evaluated on a wiggled elliptical tube.
@@ -54,7 +47,8 @@ class EllipticalTubePointGenerator(TubePointGenerator):
         self.maxval = maxval
 
         self.indices_rings = self._calculate_ring_indices()
-        self.indices_rings_free = self._calculate_ring_indices_free()
+        self.indices_rings_ravel = self._calculate_ring_indices_ravel()
+        self.indices_rings_free_ravel = self._calculate_ring_indices_free_ravel()
 
         self.shape_tube = (num_levels, num_sides, 3)
         self.shape_rings = (num_rings, num_sides, 3)
@@ -81,7 +75,21 @@ class EllipticalTubePointGenerator(TubePointGenerator):
 
         return indices
 
-    def _calculate_ring_indices_free(self):
+    def _calculate_ring_indices_ravel(self):
+        """
+        Compute the indices of the rings in the sequence of levels.
+        """
+        indices = []
+        for index in self.indices_rings:
+            start = index * self.num_sides
+            end = start + self.num_sides
+            indices.extend(range(start, end))
+
+        indices = jnp.array(indices, dtype=jnp.int64)
+
+        return indices
+
+    def _calculate_ring_indices_free_ravel(self):
         """
         Compute the indices of the rings in the sequence of levels.
         """
@@ -173,23 +181,61 @@ class EllipticalTubePointGenerator(TubePointGenerator):
         assert minval_shape == shape, f"{minval_shape} vs. {shape}"
         assert maxval_shape == shape, f"{maxval_shape} vs. {shape}"
 
-    def _indices_ravel(self):
-        """
-        TODO: Probably delete me.
-        """
-        slice = np.s_[self.indices, :, :]
-        slice = np.s_[self.indices, 0:self.num_rings, 0:3]
 
-        ones = np.ones((self.num_sides * 3,), dtype=np.int32)
-        a = [i for index in self.indices for i in (ones * index).tolist()]
-        b = list(range(self.num_sides)) * (self.num_rings * 3)
-        c = list(range(3)) * (self.num_rings * self.num_sides)
-        assert len(a) == len(b) == len(c)
-        slice = [a, b, c]
-        shape = (self.num_rings, self.num_sides, 3)
-        indices = np.ravel_multi_index(slice, shape)
+class CircularTubePointGenerator(EllipticalTubePointGenerator):
+    """
+    A generator that outputs point evaluated on a wiggled elliptical tube.
+    """
+    def wiggle_radii(self, key):
+        """
+        Sample a 2D transformation vector from a uniform distribution.
+        """
+        shape = (self.num_rings,)
+        minval = self.minval[0]
+        maxval = self.maxval[0]
 
-        return indices
+        return jrn.uniform(key, shape=shape, minval=minval, maxval=maxval)
+
+    def points_on_tube(self, key=None, wiggle=False):
+        """
+        """
+        heights = jnp.linspace(0.0, self.height, self.num_levels)
+        radii = jnp.ones(shape=(self.num_levels,)) * self.radius
+        angles = jnp.ones(shape=(self.num_levels,))
+
+        if wiggle:
+            wiggle_radii, wiggle_angle = self.wiggle(key)
+            wiggle_radii = wiggle_radii * self.radius
+            radii = radii.at[self.indices_rings].set(wiggle_radii)
+            angles = angles.at[self.indices_rings].set(wiggle_angle)
+
+        points = points_on_ellipses(
+            radii,
+            radii,
+            heights,
+            self.num_sides,
+            angles,
+        )
+
+        return points
+
+    def points_on_ellipses(self, key):
+        """
+        """
+        heights = jnp.linspace(0.0, self.height, self.num_rings)
+
+        radii, angles = self.wiggle(key)
+        radii = radii * self.radius
+
+        points = points_on_ellipses(
+            radii,
+            radii,
+            heights,
+            self.num_sides,
+            angles,
+        )
+
+        return points
 
 
 # ===============================================================================
