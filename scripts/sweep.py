@@ -33,14 +33,11 @@ def log_to_wandb(model, opt_state, loss_vals):
     """
     Record metrics in weights and biases.
     """
-    loss, error_terms = loss_vals[0], loss_vals[1:]
-    shape_error, residual_error = error_terms
+    labels = ["Loss", "Shape error", "Residual error", "Smooth error"]
 
-    metrics = {
-        "loss": loss.item(),
-        "shape_error": shape_error.item(),
-        "residual_error": residual_error.item(),
-        }
+    metrics = {}
+    for label, value in zip(labels, loss_vals):
+        metrics[label] = value.item()
 
     wandb.log(metrics)
 
@@ -57,6 +54,7 @@ def sweep(**kwargs):
 
     config = wandb.config
     MODEL_NAME = config.model
+    TASK_NAME = config.generator["name"]
 
     # train model with wandb config
     train_data = train_model_from_config(
@@ -71,6 +69,7 @@ def sweep(**kwargs):
     loss_params = config["loss"]
     if loss_params["residual"]["include"] > 0 and MODEL_NAME != "formfinder":
         filename += "_pinn"
+    filename += f"_{TASK_NAME}"
 
     filepath = f"{filename}.eqx"
     save_model(filepath, trained_model)

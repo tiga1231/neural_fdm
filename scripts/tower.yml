@@ -27,18 +27,14 @@ decoder:
   activation_fn_name: "elu"
 # loss function
 loss:
-  shape:
-    include: True
-    weight: 1.0  # weight of the shape error term in the loss function
-    scale: 1.0  # 30.0, bbox length (used for normalization)
-  residual:  # PINN term
-    include: True
-    weight: 1.0  # weight of the residual error term in the loss function
-    scale: 1.0  # 0.5, fdm load scale (used for normalization)
   energy:
     include: True
     weight: 1.0  # weight of the smoothness energy term in the loss function
     scale: 1.0  # 30.0, bbox length (used for normalization)
+  residual:  # PINN and task term
+    include: True
+    weight: 1.0  # weight of the residual error term in the loss function
+    scale: 1.0  # 0.5, fdm load scale (used for normalization)
 # optimizer
 optimizer:
   name: "adam"
