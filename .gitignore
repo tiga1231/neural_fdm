@@ -24,6 +24,7 @@ scripts/*.png
 scripts/*.ai
 scripts/*.svg
 scripts/*.indd
+scripts/*.eqx
 
 **/wandb/
 
