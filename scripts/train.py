@@ -10,10 +10,9 @@ from neural_fofin import DATA
 
 from neural_fofin.training import train_model
 
-from neural_fofin.losses import compute_loss
-
 from neural_fofin.plotting import plot_smoothed_losses
 
+from neural_fofin.builders import build_loss_function
 from neural_fofin.builders import build_data_generator
 from neural_fofin.builders import build_connectivity_structure_from_generator
 from neural_fofin.builders import build_neural_model
@@ -26,7 +25,7 @@ from neural_fofin.serialization import save_model
 # Script function
 # ===============================================================================
 
-def train(model, config="config", plot=True, save=True):
+def train(model, task, plot=True, save=True):
     """
     Train a model to approximate a family of arbitrary shapes with mechanically-feasible geometries.
 
@@ -35,8 +34,8 @@ def train(model, config="config", plot=True, save=True):
     model: `str`
         The model name.
         Supported models are formfinder, autoencoder, and piggy.
-    config: `str`
-        The filepath (without extension) of the YAML config file with the training hyperparameters.
+    task: `str`
+        The name of the YAML config file with the task hyperparameters.
     plot: `bool`
         If `True`, plot the loss curves.
     save: `bool`
@@ -45,7 +44,7 @@ def train(model, config="config", plot=True, save=True):
     MODEL_NAME = model
     SAVE = save
     PLOT = plot
-    CONFIG_NAME = config
+    CONFIG_NAME = task
 
     # load yaml file with hyperparameters
     with open(f"{CONFIG_NAME}.yml") as file:
@@ -58,7 +57,7 @@ def train(model, config="config", plot=True, save=True):
     # plot loss curves
     if PLOT:
         print("\nPlotting")
-        loss_labels = ["loss", "shape", "residual"]
+        loss_labels = ["loss", "shape", "residual", "smoothness"]
         plot_smoothed_losses(loss_history,
                              window_size=50,
                              labels=loss_labels)
@@ -67,10 +66,11 @@ def train(model, config="config", plot=True, save=True):
     if SAVE:
         print("\nSaving results")
 
-        _filename = MODEL_NAME
+        _filename = f"{MODEL_NAME}"
         loss_params = config["loss"]
         if loss_params["residual"]["include"] > 0 and MODEL_NAME != "formfinder":
             _filename += "_pinn"
+        _filename += f"_{CONFIG_NAME}"
 
         _filepath = os.path.join(DATA, f"{_filename}.eqx")
         save_model(_filepath, trained_model)
@@ -103,7 +103,6 @@ def train_model_from_config(model, config, callback=None):
         Supported models are formfinder, autoencoder, and piggy.
     config: `dict`
         A dictionary with the hyperparameters configuration.
-        If `True`, save the trained model and the loss histories.
     callback: `Callable`
         A callback function to call at every train step.
     """
@@ -114,7 +113,6 @@ def train_model_from_config(model, config, callback=None):
     training_params = config["training"]
     batch_size = training_params["batch_size"]
     steps = training_params["steps"]
-    loss_params = config["loss"]
 
     # randomness
     key = jrn.PRNGKey(seed)
@@ -125,13 +123,14 @@ def train_model_from_config(model, config, callback=None):
     generator = build_data_generator(config)
     structure = build_connectivity_structure_from_generator(generator)
     optimizer = build_optimizer(config)
+    compute_loss = build_loss_function(config, generator)
     model = build_neural_model(MODEL_NAME, config, generator, model_key)
 
     # sample initial data batch
     xyz = vmap(generator)(jrn.split(generator_key, batch_size))
 
     # warmstart
-    start_loss = compute_loss(model, structure, xyz, loss_params)
+    start_loss = compute_loss(model, structure, xyz)
     print(f"{MODEL_NAME} start loss: {start_loss:.6f}")
 
     # train models
@@ -142,7 +141,7 @@ def train_model_from_config(model, config, callback=None):
         structure,
         optimizer,
         generator,
-        loss_params=loss_params,
+        loss_fn=compute_loss,
         num_steps=steps,
         batch_size=batch_size,
         key=generator_key,
@@ -155,7 +154,7 @@ def train_model_from_config(model, config, callback=None):
 
     trained_model, trained_opt_states, loss_history = train_data
 
-    end_loss = compute_loss(trained_model, structure, xyz, loss_params)
+    end_loss = compute_loss(trained_model, structure, xyz)
     print(f"{MODEL_NAME} last loss: {end_loss}")
 
     return train_data
