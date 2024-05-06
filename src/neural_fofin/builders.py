@@ -43,13 +43,9 @@ def ellipse_minmax_values():
     The boundary values for an ellipse.
     """
     # radius 1, radius 2, rotation
-    # minval = [0.5, 0.5, 0.0]
-    # maxval = [2.0, 2.0, 0.0]
-    # ellipse
-    minval = [0.6, 0.8, 0.0]
-    maxval = [0.6, 0.8, 0.0]
-    # minval = [1.0, 1.0, 0.0]
-    #maxval = [1.0, 1.0, 0.0]
+    # radii are scale factors relative to the base radius of a tower
+    minval = [0.5, 0.5, 0.0]
+    maxval = [2.0, 2.0, 0.0]
 
     return minval, maxval
 
@@ -59,7 +55,7 @@ def ellipse_rotated_minmax_values():
     The boundary values for rotated ellipse.
     """
     # radius 1, radius 2, rotation
-    # radii are scale factors for the defined base radius of a tower
+    # radii are scale factors relative to the base radius of a tower
     minval = [0.5, 0.5, -45.0]
     maxval = [2.0, 2.0, 45.0]
 
@@ -377,7 +373,7 @@ def build_loss_function(config, generator):
         _loss_fn = compute_loss_shape_residual
 
     elif "tower" in task_name:
-        loss_params["residual"]["indices"] = generator.indices_rings_free
+        loss_params["residual"]["indices"] = generator.indices_rings_free_ravel
         _loss_fn = compute_loss_residual_smoothness
 
     loss_fn = partial(
@@ -543,7 +539,7 @@ def build_neural_decoder(mesh, key, params):
 # Encoders
 # ===============================================================================
 
-def build_neural_encoder(mesh, key, params):
+def build_neural_encoder(mesh, key, params, generator):
     """
     """
     # unpack hyperparameters
@@ -563,13 +559,23 @@ def build_neural_encoder(mesh, key, params):
 
     # define input size
     in_size = num_vertices
-    # if "tower" in generator_params["name"]:
-        # in_size = generator_params["num_rings"] * generator_params["num_sides"]
+    is_tower_task = "tower" in generator_params["name"]
+    if is_tower_task:
+        in_size = generator_params["num_rings"] * generator_params["num_sides"]
     in_size *= 3
+
+    # define slices
+    slice_out = False
+    slice_indices = None
+    if is_tower_task:
+        slice_out = True
+        slice_indices = generator.indices_rings_ravel
 
     # instantiate MLP
     encoder = MLPEncoder(
         edges_signs=edges_signs,
+        slice_out=slice_out,
+        slice_indices=slice_indices,
         in_size=in_size,
         out_size=num_edges,
         width_size=hidden_layer_size,
@@ -586,14 +592,14 @@ def build_neural_encoder(mesh, key, params):
 # Autoencoder models
 # ===============================================================================
 
-def build_neural_formfinder(mesh, key, params):
+def build_neural_formfinder(mesh, key, params, generator):
     """
     """
     # Unpack hyperparams
     nn_params, fd_params = params
 
     # Create MLP encoder
-    encoder = build_neural_encoder(mesh, key, nn_params)
+    encoder = build_neural_encoder(mesh, key, nn_params, generator)
 
     # Build FD decoder
     decoder = build_fd_decoder(mesh, fd_params)
@@ -604,14 +610,14 @@ def build_neural_formfinder(mesh, key, params):
     return model
 
 
-def build_neural_autoencoder(mesh, key, params):
+def build_neural_autoencoder(mesh, key, params, generator):
     """
     """
     # Unpack hyperparams
     enc_params, dec_params = params
 
     # Create MLP encoder
-    encoder = build_neural_encoder(mesh, key, enc_params)
+    encoder = build_neural_encoder(mesh, key, enc_params, generator)
 
     # Build MLP decoder
     decoder = build_neural_decoder(mesh, key, dec_params)
@@ -622,7 +628,7 @@ def build_neural_autoencoder(mesh, key, params):
     return model
 
 
-def build_neural_autoencoder_piggy(mesh, key, params):
+def build_neural_autoencoder_piggy(mesh, key, params, generator):
     """
     """
     # Unpack hyperparams
@@ -630,7 +636,7 @@ def build_neural_autoencoder_piggy(mesh, key, params):
     enc_params, dec_params, fd_params = params
 
     # Create MLP encoder
-    encoder = build_neural_encoder(mesh, key, enc_params)
+    encoder = build_neural_encoder(mesh, key, enc_params, generator)
 
     # Build FD decoder
     decoder = build_fd_decoder(mesh, fd_params)
@@ -671,4 +677,4 @@ def build_neural_model(name, config, generator, model_key):
     else:
         raise ValueError(f"Model name {name} is unsupported")
 
-    return build_fn(mesh, model_key, params)
+    return build_fn(mesh, model_key, params, generator)
