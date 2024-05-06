@@ -84,6 +84,54 @@ def _compute_loss_piggy(loss_fn, loss_params, x, x_data_hat, y_data_hat, structu
     return loss_data
 
 
+def compute_loss_residual_smoothness(x, x_hat, params_hat, structure, loss_params, aux_data, *args):
+    """
+    Compute the model loss.
+
+    Parameters
+    ----------
+    x : target
+    x_hat : prediction
+    params_hat : parameters prediction (aux data)
+    structure : the connectivity graph of the structure
+    loss_params : the scaling parameters to combine the loss' error terms
+    aux_data : if true, returns auxiliary data
+    """
+    loss_shape = jnp.array([0.0])
+
+    # include support ring vertices to compute residual error on
+    residual_params = loss_params["residual"]
+    indices_rings = residual_params["indices"]
+    indices = structure.indices_free
+    indices = jnp.concatenate((indices, indices_rings))
+    factor_residual = residual_params["weight"] / residual_params["scale"]
+    loss_residual = compute_error_residual(x_hat, params_hat, structure, indices)
+    loss_residual = factor_residual * loss_residual
+
+    smooth_params = loss_params["energy"]
+    factor_smooth = smooth_params["weight"] / smooth_params["scale"]
+    loss_smooth = compute_error_smoothness(x_hat, params_hat, structure)
+    loss_smooth = factor_smooth * loss_smooth
+
+    loss = 0.0
+    if residual_params["include"]:
+        loss = loss + loss_residual
+    if smooth_params["include"]:
+        loss = loss + loss_smooth
+
+    loss_terms = (
+        loss,
+        loss_shape,
+        loss_residual,
+        loss_smooth
+    )
+
+    if aux_data:
+        return loss, loss_terms
+
+    return loss
+
+
 def compute_loss_shape_residual_smoothness(x, x_hat, params_hat, structure, loss_params, aux_data, *args):
     """
     Compute the model loss.
@@ -104,17 +152,20 @@ def compute_loss_shape_residual_smoothness(x, x_hat, params_hat, structure, loss
     dims = shape_params["dims"]
     indices = shape_params["indices"]
 
-    def reshape_shape(_x):
+    def slice_x(_x):
         return jnp.reshape(_x, dims)[indices, :].ravel()
 
-    x_hat_slice = vmap(reshape_shape)(x_hat)
+    x_slice = vmap(slice_x)(x)
+    x_hat_slice = vmap(slice_x)(x_hat)
+    assert x_slice.shape == x_hat_slice.shape
 
-    loss_shape = compute_error_shape(x, x_hat_slice)
+    loss_shape = compute_error_shape_l2(x_slice, x_hat_slice)
     loss_shape = factor_shape * loss_shape
 
+    indices = structure.indices_free
     residual_params = loss_params["residual"]
     factor_residual = residual_params["weight"] / residual_params["scale"]
-    loss_residual = compute_error_residual(x_hat, params_hat, structure)
+    loss_residual = compute_error_residual(x_hat, params_hat, structure, indices)
     loss_residual = factor_residual * loss_residual
 
     smooth_params = loss_params["energy"]
@@ -158,12 +209,13 @@ def compute_loss_shape_residual(x, x_hat, params_hat, structure, loss_params, au
     """
     shape_params = loss_params["shape"]
     factor_shape = shape_params["weight"] / shape_params["scale"]
-    loss_shape = compute_error_shape(x, x_hat)
+    loss_shape = compute_error_shape_l1(x, x_hat)
     loss_shape = factor_shape * loss_shape
 
+    indices = structure.indices_free
     residual_params = loss_params["residual"]
     factor_residual = residual_params["weight"] / residual_params["scale"]
-    loss_residual = compute_error_residual(x_hat, params_hat, structure)
+    loss_residual = compute_error_residual(x_hat, params_hat, structure, indices)
     loss_residual = factor_residual * loss_residual
 
     loss = 0.0
@@ -184,7 +236,7 @@ def compute_loss_shape_residual(x, x_hat, params_hat, structure, loss_params, au
     return loss
 
 
-def compute_error_shape(x, x_hat):
+def compute_error_shape_l1(x, x_hat):
     """
     Calculate the shape reconstruction error
     """
@@ -194,12 +246,20 @@ def compute_error_shape(x, x_hat):
     return jnp.mean(batch_error, axis=-1)
 
 
-def compute_error_residual(x_hat, params_hat, structure):
+def compute_error_shape_l2(x, x_hat):
+    """
+    Calculate the shape reconstruction error
+    """
+    error = jnp.square(x - x_hat)
+    batch_error = jnp.sum(error, axis=-1)
+
+    return jnp.mean(batch_error, axis=-1)
+
+
+def compute_error_residual(x_hat, params_hat, structure, indices):
     """
     Calculate the residual error.
     """
-    indices_free = structure.indices_free
-
     def calculate_residuals(_x_hat, _params_hat):
         """
         _x_hat: the shape predicted by the model
@@ -208,8 +268,13 @@ def compute_error_residual(x_hat, params_hat, structure):
         NOTE: Not using jnp.linalg.norm because we hitted NaNs.
         """
         q_hat, xyz_fixed, loads = _params_hat
-        residual_vectors = vertices_residuals_from_xyz(q_hat, loads, _x_hat, structure)
-        residual_vectors_free = jnp.ravel(residual_vectors[indices_free, :])
+        residual_vectors = vertices_residuals_from_xyz(
+            q_hat,
+            loads,
+            _x_hat,
+            structure
+        )
+        residual_vectors_free = jnp.ravel(residual_vectors[indices, :])
 
         # return jnp.linalg.norm(residual_vectors_free, axis=-1)
         # return jnp.sqrt(jnp.sum(jnp.square(residual_vectors_free), axis=-1))
@@ -227,15 +292,16 @@ def compute_error_smoothness(x_hat, params_hat, structure):
     """
     Calculate the shape smoothness (fairness) error.
     """
-    error = vmap(vertices_fairness, in_axes=(0, None))(x_hat, structure)
+    error = vmap(vertices_smoothness, in_axes=(0, None))(x_hat, structure)
     batch_error = jnp.sqrt(jnp.sum(error, axis=-1))
+    # batch_error = jnp.sum(error, axis=-1)
 
     return jnp.mean(batch_error, axis=-1)
 
 
-def vertices_fairness(xyz, structure):
+def vertices_smoothness(xyz, structure):
     """
-    Compute the shape fairness energy of the vertices of a structure.
+    Compute the shape smoothness energy of the vertices of a structure.
     """
     xyz = jnp.reshape(xyz, (-1, 3))
 
@@ -270,7 +336,7 @@ def print_loss_summary(loss_terms, labels=None, prefix=None):
         msg_parts.append(prefix)
 
     for term, label in zip(loss_terms, labels):
-        part = f"{label}: {term:.4f}"
+        part = f"{label}: {term.item():.4f}"
         msg_parts.append(part)
 
     msg = "\t".join(msg_parts)
