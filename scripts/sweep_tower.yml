@@ -40,7 +40,7 @@ parameters:
   encoder:
     parameters:
       hidden_layer_size:
-        values: [128, 256, 512, 1024]
+        values: [128, 256, 512]
       hidden_layer_num:
         values: [3, 4, 5]
       activation_fn_name:
@@ -53,7 +53,7 @@ parameters:
       include_params_xl:
         value: True
       hidden_layer_size:
-        values: [128, 256, 512, 1024]
+        values: [128, 256, 512]
       hidden_layer_num:
         values: [3, 4, 5]
       activation_fn_name:

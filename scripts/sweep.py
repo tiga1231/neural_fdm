@@ -33,7 +33,7 @@ def log_to_wandb(model, opt_state, loss_vals):
     """
     Record metrics in weights and biases.
     """
-    labels = ["Loss", "Shape error", "Residual error", "Smooth error"]
+    labels = ["loss", "shape error", "residual error", "smooth error"]
 
     metrics = {}
     for label, value in zip(labels, loss_vals):
