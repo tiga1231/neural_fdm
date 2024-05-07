@@ -2,8 +2,8 @@
 seed: 91
 # data generator
 generator:
-  name: "tower_ellipse"  # options: tower_ellipse, tower_circle
-  bounds: "straight"  # options: straight, twisted
+  name: "tower_circle"  # options: tower_ellipse, tower_circle
+  bounds: "twisted"  # options: straight, twisted
   height: 10.0
   radius: 2.0
   num_sides: 16
@@ -32,11 +32,11 @@ loss:
     weight: 1.0  # weight of the smoothness energy term in the loss function
     scale: 1.0  # 30.0, bbox length (used for normalization)
   energy:
-    include: True
+    include: False
     weight: 1.0  # weight of the smoothness energy term in the loss function
     scale: 1.0  # 30.0, bbox length (used for normalization)
   residual:  # PINN and task term
-    include: True
+    include: False
     weight: 1.0  # weight of the residual error term in the loss function
     scale: 1.0  # 0.5, fdm load scale (used for normalization)
 # optimizer
@@ -45,5 +45,5 @@ optimizer:
   learning_rate: 5.0e-5  # 5.0e-5, Be careful with scientific notation in YAML!
 # training
 training:
-  steps: 1000  # 10000
+  steps: 10000  # 10000
   batch_size: 64

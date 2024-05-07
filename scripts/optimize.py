@@ -51,6 +51,7 @@ def match_batch(
         param_init=None,
         blow=1e-3,
         bup=20.0,
+        maxiter=5000,
         seed=None,
         batch_size=None,
         verbose=True,
@@ -77,6 +78,8 @@ def match_batch(
         The lower bound of the box constraints on the model parameters.
     b_up: `float`
         The lower bound of the box constraints on the model parameters.
+    maxiter: `int`
+        The maximum number of optimization iterations.
     seed: `int`
         The random seed to generate a batch of target shapes.
         If `None`, it defaults to the input hyperparameters file.
@@ -169,7 +172,7 @@ def match_batch(
         method=optimizer_name,
         jit=False,
         tol=1e-6,
-        maxiter=5000,
+        maxiter=maxiter,
         options={"disp": False},
         value_and_grad=True,
     )
@@ -234,8 +237,8 @@ def match_batch(
         eqstate_hat, fd_params_hat = model_opt.predict_states(xyz, structure)
         mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
         network_hat = FDNetwork.from_mesh(mesh_hat)
-        if verbose:
-            network_hat.print_stats()
+        # if verbose:
+            # network_hat.print_stats()
 
         # export prediction
         if SAVE:
@@ -324,12 +327,16 @@ def match_batch(
                     ring = Polygon(ring.tolist())
                     # viewer.add(ring, opacity=0.5)
 
+                lengths = []
                 xyz_hat = model_opt(xyz, structure)
                 rings_hat = jnp.reshape(xyz_hat, generator.shape_tube)[generator.indices_rings, :, :]
                 for ring_a, ring_b in zip(rings, rings_hat):
                     for pt_a, pt_b in zip(ring_a, ring_b):
-                        viewer.add(Line(pt_a, pt_b))
+                        line = Line(pt_a, pt_b)
+                        viewer.add(line)
+                        lengths.append(line.length**2)
 
+                print(f"{sum(lengths)=}")
             # show le crème
             viewer.show()
 
