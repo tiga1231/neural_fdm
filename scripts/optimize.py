@@ -23,6 +23,8 @@ from jaxopt import ScipyBoundedMinimize
 
 from compas.colors import Color
 from compas.colors import ColorMap
+from compas.geometry import Polygon
+from compas.geometry import Line
 
 from jax_fdm.datastructures import FDNetwork
 from jax_fdm.equilibrium import datastructure_updated
@@ -45,7 +47,7 @@ from neural_fofin.losses import print_loss_summary
 
 def match_batch(
         optimizer,
-        task,
+        task_name,
         param_init=None,
         blow=1e-3,
         bup=20.0,
@@ -54,8 +56,7 @@ def match_batch(
         verbose=True,
         save=False,
         view=False,
-        slice_start=0,
-        slice_end=None,
+        slice=(50, 53),
         edgecolor="force"
 ):
     """
@@ -67,7 +68,7 @@ def match_batch(
     optimizer: `str`
         The name gradient-based optimizer used to solve this task.
         Supported methods are "slsqp" and "lbfgsb".
-    task: `str`
+    task_name: `str`
         The filepath (without extension) of the YAML file with the task hyperparameters.
     param_init: `float`
         If specified, it determines the starting value of all the model parameters.
@@ -88,17 +89,13 @@ def match_batch(
         If `True`, save the predicted shapes as JSON files.
     view: `bool`
         If `True`, view the predicted shapes.
-    slice_start: `int`
-        The start of the slice of the batch for saving and viewing.
-    slice_end: `int`
+    slice: `tuple`
         The start of the slice of the batch for saving and viewing.
     edgecolor: `str`
         The color palette for the edges.
         Supported color palettes are "fd" to display force densities, and "force" to show forces.
     """
-    START = slice_start
-    STOP = slice_end or -1
-    CONFIG_NAME = task
+    START, STOP = slice
     EDGECOLOR = edgecolor  # force, fd
     SAVE = save
     QMIN = blow
@@ -115,7 +112,7 @@ def match_batch(
     optimizer_name = optimizer_names[optimizer]
 
     # load yaml file with hyperparameters
-    with open(f"{CONFIG_NAME}.yml") as file:
+    with open(f"{task_name}.yml") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
     # unpack parameters
@@ -136,8 +133,8 @@ def match_batch(
     # create data generator
     generator = build_data_generator(config)
     compute_loss = build_loss_function(config, generator)
-    structure = build_connectivity_structure_from_generator(generator)
-    mesh = build_mesh_from_generator(generator)
+    structure = build_connectivity_structure_from_generator(config, generator)
+    mesh = build_mesh_from_generator(config, generator)
 
     # generate initial model parameters
     q0 = calculate_params_init(mesh, param_init, key, QMIN, QMAX)
@@ -213,6 +210,7 @@ def match_batch(
         start = perf_counter()
         diff_model_opt, opt_res = opt.run(diff_model, bounds, xyz)
         opt_time = perf_counter() - start
+
         # unite optimal and static submodels
         model_opt = eqx.combine(diff_model_opt, static_model)
 
@@ -236,8 +234,8 @@ def match_batch(
         eqstate_hat, fd_params_hat = model_opt.predict_states(xyz, structure)
         mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
         network_hat = FDNetwork.from_mesh(mesh_hat)
-        # if verbose:
-        #    network_hat.print_stats()
+        if verbose:
+            network_hat.print_stats()
 
         # export prediction
         if SAVE:
@@ -298,26 +296,39 @@ def match_batch(
             else:
                 edgecolor = EDGECOLOR
 
-            viewer.add(network_hat,
-                       # edgewidth=(0.01, 0.2),
-                       edgewith=0.01,
-                       edgecolor=edgecolor,
-                       show_edges=True,
-                       edges=[edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)],
-                       nodes=[node for node in mesh.vertices() if len(mesh.vertex_neighbors(node)) > 2],
-                       show_loads=False,
-                       loadscale=1.0,
-                       show_reactions=True,
-                       reactionscale=5.0,
-                       reactioncolor=Color.from_rgb255(0, 150, 10),
-                       )
+            viewer.add(
+                network_hat,
+                edgewidth=(0.01, 0.3),
+                edgecolor=edgecolor,
+                show_edges=True,
+                edges=[edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)],
+                nodes=[node for node in mesh.vertices() if len(mesh.vertex_neighbors(node)) > 2],
+                show_loads=False,
+                loadscale=1.0,
+                show_reactions=True,
+                reactionscale=1.0,
+                reactioncolor=Color.from_rgb255(0, 150, 10),
+            )
 
-            # viewer.add(FDNetwork.from_mesh(mesh_target),
-            #            as_wireframe=True,
-            #            show_points=False,
-            #            linewidth=4.0,
-            #            color=Color.black().lightened()
-            #            )
+            if task_name == "bezier":
+                viewer.add(
+                    FDNetwork.from_mesh(mesh_target),
+                    as_wireframe=True,
+                    show_points=False,
+                    linewidth=4.0,
+                    color=Color.black().lightened()
+                    )
+            elif task_name == "tower":
+                rings = jnp.reshape(xyz, generator.shape_tube)[generator.indices_rings, :, :]
+                for ring in rings:
+                    ring = Polygon(ring.tolist())
+                    # viewer.add(ring, opacity=0.5)
+
+                xyz_hat = model_opt(xyz, structure)
+                rings_hat = jnp.reshape(xyz_hat, generator.shape_tube)[generator.indices_rings, :, :]
+                for ring_a, ring_b in zip(rings, rings_hat):
+                    for pt_a, pt_b in zip(ring_a, ring_b):
+                        viewer.add(Line(pt_a, pt_b))
 
             # show le crème
             viewer.show()

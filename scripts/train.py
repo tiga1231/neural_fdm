@@ -18,6 +18,7 @@ from neural_fofin.builders import build_connectivity_structure_from_generator
 from neural_fofin.builders import build_neural_model
 from neural_fofin.builders import build_optimizer
 
+from neural_fofin.serialization import load_model
 from neural_fofin.serialization import save_model
 
 
@@ -25,58 +26,60 @@ from neural_fofin.serialization import save_model
 # Script function
 # ===============================================================================
 
-def train(model, task, plot=True, save=True):
+def train(model_name, task_name, from_pretrained=False, plot=True, save=True):
     """
     Train a model to approximate a family of arbitrary shapes with mechanically-feasible geometries.
 
     Parameters
     ___________
-    model: `str`
+    model_name: `str`
         The model name.
         Supported models are formfinder, autoencoder, and piggy.
-    task: `str`
+    task_name: `str`
         The name of the YAML config file with the task hyperparameters.
+    from_pretrained: `bool`
+        If `True`, train the model starting from a pretrained version of it.
     plot: `bool`
         If `True`, plot the loss curves.
     save: `bool`
         If `True`, save the trained model and the loss histories.
     """
-    MODEL_NAME = model
-    SAVE = save
-    PLOT = plot
-    CONFIG_NAME = task
-
     # load yaml file with hyperparameters
-    with open(f"{CONFIG_NAME}.yml") as file:
+    with open(f"{task_name}.yml") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
     # train model
-    train_data = train_model_from_config(model, config, callback=None)
-    trained_model, trained_opt_states, loss_history = train_data
+    trained_model, loss_history = train_model_from_config(
+        model_name,
+        config,
+        from_pretrained,
+        callback=None
+    )
+
+    # define loss labels
+    labels = ["loss", "shape", "residual", "smoothness"]
 
     # plot loss curves
-    if PLOT:
+    if plot:
         print("\nPlotting")
-        loss_labels = ["loss", "shape", "residual", "smoothness"]
-        plot_smoothed_losses(loss_history,
-                             window_size=50,
-                             labels=loss_labels)
+        plot_smoothed_losses(loss_history, window_size=50, labels=labels)
 
-    # save models
-    if SAVE:
+    if save:
         print("\nSaving results")
 
-        _filename = f"{MODEL_NAME}"
+        # save trained model
+        _filename = f"{model_name}"
         loss_params = config["loss"]
-        if loss_params["residual"]["include"] > 0 and MODEL_NAME != "formfinder":
+        if loss_params["residual"]["include"] > 0 and model_name != "formfinder":
             _filename += "_pinn"
-        _filename += f"_{CONFIG_NAME}"
+        _filename += f"_{task_name}"
 
         _filepath = os.path.join(DATA, f"{_filename}.eqx")
         save_model(_filepath, trained_model)
         print(f"Saved model to {_filepath}")
 
-        for i, _label in enumerate(loss_labels):
+        # save loss history
+        for i, _label in enumerate(labels):
             _filename_loss = f"losses_{_filename}_{_label}.txt"
 
             _filepath = os.path.join(DATA, _filename_loss)
@@ -92,22 +95,24 @@ def train(model, task, plot=True, save=True):
 # Helper functions
 # ===============================================================================
 
-def train_model_from_config(model, config, callback=None):
+def train_model_from_config(model_name, config, pretrained=False, callback=None):
     """
     Train a model to approximate a family of arbitrary shapes with mechanically-feasible geometries.
 
     Parameters
     ___________
-    model: `str`
+    model_name: `str`
         The model name.
         Supported models are formfinder, autoencoder, and piggy.
     config: `dict`
         A dictionary with the hyperparameters configuration.
+    task_name: `str`
+        The name of the YAML config file with the task hyperparameters.
+    pretrained: `bool`
+        If `True`, train the model starting from a pretrained version of it.
     callback: `Callable`
         A callback function to call at every train step.
     """
-    MODEL_NAME = model
-
     # unpack parameters
     seed = config["seed"]
     training_params = config["training"]
@@ -121,20 +126,26 @@ def train_model_from_config(model, config, callback=None):
     model_key, generator_key = jax.random.split(key, 2)
 
     # create experiment
-    print(f"\nTraining {MODEL_NAME} on {generator_name} dataset with {bounds_name} bounds")
+    print(f"\nTraining {model_name} on {generator_name} dataset with {bounds_name} bounds")
     generator = build_data_generator(config)
-    structure = build_connectivity_structure_from_generator(generator)
+    structure = build_connectivity_structure_from_generator(config, generator)
     optimizer = build_optimizer(config)
     compute_loss = build_loss_function(config, generator)
-    model = build_neural_model(MODEL_NAME, config, generator, model_key)
+    model = build_neural_model(model_name, config, generator, model_key)
+
+    if pretrained:
+        print("Starting from pretrained model")
+        task_name = generator_name.split("_")[0]
+        filepath = os.path.join(DATA, f"{model_name}_{task_name}_pretrain.eqx")
+        model = load_model(filepath, model)
 
     # sample initial data batch
     xyz = vmap(generator)(jrn.split(generator_key, batch_size))
 
     # warmstart
     start_loss = compute_loss(model, structure, xyz)
-    print(f"Structure size: {structure.num_vertices} vertices, {structure.num_edges} edges")
-    print(f"{MODEL_NAME} start loss: {start_loss:.6f}")
+    print(f"The structure has {structure.num_vertices} vertices and {structure.num_edges} edges")
+    print(f"{model_name.capitalize()} start loss: {start_loss:.6f}")
 
     # train models
     print("\nTraining")
@@ -155,10 +166,10 @@ def train_model_from_config(model, config, callback=None):
     print("\nTraining completed")
     print(f"Training time: {end - start:.4f} s")
 
-    trained_model, trained_opt_states, loss_history = train_data
+    trained_model, _ = train_data
 
     end_loss = compute_loss(trained_model, structure, xyz)
-    print(f"{MODEL_NAME} last loss: {end_loss}")
+    print(f"{model_name.capitalize()} last loss: {end_loss}")
 
     return train_data
 

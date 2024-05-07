@@ -18,6 +18,8 @@ import jax.random as jrn
 
 from compas.colors import Color
 from compas.colors import ColorMap
+from compas.geometry import Polygon
+from compas.geometry import Line
 
 from jax_fdm.datastructures import FDNetwork
 from jax_fdm.equilibrium import datastructure_updated
@@ -41,8 +43,8 @@ from neural_fofin.serialization import load_model
 # ===============================================================================
 
 def predict_batch(
-        model,
-        task,
+        model_name,
+        task_name,
         seed=None,
         batch_size=None,
         time_inference=True,
@@ -55,11 +57,11 @@ def predict_batch(
 
     Parameters
     ___________
-    model: `str`
+    model_name: `str`
         The model name.
         Supported models are formfinder, autoencoder, and piggy.
         Append the suffix `_pinn` to load model versions that were trained with a PINN loss.
-    task: `str`
+    task_name: `str`
         The name of the YAML config file with the task hyperparameters.
     seed: `int`
         The random seed to generate a batch of target shapes.
@@ -73,17 +75,14 @@ def predict_batch(
         If `True`, save the predicted shapes as JSON files.
     view: `bool`
         If `True`, view the predicted shapes.
-    slice: `int`
+    slice: `tuple`
         The start of the slice of the batch for saving and viewing.
     edgecolor: `str`
         The color palette for the edges.
         Supported color palettes are "fd" to display force densities, and "force" to show forces.
     """
-    NAME = model
     START, STOP = slice
-    CONFIG_NAME = task
     EDGECOLOR = edgecolor  # force, fd
-    SAVE = save
 
     CAMERA_CONFIG = {
         "position": (30.34, 30.28, 42.94),
@@ -92,7 +91,7 @@ def predict_batch(
     }
 
     # load yaml file with hyperparameters
-    with open(f"{CONFIG_NAME}.yml") as file:
+    with open(f"{task_name}.yml") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
     # unpack parameters
@@ -111,17 +110,17 @@ def predict_batch(
 
     # create data generator
     generator = build_data_generator(config)
-    structure = build_connectivity_structure_from_generator(generator)
-    mesh = build_mesh_from_generator(generator)
+    structure = build_connectivity_structure_from_generator(config, generator)
+    mesh = build_mesh_from_generator(config, generator)
     compute_loss = build_loss_function(config, generator)
 
     # print info
-    print(f"Making predictions with {NAME} on {generator_name} dataset with {bounds_name} bounds\n")
+    print(f"Making predictions with {model_name} on {generator_name} dataset with {bounds_name} bounds\n")
     print(f"Structure size: {structure.num_vertices} vertices, {structure.num_edges} edges")
 
     # load model
-    filepath = os.path.join(DATA, f"{NAME}_{CONFIG_NAME}.eqx")
-    _model_name = NAME.split("_")[0]
+    filepath = os.path.join(DATA, f"{model_name}_{task_name}.eqx")
+    _model_name = model_name.split("_")[0]
     model_skeleton = build_neural_model(_model_name, config, generator, model_key)
     model = load_model(filepath, model_skeleton)
 
@@ -168,8 +167,8 @@ def predict_batch(
         print()
 
         # export prediction
-        if SAVE:
-            filename = f"mesh_{CONFIG_NAME}_{i}"
+        if save:
+            filename = f"mesh_{task_name}_{i}"
             filepath = os.path.join(DATA, f"{filename}.json")
             mesh_hat.to_json(filepath)
             print(f"Saved prediction to {filepath}")
@@ -226,26 +225,39 @@ def predict_batch(
             else:
                 edgecolor = EDGECOLOR
 
-            viewer.add(network_hat,
-                       # edgewidth=(0.01, 0.3),
-                       edgewith=0.01,
-                       edgecolor=edgecolor,
-                       show_edges=True,
-                       edges=[edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)],
-                       nodes=[node for node in mesh.vertices() if len(mesh.vertex_neighbors(node)) > 2],
-                       show_loads=False,
-                       loadscale=1.0,
-                       show_reactions=True,
-                       reactionscale=5.0,
-                       reactioncolor=Color.from_rgb255(0, 150, 10),
-                       )
+            viewer.add(
+                network_hat,
+                edgewidth=(0.01, 0.3),
+                edgecolor=edgecolor,
+                show_edges=True,
+                edges=[edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)],
+                nodes=[node for node in mesh.vertices() if len(mesh.vertex_neighbors(node)) > 2],
+                show_loads=False,
+                loadscale=1.0,
+                show_reactions=True,
+                reactionscale=5.0,
+                reactioncolor=Color.from_rgb255(0, 150, 10),
+            )
 
-            # viewer.add(FDNetwork.from_mesh(mesh_target),
-            #            as_wireframe=True,
-            #            show_points=False,
-            #            linewidth=4.0,
-            #            color=Color.black().lightened()
-            #            )
+            if task_name == "bezier":
+                viewer.add(
+                    FDNetwork.from_mesh(mesh_target),
+                    as_wireframe=True,
+                    show_points=False,
+                    linewidth=4.0,
+                    color=Color.black().lightened()
+                    )
+            elif task_name == "tower":
+                rings = jnp.reshape(xyz, generator.shape_tube)[generator.indices_rings, :, :]
+                for ring in rings:
+                    ring = Polygon(ring.tolist())
+                    viewer.add(ring, opacity=0.5)
+
+                xyz_hat = model(xyz, structure)
+                rings_hat = jnp.reshape(xyz_hat, generator.shape_tube)[generator.indices_rings, :, :]
+                for ring_a, ring_b in zip(rings, rings_hat):
+                    for pt_a, pt_b in zip(ring_a, ring_b):
+                        viewer.add(Line(pt_a, pt_b))
 
             # show le crème
             viewer.show()

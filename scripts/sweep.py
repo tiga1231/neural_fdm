@@ -60,9 +60,10 @@ def sweep(**kwargs):
     train_data = train_model_from_config(
         MODEL_NAME,
         config,
+        pretrained=False,
         callback=log_to_wandb
     )
-    trained_model, trained_opt_states, loss_history = train_data
+    trained_model, _ = train_data
 
     # save trained model to local folder
     filename = MODEL_NAME
