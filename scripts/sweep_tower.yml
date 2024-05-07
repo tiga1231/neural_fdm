@@ -8,7 +8,7 @@ metric:
 # parameters to be sweeped
 parameters:
   model:
-    value: "autoencoder"  # Supported models are formfinder, autoencoder, and piggy
+    value: "formfinder"  # Supported models are formfinder, autoencoder, and piggy
   # randomness
   seed:
     value: 91
@@ -24,7 +24,7 @@ parameters:
       height:
         value: 10.0
       radius:
-        value: 2.0
+        value: 2.5
       num_sides:
         value: 16
       num_levels:
@@ -44,7 +44,7 @@ parameters:
       hidden_layer_num:
         values: [3, 4, 5]
       activation_fn_name:
-        values: ["elu", "relu"]
+        value: "elu"
       final_activation_fn_name:
         value: "softplus"
   # decoder
@@ -57,10 +57,18 @@ parameters:
       hidden_layer_num:
         values: [3, 4, 5]
       activation_fn_name:
-        values: ["elu", "relu"]
+        value: "elu"
   # loss
   loss:
     parameters:
+      shape:
+        parameters:
+          include:
+            value: True
+          weight:
+            value: 1.0
+          scale:
+            value: 1.0
       energy:
         parameters:
           include:
@@ -84,11 +92,11 @@ parameters:
         value: "adam"
       learning_rate:
         # NOTE: Be careful with scientific notation in YAML!
-        values: [1.0e-3, 3.0e-3, 1.0e-4, 3.0e-4, 5.0e-4, 1.0e-5, 3.0e-5, 5.0e-5]
+        values: [1.0e-4, 3.0e-4, 5.0e-4, 1.0e-5, 3.0e-5, 5.0e-5]
   # training
   training:
     parameters:
       steps:
-        value: 10000
+        value: 5000
       batch_size:
         value: 64

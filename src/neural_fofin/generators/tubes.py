@@ -1,5 +1,3 @@
-import numpy as np
-
 from jax import vmap
 
 import jax.random as jrn

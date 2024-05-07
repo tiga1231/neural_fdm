@@ -2,7 +2,7 @@
 seed: 91
 # data generator
 generator:
-  name: "tower_circle"  # options: tower_ellipse, tower_circle
+  name: "tower_ellipse"  # options: tower_ellipse, tower_circle
   bounds: "straight"  # options: straight, twisted
   height: 10.0
   radius: 2.0
@@ -11,7 +11,7 @@ generator:
   num_rings: 3  # must be >=3, 2 of them are the top and bottom supports
 # fd simulation
 fdm:
-  load: 0.0  # -0.5, scale of vertical area load
+  load: 0.0  # 0.0, scale of vertical area load
 # encoder
 encoder: 
   hidden_layer_size: 512
@@ -27,6 +27,10 @@ decoder:
   activation_fn_name: "elu"
 # loss function
 loss:
+  shape:
+    include: True  # will use shape loss if term is active, otherwise PINN term
+    weight: 1.0  # weight of the smoothness energy term in the loss function
+    scale: 1.0  # 30.0, bbox length (used for normalization)
   energy:
     include: True
     weight: 1.0  # weight of the smoothness energy term in the loss function
@@ -41,5 +45,5 @@ optimizer:
   learning_rate: 5.0e-5  # 5.0e-5, Be careful with scientific notation in YAML!
 # training
 training:
-  steps: 500  # 10000
+  steps: 1000  # 10000
   batch_size: 64

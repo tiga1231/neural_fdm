@@ -10,10 +10,14 @@ from jax_fdm.datastructures import FDMesh
 from neural_fofin.generators import evaluate_bezier_surface
 
 
-def create_mesh_from_tube_generator(tube):
+def create_mesh_from_tube_generator(generator, config, *args, **kwargs):
     """
     Boundary-supported mesh on a tube. The mesh has group tags.
     """
+    # shorthands
+    tube = generator
+    fix_rings = not config["loss"]["shape"]["include"]
+
     # generate base FD Mesh
     points = tube.points_on_tube()
     points = jnp.reshape(points, (-1, 3))
@@ -47,15 +51,16 @@ def create_mesh_from_tube_generator(tube):
             mesh.edge_attribute(edge, "tag", "ring")
             num_ring_edges += 1
 
-            # fix ring supports
-            mesh.vertices_supports(edge)
+            # NOTE: fix ring supports if no shape error in loss
+            if fix_rings:
+                mesh.vertices_supports(edge)
 
     assert num_ring_edges == tube.num_rings * tube.num_sides
 
     return mesh
 
 
-def create_mesh_from_bezier_generator(generator):
+def create_mesh_from_bezier_generator(generator, *args, **kwargs):
     """
     Boundary-supported mesh on bezier surface.
     """
