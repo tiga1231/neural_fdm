@@ -108,4 +108,4 @@ def train_model(model, structure, optimizer, generator, *, loss_fn, num_steps, b
         if callback:
             callback(model, opt_state, loss_vals)
 
-    return model, opt_state, loss_history
+    return model, loss_history

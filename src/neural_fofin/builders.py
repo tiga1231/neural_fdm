@@ -24,6 +24,7 @@ from neural_fofin.mesh import create_mesh_from_tube_generator
 from neural_fofin.losses import compute_loss
 from neural_fofin.losses import compute_loss_shape_residual
 from neural_fofin.losses import compute_loss_residual_smoothness
+from neural_fofin.losses import compute_loss_shape_residual_smoothness
 
 from neural_fofin.models import AutoEncoder
 from neural_fofin.models import AutoEncoderPiggy
@@ -275,7 +276,7 @@ def build_data_generator(config):
 # Mesh
 # ===============================================================================
 
-def build_mesh_from_generator(generator):
+def build_mesh_from_generator(config, generator):
     """
     Generate a JAX FDM mesh according to the generator type.
     """
@@ -286,18 +287,18 @@ def build_mesh_from_generator(generator):
     else:
         raise ValueError(f"Cannot make meshes with generator {generator}!")
 
-    return mesh_builder(generator)
+    return mesh_builder(generator, config)
 
 
 # ===============================================================================
 # Structure (Graph)
 # ===============================================================================
 
-def build_connectivity_structure_from_generator(generator):
+def build_connectivity_structure_from_generator(config, generator):
     """
     """
     # generate base FD mesh
-    mesh = build_mesh_from_generator(generator)
+    mesh = build_mesh_from_generator(config, generator)
 
     return EquilibriumMeshStructure.from_mesh(mesh)
 
@@ -373,8 +374,13 @@ def build_loss_function(config, generator):
         _loss_fn = compute_loss_shape_residual
 
     elif "tower" in task_name:
-        loss_params["residual"]["indices"] = generator.indices_rings_free_ravel
-        _loss_fn = compute_loss_residual_smoothness
+        if loss_params["shape"]["include"]:
+            loss_params["shape"]["dims"] = generator.shape_tube
+            loss_params["shape"]["indices"] = generator.indices_rings
+            _loss_fn = compute_loss_shape_residual_smoothness
+        else:
+            loss_params["residual"]["indices"] = generator.indices_rings_free_ravel
+            _loss_fn = compute_loss_residual_smoothness
 
     loss_fn = partial(
         compute_loss,
@@ -430,7 +436,7 @@ def calculate_edges_stress_signs(mesh):
     signs = []
     for edge in mesh.edges():
         sign = -1  # compression by default
-        # for tower task
+        # NOTE: for tower task
         if mesh.edge_attribute(edge, "tag") == "cable":
             sign = 1
         signs.append(sign)
@@ -654,7 +660,7 @@ def build_neural_model(name, config, generator, model_key):
     """
     """
     # generate base FD mesh
-    mesh = build_mesh_from_generator(generator)
+    mesh = build_mesh_from_generator(config, generator)
 
     # build model
     fd_params = config["fdm"]

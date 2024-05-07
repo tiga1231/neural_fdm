@@ -53,7 +53,16 @@ def _compute_loss(
     )
 
 
-def _compute_loss_piggy(loss_fn, loss_params, x, x_data_hat, y_data_hat, structure, aux_data, piggy_mode=True):
+def _compute_loss_piggy(
+        loss_fn,
+        loss_params,
+        x,
+        x_data_hat,
+        y_data_hat,
+        structure,
+        aux_data,
+        piggy_mode=True
+):
     """
     Compute the model loss of a piggy autoencoder.
     """
@@ -84,7 +93,15 @@ def _compute_loss_piggy(loss_fn, loss_params, x, x_data_hat, y_data_hat, structu
     return loss_data
 
 
-def compute_loss_residual_smoothness(x, x_hat, params_hat, structure, loss_params, aux_data, *args):
+def compute_loss_residual_smoothness(
+        x,
+        x_hat,
+        params_hat,
+        structure,
+        loss_params,
+        aux_data,
+        *args
+):
     """
     Compute the model loss.
 
@@ -132,7 +149,15 @@ def compute_loss_residual_smoothness(x, x_hat, params_hat, structure, loss_param
     return loss
 
 
-def compute_loss_shape_residual_smoothness(x, x_hat, params_hat, structure, loss_params, aux_data, *args):
+def compute_loss_shape_residual_smoothness(
+        x,
+        x_hat,
+        params_hat,
+        structure,
+        loss_params,
+        aux_data,
+        *args
+):
     """
     Compute the model loss.
 
@@ -153,12 +178,13 @@ def compute_loss_shape_residual_smoothness(x, x_hat, params_hat, structure, loss
     indices = shape_params["indices"]
 
     def slice_x(_x):
-        return jnp.reshape(_x, dims)[indices, :].ravel()
+        return jnp.reshape(_x, dims)[indices, :, :].ravel()
 
     x_slice = vmap(slice_x)(x)
     x_hat_slice = vmap(slice_x)(x_hat)
     assert x_slice.shape == x_hat_slice.shape
 
+    # NOTE: Using L2 norm here because L1 does not work well
     loss_shape = compute_error_shape_l2(x_slice, x_hat_slice)
     loss_shape = factor_shape * loss_shape
 
@@ -194,7 +220,15 @@ def compute_loss_shape_residual_smoothness(x, x_hat, params_hat, structure, loss
     return loss
 
 
-def compute_loss_shape_residual(x, x_hat, params_hat, structure, loss_params, aux_data, *args):
+def compute_loss_shape_residual(
+        x,
+        x_hat,
+        params_hat,
+        structure,
+        loss_params,
+        aux_data,
+        *args
+):
     """
     Compute the model loss.
 
