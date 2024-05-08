@@ -5,7 +5,7 @@ generator:
   name: "tower_ellipse"  # options: tower_ellipse, tower_circle
   bounds: "twisted"  # options: straight, twisted
   height: 10.0
-  radius: 2.5
+  radius: 2.0
   num_sides: 16
   num_levels: 21
   num_rings: 3  # must be >=3, 2 of them are the top and bottom supports

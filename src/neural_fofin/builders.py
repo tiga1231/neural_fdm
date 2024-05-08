@@ -61,8 +61,8 @@ def ellipse_rotated_minmax_values():
     # radii are scale factors relative to the base radius of a tower
     # minval = [0.75, 0.75, -30.0]
     # maxval = [1.25, 1.25, 30.0]
-    minval = [0.75, 0.75, -15.0]
-    maxval = [1.25, 1.25, 15.0]
+    minval = [0.5, 0.5, -15.0]
+    maxval = [1.5, 1.5, 15.0]
 
     return minval, maxval
 
@@ -362,13 +362,13 @@ def build_optimizer(config):
 
     clip_norm = float(params["clip_norm"])
     if clip_norm:
-        print(f"Optimizing with {name} with gradient clipping to global max norm of {clip_norm}")
+        print(f"Optimizing with {name} with learning rate {learning_rate} and gradient clipping to global max norm of {clip_norm}")
         optimizer = optax.chain(
             optax.clip_by_global_norm(clip_norm),
             optimizer
         )
     else:
-        print(f"Optimizing with {name}")
+        print(f"Optimizing with {name} with learning rate {learning_rate}")
 
     return optimizer
 

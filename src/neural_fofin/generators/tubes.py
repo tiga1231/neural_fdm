@@ -70,7 +70,6 @@ class EllipticalTubePointGenerator(TubePointGenerator):
         indices = jnp.array(indices, dtype=jnp.int64)
 
         assert indices.size == self.num_levels - self.num_rings
-        print(f"indices tension: {indices}")
 
         return indices
 

@@ -24,7 +24,7 @@ parameters:
       height:
         value: 10.0
       radius:
-        value: 2.5
+        value: 2.0
       num_sides:
         value: 16
       num_levels:
@@ -80,7 +80,7 @@ parameters:
       residual:
         parameters:
           include:
-            value: True
+            value: False
           weight:
             value: 1.0
           scale:
@@ -92,9 +92,9 @@ parameters:
         value: "adam"
       learning_rate:
         # NOTE: Be careful with scientific notation in YAML!
-        values: [1.0e-3, 1.0e-3, 1.0e-4, 3.0e-4]
+        values: [1.0e-3, 3.0e-3, 1.0e-4, 3.0e-4, 1.0e-5]
       clip_norm:
-        values: [0.001, 0.01, 0.1]
+        values: [0.0, 0.01, 0.1]
   # training
   training:
     parameters:
