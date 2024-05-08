@@ -2,8 +2,8 @@
 seed: 91
 # data generator
 generator:
-  name: "tower_circle"  # options: tower_ellipse, tower_circle
-  bounds: "straight"  # options: straight, twisted
+  name: "tower_ellipse"  # options: tower_ellipse, tower_circle
+  bounds: "twisted"  # options: straight, twisted
   height: 10.0
   radius: 2.5
   num_sides: 16
@@ -14,7 +14,7 @@ fdm:
   load: 0.0  # 0.0, scale of vertical area load
 # encoder
 encoder: 
-  hidden_layer_size: 512
+  hidden_layer_size: 256
   hidden_layer_num: 5  # 3
   activation_fn_name: "elu"
   final_activation_fn_name: "softplus"  # needs softplus to ensure positive output
@@ -46,5 +46,5 @@ optimizer:
   clip_norm: 0.0
 # training
 training:
-  steps: 10000
-  batch_size: 64
+  steps: 1000
+  batch_size: 32

@@ -37,7 +37,7 @@ def create_mesh_from_tube_generator(generator, config, *args, **kwargs):
 
     # then, search for ring edges by geometric key
     points = jnp.reshape(points, tube.shape_tube)
-    points_rings = points[tube.indices_rings, :, :].tolist()
+    points_rings = points[tube.levels_rings_comp, :, :].tolist()
     gkey_key = mesh.gkey_key()
 
     num_ring_edges = 0

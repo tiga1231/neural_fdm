@@ -175,25 +175,43 @@ def compute_loss_shape_residual_smoothness(
 
     # select only points on rings to compute shape error
     dims = shape_params["dims"]
-    indices = shape_params["indices"]
+    levels_compression = shape_params["levels_compression"]
+    levels_tension = shape_params["levels_tension"]
 
-    def slice_x(_x):
-        return jnp.reshape(_x, dims)[indices, :, :].ravel()
+    def slice_xyz_rings(_x, levels):
+        return jnp.reshape(_x, dims)[levels, :, :].ravel()
 
-    x_slice = vmap(slice_x)(x)
-    x_hat_slice = vmap(slice_x)(x_hat)
-    assert x_slice.shape == x_hat_slice.shape
+    slice_xyz_vmap = vmap(slice_xyz_rings, in_axes=(0, None))
+    xyz_slice = slice_xyz_vmap(x, levels_compression)
+    xyz_hat_slice = slice_xyz_vmap(x_hat, levels_compression)
+    assert xyz_slice.shape == xyz_hat_slice.shape
 
     # NOTE: Using L2 norm here because L1 does not work well
-    loss_shape = compute_error_shape_l2(x_slice, x_hat_slice)
-    loss_shape = factor_shape * loss_shape
+    loss_shape_1 = compute_error_shape_l2(xyz_slice, xyz_hat_slice)
 
+    def slice_z_rings(_x, levels):
+        return jnp.reshape(_x, dims)[levels, :, 2].ravel()
+
+    slice_z_vmap = vmap(slice_z_rings, in_axes=(0, None))
+    z_slice = slice_z_vmap(x, levels_tension)
+    z_hat_slice = slice_z_vmap(x_hat, levels_tension)
+    assert z_slice.shape == z_hat_slice.shape
+
+    # NOTE: Using L2 norm here because L1 does not work well
+    loss_shape_2 = compute_error_shape_l2(z_slice, z_hat_slice)
+    # loss_shape_2 = 0.0
+
+    # combine 2 shape errors
+    loss_shape = factor_shape * (loss_shape_1 + loss_shape_2)
+
+    # residual
     indices = structure.indices_free
     residual_params = loss_params["residual"]
     factor_residual = residual_params["weight"] / residual_params["scale"]
     loss_residual = compute_error_residual(x_hat, params_hat, structure, indices)
     loss_residual = factor_residual * loss_residual
 
+    # smoothness
     smooth_params = loss_params["energy"]
     factor_smooth = smooth_params["weight"] / smooth_params["scale"]
     loss_smooth = compute_error_smoothness(x_hat, params_hat, structure)

@@ -48,7 +48,7 @@ def ellipse_minmax_values():
     # minval = [0.5, 0.5, 0.0]
     # maxval = [1.5, 1.5, 0.0]
     minval = [0.5, 0.5, 0.0]
-    maxval = [2.0, 2.0, 0.0]
+    maxval = [1.5, 1.5, 0.0]
 
     return minval, maxval
 
@@ -390,10 +390,11 @@ def build_loss_function(config, generator):
     elif "tower" in task_name:
         if loss_params["shape"]["include"]:
             loss_params["shape"]["dims"] = generator.shape_tube
-            loss_params["shape"]["indices"] = generator.indices_rings
+            loss_params["shape"]["levels_compression"] = generator.levels_rings_comp
+            loss_params["shape"]["levels_tension"] = generator.levels_rings_tension
             _loss_fn = compute_loss_shape_residual_smoothness
         else:
-            loss_params["residual"]["indices"] = generator.indices_rings_free_ravel
+            loss_params["residual"]["indices"] = generator.indices_rings_comp_interior_ravel
             _loss_fn = compute_loss_residual_smoothness
 
     loss_fn = partial(

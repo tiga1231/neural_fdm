@@ -155,7 +155,7 @@ class MLPEncoder(Encoder, eqx.nn.MLP):
         q_hat = super().__call__(x)
 
         # NOTE: negative q denotes compression, positive tension.
-        return (q_hat + 1.0) * self.edges_signs
+        return (q_hat + 0.0) * self.edges_signs
 
 
 # ===============================================================================

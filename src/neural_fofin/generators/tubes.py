@@ -44,9 +44,11 @@ class EllipticalTubePointGenerator(TubePointGenerator):
         self.minval = minval
         self.maxval = maxval
 
-        self.indices_rings = self._calculate_ring_indices()
-        self.indices_rings_ravel = self._calculate_ring_indices_ravel()
-        self.indices_rings_free_ravel = self._calculate_ring_indices_free_ravel()
+        self.levels_rings_comp = self._levels_rings_compression()
+        self.indices_rings_comp_ravel = self._indices_rings_compression_ravel()
+        self.indices_rings_comp_interior_ravel = self._indices_rings_compression_interior_ravel()
+
+        self.levels_rings_tension = self._levels_rings_tension()
 
         self.shape_tube = (num_levels, num_sides, 3)
         self.shape_rings = (num_rings, num_sides, 3)
@@ -60,9 +62,21 @@ class EllipticalTubePointGenerator(TubePointGenerator):
 
         return jnp.ravel(points)
 
-    def _calculate_ring_indices(self):
+    def _levels_rings_tension(self):
         """
-        Compute the indices of the rings in the sequence of levels.
+        Compute the level indices of all the tension rings.
+        """
+        indices = [i for i in range(self.num_levels) if i not in self.levels_rings_comp]
+        indices = jnp.array(indices, dtype=jnp.int64)
+
+        assert indices.size == self.num_levels - self.num_rings
+        print(f"indices tension: {indices}")
+
+        return indices
+
+    def _levels_rings_compression(self):
+        """
+        Compute the level indices of all the compression rings.
         """
         step = int(self.num_levels / (self.num_rings - 1))
 
@@ -73,12 +87,12 @@ class EllipticalTubePointGenerator(TubePointGenerator):
 
         return indices
 
-    def _calculate_ring_indices_ravel(self):
+    def _indices_rings_compression_ravel(self):
         """
-        Compute the indices of the rings in the sequence of levels.
+        Compute the indices of the vertices in all the compression rings.
         """
         indices = []
-        for index in self.indices_rings:
+        for index in self.levels_rings_comp:
             start = index * self.num_sides
             end = start + self.num_sides
             indices.extend(range(start, end))
@@ -87,12 +101,12 @@ class EllipticalTubePointGenerator(TubePointGenerator):
 
         return indices
 
-    def _calculate_ring_indices_free_ravel(self):
+    def _indices_rings_compression_interior_ravel(self):
         """
-        Compute the indices of the rings in the sequence of levels.
+        Compute the indices of the vertices in the interior compression rings.
         """
         indices = []
-        for index in self.indices_rings[1:-1]:
+        for index in self.levels_rings_comp[1:-1]:
             start = index * self.num_sides
             end = start + self.num_sides
             indices.extend(range(start, end))
@@ -137,8 +151,8 @@ class EllipticalTubePointGenerator(TubePointGenerator):
         if wiggle:
             wiggle_radii, wiggle_angle = self.wiggle(key)
             wiggle_radii = wiggle_radii * self.radius
-            radii = radii.at[self.indices_rings, :].set(wiggle_radii)
-            angles = angles.at[self.indices_rings].set(wiggle_angle)
+            radii = radii.at[self.levels_rings_comp, :].set(wiggle_radii)
+            angles = angles.at[self.levels_rings_comp].set(wiggle_angle)
 
         points = points_on_ellipses(
             radii[:, 0],
@@ -204,8 +218,8 @@ class CircularTubePointGenerator(EllipticalTubePointGenerator):
         if wiggle:
             wiggle_radii, wiggle_angle = self.wiggle(key)
             wiggle_radii = wiggle_radii * self.radius
-            radii = radii.at[self.indices_rings].set(wiggle_radii)
-            angles = angles.at[self.indices_rings].set(wiggle_angle)
+            radii = radii.at[self.levels_rings_comp].set(wiggle_radii)
+            angles = angles.at[self.levels_rings_comp].set(wiggle_angle)
 
         points = points_on_ellipses(
             radii,

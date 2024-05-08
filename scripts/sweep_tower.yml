@@ -18,9 +18,9 @@ parameters:
     # a wandb sweep would not work otherwise
     parameters:
       name:
-        value: "tower_circle"  # options: tower_ellipse, tower_circle
+        value: "tower_ellipse"  # options: tower_ellipse, tower_circle
       bounds:
-        value: "straight"  # options: straight, twisted
+        value: "twisted"  # options: straight, twisted
       height:
         value: 10.0
       radius:
@@ -40,9 +40,9 @@ parameters:
   encoder:
     parameters:
       hidden_layer_size:
-        values: [256, 512]
+        value: 256
       hidden_layer_num:
-        values: [3, 4, 5]
+        value: 5
       activation_fn_name:
         value: "elu"
       final_activation_fn_name:
@@ -92,13 +92,13 @@ parameters:
         value: "adam"
       learning_rate:
         # NOTE: Be careful with scientific notation in YAML!
-        values: [3.0e-4, 5.0e-4, 3.0e-5, 5.0e-5]
+        values: [1.0e-3, 1.0e-3, 1.0e-4, 3.0e-4]
       clip_norm:
-        value: 0.0
+        values: [0.001, 0.01, 0.1]
   # training
   training:
     parameters:
       steps:
-        value: 5000
+        value: 3000
       batch_size:
-        value: 64
+        value: 16
