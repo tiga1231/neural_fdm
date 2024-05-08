@@ -13,8 +13,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import jax
-from jax import vmap
+import jax.numpy as jnp
 import jax.random as jrn
+from jax import vmap
 
 from neural_fofin import DATA
 
@@ -100,7 +101,8 @@ def train(
         plot_losses(loss_history, labels=labels)
         plot_gradient_norm(loss_history)
         # plot_latent_norm(loss_history)
-        plot_latent_mean_std(loss_history)
+        # plot_latent_mean_std(loss_history)
+        plot_stiffness_condition_num(loss_history)
 
     labels.extend(["shape", "residual", "smoothness"])
 
@@ -212,6 +214,28 @@ def train_model_from_config(model_name, config, pretrained=False, callback=None)
 # ===============================================================================
 # Helper functions
 # ===============================================================================
+
+
+def plot_stiffness_condition_num(loss_values):
+    """
+    Plot the condition number of the stiffness matrix.
+    """
+    cond_nums = jnp.concatenate([values[-1] for values in loss_values])
+    mean_cond_nums = jnp.mean(cond_nums, axis=-1)
+    std_cond_nums = jnp.std(cond_nums, axis=-1)
+    xs = np.arange(len(loss_values))
+
+    # Plotting
+    plt.figure(figsize=(10, 6))
+    plt.plot(mean_cond_nums)
+    plt.fill_between(xs, mean_cond_nums - std_cond_nums, mean_cond_nums + std_cond_nums, alpha=0.5)
+
+    plt.title('Matrix condition number')
+    plt.xlabel('Step')
+    plt.ylabel('Number')
+    plt.yscale('log')
+    plt.grid()
+    plt.show()
 
 
 def plot_latent_mean_std(loss_values):

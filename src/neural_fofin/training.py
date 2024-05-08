@@ -2,6 +2,7 @@ from functools import partial
 
 import jax.numpy as jnp
 
+from jax import jit
 from jax import vmap
 import jax.random as jrn
 import jax.tree_util as jtu
@@ -88,6 +89,12 @@ def train_model(model, structure, optimizer, generator, *, loss_fn, num_steps, b
     train_step_fn = partial(train_step_fn, loss_fn=loss_fn)
     train_step_fn = eqx.filter_jit(train_step_fn)
 
+    # def get_cond_num(q):
+    #     A = model.decoder.model.stiffness_matrix(q, structure)
+    #     return jnp.linalg.cond(A)
+
+    # cond_num_fn = jit(vmap(get_cond_num))
+
     # train
     loss_history = []
     for step in tqdm(range(num_steps)):
@@ -114,8 +121,11 @@ def train_model(model, structure, optimizer, generator, *, loss_fn, num_steps, b
         loss_vals.append(grad_norm)
 
         # log latent space norm
-        # q_norm = jnp.linalg.norm(jnp.ravel(qs), axis=-1)
         loss_vals.append(jnp.ravel(qs))
+
+        # log latent space condition number
+        # cond_nums = cond_num_fn(qs)
+        # loss_vals.append(cond_nums[None, :])
 
         # store loss values
         loss_history.append(loss_vals)
