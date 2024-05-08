@@ -235,7 +235,7 @@ def predict_batch(
                 show_loads=False,
                 loadscale=1.0,
                 show_reactions=True,
-                reactionscale=5.0,
+                reactionscale=1.0,
                 reactioncolor=Color.from_rgb255(0, 150, 10),
             )
 

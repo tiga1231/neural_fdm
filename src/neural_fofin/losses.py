@@ -136,12 +136,12 @@ def compute_loss_residual_smoothness(
     if smooth_params["include"]:
         loss = loss + loss_smooth
 
-    loss_terms = (
+    loss_terms = [
         loss,
         loss_shape,
         loss_residual,
         loss_smooth
-    )
+    ]
 
     if aux_data:
         return loss, loss_terms
@@ -207,12 +207,12 @@ def compute_loss_shape_residual_smoothness(
     if smooth_params["include"]:
         loss = loss + loss_smooth
 
-    loss_terms = (
+    loss_terms = [
         loss,
         loss_shape,
         loss_residual,
         loss_smooth
-    )
+    ]
 
     if aux_data:
         return loss, loss_terms
@@ -258,11 +258,11 @@ def compute_loss_shape_residual(
     if residual_params["include"]:
         loss = loss + loss_residual
 
-    loss_terms = (
+    loss_terms = [
         loss,
         loss_shape,
         loss_residual
-    )
+    ]
 
     if aux_data:
         return loss, loss_terms

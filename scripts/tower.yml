@@ -3,9 +3,9 @@ seed: 91
 # data generator
 generator:
   name: "tower_circle"  # options: tower_ellipse, tower_circle
-  bounds: "twisted"  # options: straight, twisted
+  bounds: "straight"  # options: straight, twisted
   height: 10.0
-  radius: 2.0
+  radius: 2.5
   num_sides: 16
   num_levels: 21
   num_rings: 3  # must be >=3, 2 of them are the top and bottom supports
@@ -15,7 +15,7 @@ fdm:
 # encoder
 encoder: 
   hidden_layer_size: 512
-  hidden_layer_num: 3
+  hidden_layer_num: 5  # 3
   activation_fn_name: "elu"
   final_activation_fn_name: "softplus"  # needs softplus to ensure positive output
 # decoder
@@ -32,7 +32,7 @@ loss:
     weight: 1.0  # weight of the smoothness energy term in the loss function
     scale: 1.0  # 30.0, bbox length (used for normalization)
   energy:
-    include: False
+    include: True
     weight: 1.0  # weight of the smoothness energy term in the loss function
     scale: 1.0  # 30.0, bbox length (used for normalization)
   residual:  # PINN and task term
@@ -42,8 +42,9 @@ loss:
 # optimizer
 optimizer:
   name: "adam"
-  learning_rate: 5.0e-5  # 5.0e-5, Be careful with scientific notation in YAML!
+  learning_rate: 0.0003  # 5.0e-5, Be careful with scientific notation in YAML!
+  clip_norm: 0.0
 # training
 training:
-  steps: 10000  # 10000
+  steps: 10000
   batch_size: 64

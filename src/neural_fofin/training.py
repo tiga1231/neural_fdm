@@ -1,5 +1,7 @@
 from functools import partial
 
+import jax.numpy as jnp
+
 from jax import vmap
 import jax.random as jrn
 import jax.tree_util as jtu
@@ -65,7 +67,10 @@ def train_step(model, structure, optimizer, generator, opt_state, *, loss_fn, ba
     updates, opt_state = optimizer.update(grads, opt_state)
     model = eqx.apply_updates(model, updates)
 
-    return loss_vals, model, opt_state
+    # NOTE: return latent space
+    q = vmap(model.encode)(x)
+
+    return loss_vals, model, opt_state, grads, q
 
 
 def train_model(model, structure, optimizer, generator, *, loss_fn, num_steps, batch_size, key, callback=None):
@@ -85,13 +90,13 @@ def train_model(model, structure, optimizer, generator, *, loss_fn, num_steps, b
 
     # train
     loss_history = []
-    for _ in tqdm(range(num_steps)):
+    for step in tqdm(range(num_steps)):
 
         # randomnesss
         key, _ = jrn.split(key)
 
         # train step
-        loss_vals, model, opt_state = train_step_fn(
+        loss_vals, model, opt_state, grads, qs = train_step_fn(
             model,
             structure,
             optimizer,
@@ -101,11 +106,22 @@ def train_model(model, structure, optimizer, generator, *, loss_fn, num_steps, b
             key=key,
             )
 
-        # store loss
+        # NOTE: log gradient name
+        grads_flat = jtu.tree_flatten(grads)[0]
+        grads_flat = jtu.tree_map(lambda x: x.ravel(), grads_flat)
+        grads_flat = jnp.concatenate(grads_flat)
+        grad_norm = jnp.linalg.norm(jnp.array(grads_flat), axis=-1)
+        loss_vals.append(grad_norm)
+
+        # log latent space norm
+        # q_norm = jnp.linalg.norm(jnp.ravel(qs), axis=-1)
+        loss_vals.append(jnp.ravel(qs))
+
+        # store loss values
         loss_history.append(loss_vals)
 
         # callback
         if callback:
-            callback(model, opt_state, loss_vals)
+            callback(model, opt_state, loss_vals, step)
 
     return model, loss_history

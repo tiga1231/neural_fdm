@@ -45,8 +45,10 @@ def ellipse_minmax_values():
     """
     # radius 1, radius 2, rotation
     # radii are scale factors relative to the base radius of a tower
+    # minval = [0.5, 0.5, 0.0]
+    # maxval = [1.5, 1.5, 0.0]
     minval = [0.5, 0.5, 0.0]
-    maxval = [1.5, 1.5, 0.0]
+    maxval = [2.0, 2.0, 0.0]
 
     return minval, maxval
 
@@ -349,14 +351,24 @@ def build_optimizer(config):
     """
     Construct an optimizer.
     """
-    hyperparams = config["optimizer"]
+    params = config["optimizer"]
 
-    name = hyperparams["name"]
-    learning_rate = hyperparams["learning_rate"]
+    name = params["name"]
+    learning_rate = params["learning_rate"]
     assert isinstance(learning_rate, float)
 
     optimizer_fn = get_optimizer_fn(name)
     optimizer = optimizer_fn(learning_rate=learning_rate)
+
+    clip_norm = float(params["clip_norm"])
+    if clip_norm:
+        print(f"Optimizing with {name} with gradient clipping to global max norm of {clip_norm}")
+        optimizer = optax.chain(
+            optax.clip_by_global_norm(clip_norm),
+            optimizer
+        )
+    else:
+        print(f"Optimizing with {name}")
 
     return optimizer
 

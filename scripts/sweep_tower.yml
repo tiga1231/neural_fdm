@@ -40,7 +40,7 @@ parameters:
   encoder:
     parameters:
       hidden_layer_size:
-        values: [128, 256, 512]
+        values: [256, 512]
       hidden_layer_num:
         values: [3, 4, 5]
       activation_fn_name:
@@ -53,9 +53,9 @@ parameters:
       include_params_xl:
         value: True
       hidden_layer_size:
-        values: [128, 256, 512]
+        value: 512
       hidden_layer_num:
-        values: [3, 4, 5]
+        value: 3
       activation_fn_name:
         value: "elu"
   # loss
@@ -92,7 +92,9 @@ parameters:
         value: "adam"
       learning_rate:
         # NOTE: Be careful with scientific notation in YAML!
-        values: [1.0e-4, 3.0e-4, 5.0e-4, 1.0e-5, 3.0e-5, 5.0e-5]
+        values: [3.0e-4, 5.0e-4, 3.0e-5, 5.0e-5]
+      clip_norm:
+        value: 0.0
   # training
   training:
     parameters:

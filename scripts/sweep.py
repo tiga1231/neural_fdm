@@ -29,7 +29,7 @@ def update_dict(d, u):
     return d
 
 
-def log_to_wandb(model, opt_state, loss_vals):
+def log_to_wandb(model, opt_state, loss_vals, step):
     """
     Record metrics in weights and biases.
     """

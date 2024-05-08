@@ -2,6 +2,16 @@ import os
 import time
 import yaml
 
+from functools import partial
+
+from math import fabs
+
+from statistics import mean
+from statistics import stdev
+
+import numpy as np
+import matplotlib.pyplot as plt
+
 import jax
 from jax import vmap
 import jax.random as jrn
@@ -10,7 +20,7 @@ from neural_fofin import DATA
 
 from neural_fofin.training import train_model
 
-from neural_fofin.plotting import plot_smoothed_losses
+from neural_fofin.plotting import plot_losses
 
 from neural_fofin.builders import build_loss_function
 from neural_fofin.builders import build_data_generator
@@ -26,7 +36,14 @@ from neural_fofin.serialization import save_model
 # Script function
 # ===============================================================================
 
-def train(model_name, task_name, from_pretrained=False, plot=True, save=True):
+def train(
+        model_name,
+        task_name,
+        from_pretrained=False,
+        checkpoint_every=None,
+        plot=True,
+        save=True
+):
     """
     Train a model to approximate a family of arbitrary shapes with mechanically-feasible geometries.
 
@@ -39,6 +56,8 @@ def train(model_name, task_name, from_pretrained=False, plot=True, save=True):
         The name of the YAML config file with the task hyperparameters.
     from_pretrained: `bool`
         If `True`, train the model starting from a pretrained version of it.
+    checkpoint_every: `int`
+        If not None, save a model every checkpoint steps.
     plot: `bool`
         If `True`, plot the loss curves.
     save: `bool`
@@ -48,51 +67,67 @@ def train(model_name, task_name, from_pretrained=False, plot=True, save=True):
     with open(f"{task_name}.yml") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
+    # resolve model name for saving and checkpointing
+    filename = f"{model_name}"
+    loss_params = config["loss"]
+    if loss_params["residual"]["include"] > 0 and model_name != "formfinder":
+        filename += "_pinn"
+    filename += f"_{task_name}_lyrical"
+
+    # pick callback
+    callback = None
+    if checkpoint_every:
+        callback = partial(
+            checkpoint_model,
+            checkpoint_step=checkpoint_every,
+            filename=filename
+        )
+
     # train model
     trained_model, loss_history = train_model_from_config(
         model_name,
         config,
         from_pretrained,
-        callback=None
+        callback=callback
     )
 
     # define loss labels
-    labels = ["loss", "shape", "residual", "smoothness"]
+    labels = ["loss"]  # , "shape", "residual", "smoothness"]
 
     # plot loss curves
     if plot:
         print("\nPlotting")
-        plot_smoothed_losses(loss_history, window_size=50, labels=labels)
+        plot_losses(loss_history, labels=labels)
+        plot_gradient_norm(loss_history)
+        # plot_latent_norm(loss_history)
+        plot_latent_mean_std(loss_history)
+
+    labels.extend(["shape", "residual", "smoothness"])
 
     if save:
         print("\nSaving results")
 
         # save trained model
-        _filename = f"{model_name}"
-        loss_params = config["loss"]
-        if loss_params["residual"]["include"] > 0 and model_name != "formfinder":
-            _filename += "_pinn"
-        _filename += f"_{task_name}"
-
-        _filepath = os.path.join(DATA, f"{_filename}.eqx")
-        save_model(_filepath, trained_model)
-        print(f"Saved model to {_filepath}")
+        filepath = os.path.join(DATA, f"{filename}.eqx")
+        save_model(filepath, trained_model)
+        print(f"Saved model to {filepath}")
 
         # save loss history
-        for i, _label in enumerate(labels):
-            _filename_loss = f"losses_{_filename}_{_label}.txt"
+        labels.append("gradients")
+        for i, label in enumerate(labels):
+            filename_loss = f"losses_{filename}_{label}.txt"
 
-            _filepath = os.path.join(DATA, _filename_loss)
-            with open(_filepath, "w") as file:
+            filepath = os.path.join(DATA, filename_loss)
+            with open(filepath, "w") as file:
                 for values in loss_history:
                     _value = values[i].item()
                     file.write(f"{_value}\n")
 
-            print(f"Saved loss history to {_filepath}")
+            print(f"Saved loss history to {filepath}")
 
 
 # ===============================================================================
-# Helper functions
+# Train functions
 # ===============================================================================
 
 def train_model_from_config(model_name, config, pretrained=False, callback=None):
@@ -172,6 +207,93 @@ def train_model_from_config(model_name, config, pretrained=False, callback=None)
     print(f"{model_name.capitalize()} last loss: {end_loss}")
 
     return train_data
+
+
+# ===============================================================================
+# Helper functions
+# ===============================================================================
+
+
+def plot_latent_mean_std(loss_values):
+    """
+    Plot the norm of the absolute values in the force density vector.
+    """
+    qs_mean = []
+    qs_std = []
+    for i, values in enumerate(loss_values):
+        qs = [fabs(q) for q in values[-1].tolist()]
+        mean_q = mean(qs)
+        std_q = stdev(qs)
+        qs_mean.append(mean_q)
+        qs_std.append(std_q)
+
+    qs_mean = np.array(qs_mean)
+    qs_std = np.array(qs_std)
+
+    # Plotting
+    plt.figure(figsize=(10, 6))
+    plt.plot(qs_mean)
+    xs = np.arange(len(loss_values))
+    plt.fill_between(xs, qs_mean - qs_std, qs_mean + qs_std, alpha=0.3)
+
+    plt.title('Force density')
+    plt.xlabel('Step')
+    plt.ylabel('Mean value')
+    plt.yscale('log')
+    plt.grid()
+    plt.show()
+
+
+def plot_latent_norm(loss_values):
+    """
+    Plot the norm of the latent space vector.
+    """
+    latent_norm = [values[-1] for values in loss_values]
+
+    # Plotting
+    plt.figure(figsize=(10, 6))
+    plt.plot(latent_norm)
+
+    plt.title('Latent norm')
+    plt.xlabel('Step')
+    plt.ylabel('Norm')
+    plt.yscale('log')
+    plt.grid()
+    plt.show()
+
+
+def plot_gradient_norm(loss_values):
+    """
+    Plot the norm of the gradient vector
+    """
+    gradient_norm = [values[-2] for values in loss_values]
+
+    # Plotting
+    plt.figure(figsize=(10, 6))
+    plt.plot(gradient_norm)
+
+    plt.title('Gradient norm')
+    plt.xlabel('Step')
+    plt.ylabel('Norm')
+    plt.yscale('log')
+    plt.grid()
+    plt.show()
+
+
+def checkpoint_model(
+        model,
+        opt_state,
+        loss_vals,
+        step,
+        checkpoint_step,
+        filename
+):
+    """
+    Checkpoint a model as callback.
+    """
+    if step > 0 and step % checkpoint_step == 0:
+        filepath = os.path.join(DATA, f"{filename}_{step}.eqx")
+        save_model(filepath, model)
 
 
 # ===============================================================================
