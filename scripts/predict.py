@@ -248,13 +248,13 @@ def predict_batch(
                     color=Color.black().lightened()
                     )
             elif task_name == "tower":
-                rings = jnp.reshape(xyz, generator.shape_tube)[generator.indices_rings, :, :]
+                rings = jnp.reshape(xyz, generator.shape_tube)[generator.levels_rings_comp, :, :]
                 for ring in rings:
                     ring = Polygon(ring.tolist())
                     viewer.add(ring, opacity=0.5)
 
                 xyz_hat = model(xyz, structure)
-                rings_hat = jnp.reshape(xyz_hat, generator.shape_tube)[generator.indices_rings, :, :]
+                rings_hat = jnp.reshape(xyz_hat, generator.shape_tube)[generator.levels_rings_comp, :, :]
                 for ring_a, ring_b in zip(rings, rings_hat):
                     for pt_a, pt_b in zip(ring_a, ring_b):
                         viewer.add(Line(pt_a, pt_b))

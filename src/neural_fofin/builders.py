@@ -590,7 +590,7 @@ def build_neural_encoder(mesh, key, params, generator):
     slice_indices = None
     if is_tower_task:
         slice_out = True
-        slice_indices = generator.indices_rings_ravel
+        slice_indices = generator.indices_rings_comp_ravel
 
     # instantiate MLP
     encoder = MLPEncoder(

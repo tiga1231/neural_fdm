@@ -42,9 +42,9 @@ loss:
 # optimizer
 optimizer:
   name: "adam"
-  learning_rate: 0.0003  # 5.0e-5, Be careful with scientific notation in YAML!
-  clip_norm: 0.0
+  learning_rate: 0.001  # 5.0e-5, Be careful with scientific notation in YAML!
+  clip_norm: 0.01
 # training
 training:
-  steps: 1000
+  steps: 3000
   batch_size: 32

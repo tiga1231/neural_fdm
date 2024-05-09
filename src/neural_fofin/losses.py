@@ -298,12 +298,15 @@ def compute_error_shape_l1(x, x_hat):
     return jnp.mean(batch_error, axis=-1)
 
 
-def compute_error_shape_l2(x, x_hat):
+def compute_error_shape_l2(x, x_hat, aggr="sum"):
     """
     Calculate the shape reconstruction error
     """
     error = jnp.square(x - x_hat)
-    batch_error = jnp.sum(error, axis=-1)
+    if aggr == "sum":
+        batch_error = jnp.sum(error, axis=-1)
+    else:
+        batch_error = jnp.mean(error, axis=-1)
 
     return jnp.mean(batch_error, axis=-1)
 

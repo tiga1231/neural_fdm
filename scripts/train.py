@@ -73,7 +73,7 @@ def train(
     loss_params = config["loss"]
     if loss_params["residual"]["include"] > 0 and model_name != "formfinder":
         filename += "_pinn"
-    filename += f"_{task_name}_lyrical"
+    filename += f"_{task_name}"
 
     # pick callback
     callback = None
