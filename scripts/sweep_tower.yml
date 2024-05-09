@@ -100,7 +100,7 @@ parameters:
           include:
             value: True
           weight:
-            value: 10.0
+            values: [5.0, 10.0]
   # optimizer
   optimizer:
     parameters:
