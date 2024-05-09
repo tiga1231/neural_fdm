@@ -1,7 +1,5 @@
 import wandb
 
-from collections.abc import Mapping
-
 from neural_fofin.serialization import save_model
 
 from train import train_model_from_config
@@ -10,24 +8,6 @@ from train import train_model_from_config
 # ===============================================================================
 # Helper functions
 # ===============================================================================
-
-def update_dict(d, u):
-    """
-    Recursively update a dictionary (d) with another (u).
-
-    The function assumes that the keys in u match those in d.
-    Otherwise, the function will not work.
-
-    Source: https://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth?page=1&tab=scoredesc#tab-top
-    """
-    for k, v in u.items():
-        if isinstance(v, Mapping):
-            d[k] = update_dict(d.get(k, {}), v)
-        else:
-            d[k] = v
-
-    return d
-
 
 def log_to_wandb(model, opt_state, loss_vals, step):
     """

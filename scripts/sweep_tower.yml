@@ -40,7 +40,7 @@ parameters:
   encoder:
     parameters:
       shift:
-        value: 0.0
+        values: [0.0, 1.0]
       hidden_layer_size:
         value: 256
       hidden_layer_num:
@@ -100,9 +100,7 @@ parameters:
           include:
             value: True
           weight:
-            value: 1.0
-          scale:
-            value: 1.0
+            value: 10.0
   # optimizer
   optimizer:
     parameters:
@@ -110,9 +108,9 @@ parameters:
         value: "adam"
       learning_rate:
         # NOTE: Be careful with scientific notation in YAML!
-        values: [1.0e-3, 3.0e-3, 1.0e-4, 3.0e-4, 1.0e-5]
+        values: [1.0e-2, 3.0e-2, 1.0e-3, 3.0e-3, 1.0e-4, 3.0e-4]
       clip_norm:
-        values: [0.0, 0.01, 0.1]
+        values: [0.01, 0.1]
   # training
   training:
     parameters:
