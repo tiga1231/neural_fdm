@@ -39,6 +39,8 @@ parameters:
   # encoder
   encoder:
     parameters:
+      shift:
+        value: 0.0
       hidden_layer_size:
         value: 256
       hidden_layer_num:
@@ -69,6 +71,14 @@ parameters:
             value: 1.0
           scale:
             value: 1.0
+      height:
+        parameters:
+          include:
+            value: True
+          weight:
+            value: 1.0
+          scale:
+            value: 1.0
       energy:
         parameters:
           include:
@@ -81,6 +91,14 @@ parameters:
         parameters:
           include:
             value: False
+          weight:
+            value: 1.0
+          scale:
+            value: 1.0
+      regularization:
+        parameters:
+          include:
+            value: True
           weight:
             value: 1.0
           scale:

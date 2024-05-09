@@ -111,6 +111,7 @@ class Encoder(eqx.Module):
     An encoder.
     """
     edges_signs: Array
+    q_shift: Float
     # If we want to learn a mapping w.r.t. a slice of the points output by the generator
     slice_out: Bool
     slice_indices: Array
@@ -118,6 +119,7 @@ class Encoder(eqx.Module):
     def __init__(
             self,
             edges_signs,
+            q_shift=0.0,
             slice_out=False,
             slice_indices=None,
             *args,
@@ -125,6 +127,7 @@ class Encoder(eqx.Module):
     ):
         super().__init__(*args, **kwargs)
         self.edges_signs = edges_signs
+        self.q_shift = q_shift
         self.slice_out = slice_out
         self.slice_indices = slice_indices
 
@@ -155,7 +158,7 @@ class MLPEncoder(Encoder, eqx.nn.MLP):
         q_hat = super().__call__(x)
 
         # NOTE: negative q denotes compression, positive tension.
-        return (q_hat + 1.0) * self.edges_signs
+        return (q_hat + self.q_shift) * self.edges_signs
 
 
 # ===============================================================================

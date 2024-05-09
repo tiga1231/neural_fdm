@@ -13,14 +13,15 @@ generator:
 fdm:
   load: 0.0  # 0.0, scale of vertical area load
 # encoder
-encoder: 
+encoder:
+  shift: 1.0
   hidden_layer_size: 256
   hidden_layer_num: 5  # 3
   activation_fn_name: "elu"
   final_activation_fn_name: "softplus"  # needs softplus to ensure positive output
 # decoder
 decoder:
-  # If true, the decoder maps (z, boundary conditions) -> x. Otherwise, z -> x.
+  # If true, the decoder maps (q, boundary conditions) -> x. Otherwise, q -> x.
   include_params_xl: True
   hidden_layer_size: 512
   hidden_layer_num: 3
@@ -31,14 +32,21 @@ loss:
     include: True  # will use shape loss if term is active, otherwise PINN term
     weight: 1.0  # weight of the smoothness energy term in the loss function
     scale: 1.0  # 30.0, bbox length (used for normalization)
+  height:
+    include: True  # will use shape loss if term is active, otherwise PINN term
+    weight: 1.0  # weight of the smoothness energy term in the loss function
+    scale: 1.0  # 30.0, bbox length (used for normalization)
   energy:
-    include: True
+    include: False
     weight: 1.0  # weight of the smoothness energy term in the loss function
     scale: 1.0  # 30.0, bbox length (used for normalization)
   residual:  # PINN and task term
     include: False
     weight: 1.0  # weight of the residual error term in the loss function
     scale: 1.0  # 0.5, fdm load scale (used for normalization)
+  regularization:  # regularize predicted force densities
+    include: True
+    weight: 10.0  # weight of the regularization term in the loss function
 # optimizer
 optimizer:
   name: "adam"
@@ -47,4 +55,4 @@ optimizer:
 # training
 training:
   steps: 3000
-  batch_size: 32
+  batch_size: 16

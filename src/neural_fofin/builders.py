@@ -388,10 +388,13 @@ def build_loss_function(config, generator):
         _loss_fn = compute_loss_shape_residual
 
     elif "tower" in task_name:
-        if loss_params["shape"]["include"]:
+        if loss_params["shape"]["include"] or loss_params["height"]["include"]:
+
             loss_params["shape"]["dims"] = generator.shape_tube
             loss_params["shape"]["levels_compression"] = generator.levels_rings_comp
-            loss_params["shape"]["levels_tension"] = generator.levels_rings_tension
+            loss_params["height"]["dims"] = generator.shape_tube
+            loss_params["height"]["levels_tension"] = generator.levels_rings_tension
+
             _loss_fn = compute_loss_shape_residual_smoothness
         else:
             loss_params["residual"]["indices"] = generator.indices_rings_comp_interior_ravel
@@ -592,9 +595,13 @@ def build_neural_encoder(mesh, key, params, generator):
         slice_out = True
         slice_indices = generator.indices_rings_comp_ravel
 
+    # q shift
+    q_shift = nn_params["shift"]
+
     # instantiate MLP
     encoder = MLPEncoder(
         edges_signs=edges_signs,
+        q_shift=q_shift,
         slice_out=slice_out,
         slice_indices=slice_indices,
         in_size=in_size,

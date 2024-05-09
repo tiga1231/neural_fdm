@@ -13,7 +13,8 @@ generator:
 fdm:
   load: -0.5  # -0.5, scale of vertical area load
 # encoder
-encoder: 
+encoder:
+  q_shift: 0.0
   hidden_layer_size: 256
   hidden_layer_num: 3
   activation_fn_name: "elu"
