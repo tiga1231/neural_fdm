@@ -230,15 +230,15 @@ def match_batch(
 
         opt_times.append(opt_time)
 
-        for loss_container, loss_term in zip(loss_lists, loss_terms):
-            loss_container.append(loss_term.item())
+        # for loss_container, loss_term in zip(loss_lists, loss_terms):
+            # loss_container.append(loss_term.item())
 
         # assemble datastructure for post-processing
         eqstate_hat, fd_params_hat = model_opt.predict_states(xyz, structure)
         mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
         network_hat = FDNetwork.from_mesh(mesh_hat)
-        # if verbose:
-            # network_hat.print_stats()
+        if verbose:
+            network_hat.print_stats()
 
         # export prediction
         if SAVE:
@@ -336,18 +336,18 @@ def match_batch(
                         viewer.add(line)
                         lengths.append(line.length**2)
 
-                print(f"{sum(lengths)=}")
+                # print(f"{sum(lengths)=}")
             # show le crème
             viewer.show()
 
     # report optimization statistics
-    print(f"\nSuccessful optimizations: {were_successful}/{num_opts}")
-    print(f"Optimization time over {num_opts} optimizations (s): {mean(opt_times):.4f} (+-{stdev(opt_times):.4f})")
-    print(f"Loss value over {num_opts} optimizations: {mean(loss_values):.4f} (+-{stdev(loss_values):.4f})")
-    print(f"Shape error over {num_opts} optimizations: {mean(shape_errors):.4f} (+-{stdev(shape_errors):.4f})")
-    print(f"Residual error over {num_opts} optimizations: {mean(residual_errors):.4f} (+-{stdev(residual_errors):.4f})")
-    if len(smooth_errors) > 0:
-        print(f"Smoothness error over {num_opts} optimizations: {mean(smooth_errors):.4f} (+-{stdev(smooth_errors):.4f})")
+    # print(f"\nSuccessful optimizations: {were_successful}/{num_opts}")
+    # print(f"Optimization time over {num_opts} optimizations (s): {mean(opt_times):.4f} (+-{stdev(opt_times):.4f})")
+    # print(f"Loss value over {num_opts} optimizations: {mean(loss_values):.4f} (+-{stdev(loss_values):.4f})")
+    # print(f"Shape error over {num_opts} optimizations: {mean(shape_errors):.4f} (+-{stdev(shape_errors):.4f})")
+    # print(f"Residual error over {num_opts} optimizations: {mean(residual_errors):.4f} (+-{stdev(residual_errors):.4f})")
+    # if len(smooth_errors) > 0:
+    #     print(f"Smoothness error over {num_opts} optimizations: {mean(smooth_errors):.4f} (+-{stdev(smooth_errors):.4f})")
 
 
 # ===============================================================================

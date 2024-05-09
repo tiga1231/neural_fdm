@@ -7,6 +7,10 @@ from neural_fofin.models import AutoEncoderPiggy
 from neural_fofin.helpers import vertices_residuals_from_xyz
 
 
+# ===============================================================================
+# Loss assemblers
+# ===============================================================================
+
 def compute_loss(
         model,
         structure,
@@ -93,150 +97,9 @@ def _compute_loss_piggy(
     return loss_data
 
 
-def compute_loss_residual_smoothness(
-        x,
-        x_hat,
-        params_hat,
-        structure,
-        loss_params,
-        aux_data,
-        *args
-):
-    """
-    Compute the model loss.
-
-    Parameters
-    ----------
-    x : target
-    x_hat : prediction
-    params_hat : parameters prediction (aux data)
-    structure : the connectivity graph of the structure
-    loss_params : the scaling parameters to combine the loss' error terms
-    aux_data : if true, returns auxiliary data
-    """
-    loss_shape = jnp.array([0.0])
-
-    # include support ring vertices to compute residual error on
-    residual_params = loss_params["residual"]
-    indices_rings = residual_params["indices"]
-    indices = structure.indices_free
-    indices = jnp.concatenate((indices, indices_rings))
-    factor_residual = residual_params["weight"] / residual_params["scale"]
-    loss_residual = compute_error_residual(x_hat, params_hat, structure, indices)
-    loss_residual = factor_residual * loss_residual
-
-    smooth_params = loss_params["energy"]
-    factor_smooth = smooth_params["weight"] / smooth_params["scale"]
-    loss_smooth = compute_error_smoothness(x_hat, params_hat, structure)
-    loss_smooth = factor_smooth * loss_smooth
-
-    loss = 0.0
-    if residual_params["include"]:
-        loss = loss + loss_residual
-    if smooth_params["include"]:
-        loss = loss + loss_smooth
-
-    loss_terms = [
-        loss,
-        loss_shape,
-        loss_residual,
-        loss_smooth
-    ]
-
-    if aux_data:
-        return loss, loss_terms
-
-    return loss
-
-
-def compute_loss_shape_residual_smoothness(
-        x,
-        x_hat,
-        params_hat,
-        structure,
-        loss_params,
-        aux_data,
-        *args
-):
-    """
-    Compute the model loss.
-
-    Parameters
-    ----------
-    x : target
-    x_hat : prediction
-    params_hat : parameters prediction (aux data)
-    structure : the connectivity graph of the structure
-    loss_params : the scaling parameters to combine the loss' error terms
-    aux_data : if true, returns auxiliary data
-    """
-    shape_params = loss_params["shape"]
-    factor_shape = shape_params["weight"] / shape_params["scale"]
-
-    # select only points on rings to compute shape error
-    dims = shape_params["dims"]
-    levels_compression = shape_params["levels_compression"]
-    levels_tension = shape_params["levels_tension"]
-
-    def slice_xyz_rings(_x, levels):
-        return jnp.reshape(_x, dims)[levels, :, :].ravel()
-
-    slice_xyz_vmap = vmap(slice_xyz_rings, in_axes=(0, None))
-    xyz_slice = slice_xyz_vmap(x, levels_compression)
-    xyz_hat_slice = slice_xyz_vmap(x_hat, levels_compression)
-    assert xyz_slice.shape == xyz_hat_slice.shape
-
-    # NOTE: Using L2 norm here because L1 does not work well
-    loss_shape_1 = compute_error_shape_l2(xyz_slice, xyz_hat_slice)
-
-    def slice_z_rings(_x, levels):
-        return jnp.reshape(_x, dims)[levels, :, 2].ravel()
-
-    slice_z_vmap = vmap(slice_z_rings, in_axes=(0, None))
-    z_slice = slice_z_vmap(x, levels_tension)
-    z_hat_slice = slice_z_vmap(x_hat, levels_tension)
-    assert z_slice.shape == z_hat_slice.shape
-
-    # NOTE: Using L2 norm here because L1 does not work well
-    loss_shape_2 = compute_error_shape_l2(z_slice, z_hat_slice)
-    # loss_shape_2 = 0.0
-
-    # combine 2 shape errors
-    loss_shape = factor_shape * (loss_shape_1 + loss_shape_2)
-
-    # residual
-    indices = structure.indices_free
-    residual_params = loss_params["residual"]
-    factor_residual = residual_params["weight"] / residual_params["scale"]
-    loss_residual = compute_error_residual(x_hat, params_hat, structure, indices)
-    loss_residual = factor_residual * loss_residual
-
-    # smoothness
-    smooth_params = loss_params["energy"]
-    factor_smooth = smooth_params["weight"] / smooth_params["scale"]
-    loss_smooth = compute_error_smoothness(x_hat, params_hat, structure)
-    loss_smooth = factor_smooth * loss_smooth
-
-    loss = 0.0
-    if shape_params["include"]:
-        loss = loss + loss_shape
-    if residual_params["include"]:
-        loss = loss + loss_residual
-    if smooth_params["include"]:
-        loss = loss + loss_smooth
-
-    loss_terms = [
-        loss,
-        loss_shape,
-        loss_residual,
-        loss_smooth
-    ]
-
-    if aux_data:
-        return loss, loss_terms
-
-    return loss
-
+# ===============================================================================
+# Task losses
+# ===============================================================================
 
 def compute_loss_shape_residual(
         x,
@@ -276,17 +139,188 @@ def compute_loss_shape_residual(
     if residual_params["include"]:
         loss = loss + loss_residual
 
-    loss_terms = [
-        loss,
-        loss_shape,
-        loss_residual
-    ]
+    loss_terms = {
+        "loss": loss,
+        "shape error": loss_shape,
+        "residual error": loss_residual
+    }
 
     if aux_data:
         return loss, loss_terms
 
     return loss
 
+
+def compute_loss_shape_residual_smoothness(
+        x,
+        x_hat,
+        params_hat,
+        structure,
+        loss_params,
+        aux_data,
+        *args
+):
+    """
+    Compute the model loss.
+
+    Parameters
+    ----------
+    x : target
+    x_hat : prediction
+    params_hat : parameters prediction (aux data)
+    structure : the connectivity graph of the structure
+    loss_params : the scaling parameters to combine the loss' error terms
+    aux_data : if true, returns auxiliary data
+    """
+    # compression ring shape
+    shape_params = loss_params["shape"]
+    factor_shape = shape_params["weight"] / shape_params["scale"]
+    shape_dims = shape_params["dims"]
+    levels_compression = shape_params["levels_compression"]
+
+    def slice_xyz_rings(_x, levels):
+        return jnp.reshape(_x, shape_dims)[levels, :, :].ravel()
+
+    slice_xyz_vmap = vmap(slice_xyz_rings, in_axes=(0, None))
+    xyz_slice = slice_xyz_vmap(x, levels_compression)
+    xyz_hat_slice = slice_xyz_vmap(x_hat, levels_compression)
+    assert xyz_slice.shape == xyz_hat_slice.shape
+
+    # NOTE: Using L2 norm here because L1 does not work well
+    loss_shape = compute_error_shape_l2(xyz_slice, xyz_hat_slice)
+    loss_shape = factor_shape * loss_shape
+
+    # tension rings height
+    height_params = loss_params["height"]
+    factor_height = height_params["weight"] / height_params["scale"]
+    height_dims = height_params["dims"]
+    levels_tension = height_params["levels_tension"]
+
+    def slice_z_rings(_x, levels):
+        return jnp.reshape(_x, height_dims)[levels, :, 2].ravel()
+
+    slice_z_vmap = vmap(slice_z_rings, in_axes=(0, None))
+    z_slice = slice_z_vmap(x, levels_tension)
+    z_hat_slice = slice_z_vmap(x_hat, levels_tension)
+    assert z_slice.shape == z_hat_slice.shape
+
+    # NOTE: Using L2 norm here because L1 does not work well
+    loss_height = compute_error_shape_l2(z_slice, z_hat_slice)
+    loss_height = factor_height * loss_height
+
+    # residual
+    indices = structure.indices_free
+    residual_params = loss_params["residual"]
+    factor_residual = residual_params["weight"] / residual_params["scale"]
+    loss_residual = compute_error_residual(x_hat, params_hat, structure, indices)
+    loss_residual = factor_residual * loss_residual
+
+    # smoothness
+    smooth_params = loss_params["energy"]
+    factor_smooth = smooth_params["weight"] / smooth_params["scale"]
+    loss_smooth = compute_error_smoothness(x_hat, params_hat, structure)
+    loss_smooth = factor_smooth * loss_smooth
+
+    # regularization
+    regularization_params = loss_params["regularization"]
+    factor_regularization = regularization_params["weight"]
+    q = params_hat[0]
+    regularization = compute_q_regularization(q)
+    regularization = factor_regularization * regularization
+
+    loss = 0.0
+    if shape_params["include"]:
+        loss = loss + loss_shape
+    if height_params["include"]:
+        loss = loss + loss_height
+    if residual_params["include"]:
+        loss = loss + loss_residual
+    if smooth_params["include"]:
+        loss = loss + loss_smooth
+    if regularization_params["include"]:
+        loss = loss + regularization
+
+    loss_terms = {
+        "loss": loss,
+        "shape error": loss_shape,
+        "height error": loss_height,
+        "residual error": loss_residual,
+        "smooth error": loss_smooth,
+        "regularization": regularization
+    }
+
+    if aux_data:
+        return loss, loss_terms
+
+    return loss
+
+
+def compute_loss_residual_smoothness(
+        x,
+        x_hat,
+        params_hat,
+        structure,
+        loss_params,
+        aux_data,
+        *args
+):
+    """
+    Compute the model loss.
+
+    Parameters
+    ----------
+    x : target
+    x_hat : prediction
+    params_hat : parameters prediction (aux data)
+    structure : the connectivity graph of the structure
+    loss_params : the scaling parameters to combine the loss' error terms
+    aux_data : if true, returns auxiliary data
+    """
+    # include support ring vertices to compute residual error on
+    residual_params = loss_params["residual"]
+    indices_rings = residual_params["indices"]
+    indices = structure.indices_free
+    indices = jnp.concatenate((indices, indices_rings))
+    factor_residual = residual_params["weight"] / residual_params["scale"]
+    loss_residual = compute_error_residual(x_hat, params_hat, structure, indices)
+    loss_residual = factor_residual * loss_residual
+
+    smooth_params = loss_params["energy"]
+    factor_smooth = smooth_params["weight"] / smooth_params["scale"]
+    loss_smooth = compute_error_smoothness(x_hat, params_hat, structure)
+    loss_smooth = factor_smooth * loss_smooth
+
+    # regularization
+    regularization_params = loss_params["regularization"]
+    factor_regularization = regularization_params["weight"]
+    q = params_hat[0]
+    regularization = compute_q_regularization(q)
+    regularization = factor_regularization * regularization
+
+    loss = 0.0
+    if residual_params["include"]:
+        loss = loss + loss_residual
+    if smooth_params["include"]:
+        loss = loss + loss_smooth
+    if regularization_params["include"]:
+        loss = loss + regularization
+
+    loss_terms = {
+        "loss": loss,
+        "residual error": loss_residual,
+        "smooth error": loss_smooth,
+        "regularization": regularization
+    }
+
+    if aux_data:
+        return loss, loss_terms
+
+    return loss
+
+
+# ===============================================================================
+# Shape approximation error
+# ===============================================================================
 
 def compute_error_shape_l1(x, x_hat):
     """
@@ -298,18 +332,19 @@ def compute_error_shape_l1(x, x_hat):
     return jnp.mean(batch_error, axis=-1)
 
 
-def compute_error_shape_l2(x, x_hat, aggr="sum"):
+def compute_error_shape_l2(x, x_hat):
     """
     Calculate the shape reconstruction error
     """
     error = jnp.square(x - x_hat)
-    if aggr == "sum":
-        batch_error = jnp.sum(error, axis=-1)
-    else:
-        batch_error = jnp.mean(error, axis=-1)
+    batch_error = jnp.sum(error, axis=-1)
 
     return jnp.mean(batch_error, axis=-1)
 
+
+# ===============================================================================
+# Residual error
+# ===============================================================================
 
 def compute_error_residual(x_hat, params_hat, structure, indices):
     """
@@ -342,6 +377,10 @@ def compute_error_residual(x_hat, params_hat, structure, indices):
 
     return jnp.mean(batch_error, axis=-1)
 
+
+# ===============================================================================
+# Smoothness energy
+# ===============================================================================
 
 def compute_error_smoothness(x_hat, params_hat, structure):
     """
@@ -380,18 +419,34 @@ def vertices_smoothness(xyz, structure):
     return vertices_fairness_fn(xyz_free, adjacency_free)
 
 
-def print_loss_summary(loss_terms, labels=None, prefix=None):
-    """
-    """
-    if not labels:
-        labels = ["Loss", "Shape error", "Residual error", "Smooth error"]
+# ===============================================================================
+# Smoothness energy
+# ===============================================================================
 
+def compute_q_regularization(q):
+    """
+    Calculate a regularization term such that q has low variance.
+    """
+    sign_q = jnp.sign(q)
+    var_q_pos = jnp.var(q, where=sign_q > 0)
+    var_q_neg = jnp.var(q, where=sign_q < 0)
+
+    return jnp.mean(var_q_pos) + jnp.mean(var_q_neg)
+
+
+# ===============================================================================
+# Utilities
+# ===============================================================================
+
+def print_loss_summary(loss_terms, prefix=None):
+    """
+    """
     msg_parts = []
     if prefix:
         msg_parts.append(prefix)
 
-    for term, label in zip(loss_terms, labels):
-        part = f"{label}: {term.item():.4f}"
+    for label, term in loss_terms.items():
+        part = f"{label.capitalize()}: {term.item():.4f}"
         msg_parts.append(part)
 
     msg = "\t".join(msg_parts)

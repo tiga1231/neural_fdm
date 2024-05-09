@@ -1,8 +1,5 @@
 from functools import partial
 
-import jax.numpy as jnp
-
-from jax import jit
 from jax import vmap
 import jax.random as jrn
 import jax.tree_util as jtu
@@ -69,9 +66,9 @@ def train_step(model, structure, optimizer, generator, opt_state, *, loss_fn, ba
     model = eqx.apply_updates(model, updates)
 
     # NOTE: return latent space
-    q = vmap(model.encode)(x)
+    # q = vmap(model.encode)(x)
 
-    return loss_vals, model, opt_state, grads, q
+    return loss_vals, model, opt_state, grads
 
 
 def train_model(model, structure, optimizer, generator, *, loss_fn, num_steps, batch_size, key, callback=None):
@@ -103,7 +100,7 @@ def train_model(model, structure, optimizer, generator, *, loss_fn, num_steps, b
         key, _ = jrn.split(key)
 
         # train step
-        loss_vals, model, opt_state, grads, qs = train_step_fn(
+        loss_vals, model, opt_state, grads = train_step_fn(
             model,
             structure,
             optimizer,
@@ -113,15 +110,15 @@ def train_model(model, structure, optimizer, generator, *, loss_fn, num_steps, b
             key=key,
             )
 
-        # NOTE: log gradient name
-        grads_flat = jtu.tree_flatten(grads)[0]
-        grads_flat = jtu.tree_map(lambda x: x.ravel(), grads_flat)
-        grads_flat = jnp.concatenate(grads_flat)
-        grad_norm = jnp.linalg.norm(jnp.array(grads_flat), axis=-1)
-        loss_vals.append(grad_norm)
+        # log gradient name
+        # grads_flat = jtu.tree_flatten(grads)[0]
+        # grads_flat = jtu.tree_map(lambda x: x.ravel(), grads_flat)
+        # grads_flat = jnp.concatenate(grads_flat)
+        # grad_norm = jnp.linalg.norm(jnp.array(grads_flat), axis=-1)
+        # loss_vals["gradients"] = grad_norm
 
         # log latent space norm
-        loss_vals.append(jnp.ravel(qs))
+        # loss_vals["q"] = jnp.ravel(qs)
 
         # log latent space condition number
         # cond_nums = cond_num_fn(qs)
