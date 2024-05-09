@@ -76,7 +76,7 @@ parameters:
           include:
             value: True
           weight:
-            value: 1.0
+            values: [0.1, 1.0]
           scale:
             value: 1.0
       energy:
