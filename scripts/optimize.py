@@ -45,11 +45,11 @@ from neural_fofin.losses import print_loss_summary
 # Script function
 # ===============================================================================
 
-def match_batch(
+def optimize_batch(
         optimizer,
         task_name,
         param_init=None,
-        blow=1e-3,
+        blow=1e-3,  # 1e-3
         bup=20.0,
         maxiter=5000,
         seed=None,
@@ -57,7 +57,7 @@ def match_batch(
         verbose=True,
         save=False,
         view=False,
-        slice=(50, 53),
+        slice=(0, -1),  # (50, 53) for bezier
         edgecolor="force"
 ):
     """
@@ -186,12 +186,7 @@ def match_batch(
     # optimize
     print("\nOptimizing shapes in sequence")
     opt_times = []
-
-    loss_values = []
-    shape_errors = []
-    residual_errors = []
-    smooth_errors = []
-    loss_lists = [loss_values, shape_errors, residual_errors, smooth_errors]
+    loss_terms_batch = []
 
     were_successful = 0
     if STOP == -1:
@@ -229,16 +224,14 @@ def match_batch(
             were_successful += 1
 
         opt_times.append(opt_time)
-
-        # for loss_container, loss_term in zip(loss_lists, loss_terms):
-            # loss_container.append(loss_term.item())
+        loss_terms_batch.append(loss_terms)
 
         # assemble datastructure for post-processing
         eqstate_hat, fd_params_hat = model_opt.predict_states(xyz, structure)
         mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
         network_hat = FDNetwork.from_mesh(mesh_hat)
-        if verbose:
-            network_hat.print_stats()
+        # if verbose:
+        #    network_hat.print_stats()
 
         # export prediction
         if SAVE:
@@ -266,14 +259,6 @@ def match_batch(
             viewer.view.camera.position = CAMERA_CONFIG["position"]
             viewer.view.camera.target = CAMERA_CONFIG["target"]
             viewer.view.camera.distance = CAMERA_CONFIG["distance"]
-
-            # approximated mesh
-            # viewer.add(
-            #     mesh_hat,
-            #     show_points=False,
-            #     show_edges=False,
-            #     opacity=0.2
-            # )
 
             # edge colors
             if EDGECOLOR == "force":
@@ -314,18 +299,28 @@ def match_batch(
             )
 
             if task_name == "bezier":
+                # target mesh
                 viewer.add(
                     FDNetwork.from_mesh(mesh_target),
                     as_wireframe=True,
                     show_points=False,
                     linewidth=4.0,
                     color=Color.black().lightened()
-                    )
+                )
+
+                # approximated mesh
+                viewer.add(
+                    mesh_hat,
+                    show_points=False,
+                    show_edges=False,
+                    opacity=0.2
+                )
+
             elif task_name == "tower":
                 rings = jnp.reshape(xyz, generator.shape_tube)[generator.levels_rings_comp, :, :]
                 for ring in rings:
                     ring = Polygon(ring.tolist())
-                    # viewer.add(ring, opacity=0.5)
+                    viewer.add(ring, opacity=0.5)
 
                 lengths = []
                 xyz_hat = model_opt(xyz, structure)
@@ -336,19 +331,17 @@ def match_batch(
                         viewer.add(line)
                         lengths.append(line.length**2)
 
-                # print(f"{sum(lengths)=}")
             # show le crème
             viewer.show()
 
     # report optimization statistics
-    # print(f"\nSuccessful optimizations: {were_successful}/{num_opts}")
-    # print(f"Optimization time over {num_opts} optimizations (s): {mean(opt_times):.4f} (+-{stdev(opt_times):.4f})")
-    # print(f"Loss value over {num_opts} optimizations: {mean(loss_values):.4f} (+-{stdev(loss_values):.4f})")
-    # print(f"Shape error over {num_opts} optimizations: {mean(shape_errors):.4f} (+-{stdev(shape_errors):.4f})")
-    # print(f"Residual error over {num_opts} optimizations: {mean(residual_errors):.4f} (+-{stdev(residual_errors):.4f})")
-    # if len(smooth_errors) > 0:
-    #     print(f"Smoothness error over {num_opts} optimizations: {mean(smooth_errors):.4f} (+-{stdev(smooth_errors):.4f})")
+    print(f"\nSuccessful optimizations: {were_successful}/{num_opts}")
+    print(f"Optimization time over {num_opts} optimizations (s): {mean(opt_times):.4f} (+-{stdev(opt_times):.4f})")
 
+    labels = loss_terms_batch[0].keys()
+    for label in labels:
+        errors = [terms[label].item() for terms in loss_terms_batch]
+        print(f"{label.capitalize()} over {num_opts} optimizations: {mean(errors):.4f} (+-{stdev(errors):.4f})")
 
 # ===============================================================================
 # Helper functions
@@ -409,4 +402,4 @@ if __name__ == "__main__":
 
     from fire import Fire
 
-    Fire(match_batch)
+    Fire(optimize_batch)

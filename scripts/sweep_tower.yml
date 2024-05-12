@@ -1,7 +1,7 @@
 # wandb variables
 program: sweep.py
 project: neural_fofin_tower
-method: random  # grid, random
+method: grid  # grid, random
 metric:
   goal: minimize
   name: loss
@@ -40,7 +40,7 @@ parameters:
   encoder:
     parameters:
       shift:
-        values: [0.0, 1.0]
+        value: 1.0
       hidden_layer_size:
         value: 256
       hidden_layer_num:
@@ -76,7 +76,7 @@ parameters:
           include:
             value: True
           weight:
-            values: [0.1, 1.0]
+            value: 1.0
           scale:
             value: 1.0
       energy:
@@ -100,7 +100,7 @@ parameters:
           include:
             value: True
           weight:
-            values: [5.0, 10.0]
+            values: [1.0, 5.0, 10.0]
   # optimizer
   optimizer:
     parameters:
@@ -108,9 +108,9 @@ parameters:
         value: "adam"
       learning_rate:
         # NOTE: Be careful with scientific notation in YAML!
-        values: [1.0e-2, 3.0e-2, 1.0e-3, 3.0e-3, 1.0e-4, 3.0e-4]
+        value: 0.001
       clip_norm:
-        values: [0.01, 0.1]
+        value: 0.01
   # training
   training:
     parameters:

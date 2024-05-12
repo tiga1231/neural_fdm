@@ -233,7 +233,7 @@ def predict_batch(
 
             viewer.add(
                 network_hat,
-                edgewidth=(0.01, 0.3),
+                edgewidth=(0.01, 0.02),
                 edgecolor=edgecolor,
                 show_edges=True,
                 edges=[edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)],
