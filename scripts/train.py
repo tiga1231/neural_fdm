@@ -105,7 +105,8 @@ def train(
         # save loss history
         labels = loss_history[0].keys()
         for label in labels:
-            filename_loss = f"losses_{filename}_{label}.txt"
+            _label = "_".join(label.split())
+            filename_loss = f"losses_{filename}_{_label}.txt"
 
             filepath = os.path.join(DATA, filename_loss)
             with open(filepath, "w") as file:

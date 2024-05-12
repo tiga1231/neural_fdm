@@ -47,10 +47,11 @@ def predict_batch(
         task_name,
         seed=None,
         batch_size=None,
-        time_inference=True,
-        save=False,
+        time_batch_inference=True,
+        predict_in_sequence=True,
+        slice=(0, -1),  # (50, 53) for bezier
         view=False,
-        slice=(50, 53),
+        save=False,
         edgecolor="force"):
     """
     Predict a batch of target shapes with a pretrained model.
@@ -69,14 +70,16 @@ def predict_batch(
     batch_size: `int` or `None`
         The size of the batch of target shapes.
         If `None`, it defaults to the input hyperparameters file.
-    time_inference: `bool`
+    time_batch_inference: `bool`
         If `True`, report the inference time over a data batch, averaged over 10 jitted runs.
-    save: `bool`
-        If `True`, save the predicted shapes as JSON files.
-    view: `bool`
-        If `True`, view the predicted shapes.
+    predict_in_sequence: `bool`
+        If `True`, predict every shape in the prescribed slice of the data batch.
     slice: `tuple`
         The start of the slice of the batch for saving and viewing.
+    view: `bool`
+        If `True`, view the predicted shapes.
+    save: `bool`
+        If `True`, save the predicted shapes as JSON files.
     edgecolor: `str`
         The color palette for the edges.
         Supported color palettes are "fd" to display force densities, and "force" to show forces.
@@ -128,7 +131,7 @@ def predict_batch(
     xyz_batch = vmap(generator)(jrn.split(generator_key, batch_size))
 
     # time inference time (encoding only) on batch
-    if time_inference:
+    if time_batch_inference:
         encoding_fn = jit(vmap(model.encode))
         # warmstart
         encoding_fn(xyz_batch)
@@ -146,6 +149,9 @@ def predict_batch(
     print_loss_summary(loss_terms, prefix="Batch\t")
 
     # make individual predictions
+    if not predict_in_sequence:
+        return
+
     print("\nPredicting shapes in sequence")
     for i in range(START, STOP):
         xyz = xyz_batch[i]
