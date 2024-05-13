@@ -9,6 +9,8 @@ metric:
 parameters:
   model:
     value: "formfinder"  # Supported models are formfinder, autoencoder, and piggy
+  from_pretrained:
+    value: True
   # randomness
   seed:
     value: 91
@@ -100,7 +102,7 @@ parameters:
           include:
             value: True
           weight:
-            values: [1.0, 5.0, 10.0]
+            value: 10.0
   # optimizer
   optimizer:
     parameters:
@@ -108,9 +110,9 @@ parameters:
         value: "adam"
       learning_rate:
         # NOTE: Be careful with scientific notation in YAML!
-        value: 0.001
+        value: [0.003, 0.001, 0.0003, 0.0001]
       clip_norm:
-        value: 0.01
+        value: [0.01, 0.1]
   # training
   training:
     parameters:

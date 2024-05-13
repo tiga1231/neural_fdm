@@ -33,12 +33,13 @@ def sweep(**kwargs):
     config = wandb.config
     MODEL_NAME = config.model
     TASK_NAME = config.generator["name"]
+    FROM_PRETRAINED = config.from_pretrained
 
     # train model with wandb config
     train_data = train_model_from_config(
         MODEL_NAME,
         config,
-        pretrained=False,
+        pretrained=FROM_PRETRAINED,
         callback=log_to_wandb
     )
     trained_model, _ = train_data
