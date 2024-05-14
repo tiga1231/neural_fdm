@@ -133,11 +133,12 @@ def predict_batch(
     # sample data batch
     xyz_batch = vmap(generator)(jrn.split(generator_key, batch_size))
 
+    encoding_fn = jit(vmap(model.encode))
+    encoding_fn(xyz_batch)
+
     # time inference time (encoding only) on batch
     if time_batch_inference:
-        encoding_fn = jit(vmap(model.encode))
         # warmstart
-        encoding_fn(xyz_batch)
         # time
         times = []
         for i in range(10):
