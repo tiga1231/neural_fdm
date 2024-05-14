@@ -85,6 +85,9 @@ def predict_batch(
         Supported color palettes are "fd" to display force densities, and "force" to show forces.
     """
     START, STOP = slice
+    if STOP == -1:
+        STOP = batch_size
+
     EDGECOLOR = edgecolor  # force, fd
 
     CAMERA_CONFIG = {
@@ -142,7 +145,7 @@ def predict_batch(
             encoding_fn(xyz_batch)
             duration = perf_counter() - start
             times.append(duration)
-        print(f"Inference time on batch size {batch_size}: {mean(times):.4f} (+-{stdev(times):.4f}) s")
+        print(f"Inference time on batch size {batch_size}: {mean(times):.5f} (+-{stdev(times):.5f}) s")
 
     # report batch losses
     _, loss_terms = compute_loss(model, structure, xyz_batch, aux_data=True)
@@ -153,11 +156,24 @@ def predict_batch(
         return
 
     print("\nPredicting shapes in sequence")
+    opt_times = []
+    loss_terms_batch = []
+    num_predictions = 0
+
     for i in range(START, STOP):
         xyz = xyz_batch[i]
 
+        # predict equilibrium states for viz
         eqstate_hat, fd_params_hat = model.predict_states(xyz, structure)
 
+        # do inference on one design
+        start = perf_counter()
+        encoding_fn(xyz[None, :])
+        opt_time = perf_counter() - start
+        opt_times.append(opt_time)
+        num_predictions += 1
+
+        # calculate loss
         _, loss_terms = compute_loss(
             model,
             structure,
@@ -165,12 +181,14 @@ def predict_batch(
             aux_data=True
         )
 
+        loss_terms_batch.append(loss_terms)
         print_loss_summary(loss_terms, prefix=f"Shape {i}\t")
 
+        # assemble datastructure for post-processing
         mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
         network_hat = FDNetwork.from_mesh(mesh_hat)
-        network_hat.print_stats()
-        print()
+        # network_hat.print_stats()
+        # print()
 
         # export prediction
         if save:
@@ -198,14 +216,6 @@ def predict_batch(
             viewer.view.camera.position = CAMERA_CONFIG["position"]
             viewer.view.camera.target = CAMERA_CONFIG["target"]
             viewer.view.camera.distance = CAMERA_CONFIG["distance"]
-
-            # approximated mesh
-            # viewer.add(
-            #     mesh_hat,
-            #     show_points=False,
-            #     show_edges=False,
-            #     opacity=0.2
-            # )
 
             # edge colors
             if EDGECOLOR == "force":
@@ -246,6 +256,15 @@ def predict_batch(
             )
 
             if task_name == "bezier":
+                # approximated mesh
+                viewer.add(
+                     mesh_hat,
+                     show_points=False,
+                     show_edges=False,
+                     opacity=0.2
+                 )
+
+                # target mesh
                 viewer.add(
                     FDNetwork.from_mesh(mesh_target),
                     as_wireframe=True,
@@ -253,6 +272,7 @@ def predict_batch(
                     linewidth=4.0,
                     color=Color.black().lightened()
                     )
+
             elif task_name == "tower":
                 rings = jnp.reshape(xyz, generator.shape_tube)[generator.levels_rings_comp, :, :]
                 for ring in rings:
@@ -267,6 +287,14 @@ def predict_batch(
 
             # show le crème
             viewer.show()
+
+        # report statistics
+    print(f"Inference time over {num_predictions} samples (s): {mean(opt_times):.4f} (+-{stdev(opt_times):.4f})")
+
+    labels = loss_terms_batch[0].keys()
+    for label in labels:
+        errors = [terms[label].item() for terms in loss_terms_batch]
+        print(f"{label.capitalize()} over {num_predictions} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
 
 
 # ===============================================================================

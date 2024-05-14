@@ -334,7 +334,7 @@ def optimize_batch(
             # show le crème
             viewer.show()
 
-    # report optimization statistics
+    # report statistics
     print(f"\nSuccessful optimizations: {were_successful}/{num_opts}")
     print(f"Optimization time over {num_opts} optimizations (s): {mean(opt_times):.4f} (+-{stdev(opt_times):.4f})")
 
