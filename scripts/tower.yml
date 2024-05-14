@@ -50,7 +50,7 @@ loss:
 # optimizer
 optimizer:
   name: "adam"
-  learning_rate: 0.001  # 0.001, Be careful with scientific notation in YAML!
+  learning_rate: 0.0001  # 0.001, Be careful with scientific notation in YAML!
   clip_norm: 0.01  # 0.01
 # training
 training:
