@@ -40,7 +40,7 @@ loss:
     include: False
     weight: 1.0  # weight of the smoothness energy term in the loss function
     scale: 1.0  # 30.0, bbox length (used for normalization)
-  residual:  # PINN and task term
+  residual:  # PINN term
     include: False
     weight: 0.0  # weight of the residual error term in the loss function
     scale: 1.0  # 0.5, fdm load scale (used for normalization)

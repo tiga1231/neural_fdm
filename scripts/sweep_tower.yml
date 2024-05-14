@@ -57,9 +57,9 @@ parameters:
       include_params_xl:
         value: True
       hidden_layer_size:
-        value: 512
+        value: 256
       hidden_layer_num:
-        value: 3
+        value: 5
       activation_fn_name:
         value: "elu"
   # loss
