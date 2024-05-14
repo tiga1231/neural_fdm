@@ -163,9 +163,6 @@ def predict_batch(
     for i in range(START, STOP):
         xyz = xyz_batch[i]
 
-        # predict equilibrium states for viz
-        eqstate_hat, fd_params_hat = model.predict_states(xyz, structure)
-
         # do inference on one design
         start = perf_counter()
         encoding_fn(xyz[None, :])
@@ -184,11 +181,15 @@ def predict_batch(
         loss_terms_batch.append(loss_terms)
         print_loss_summary(loss_terms, prefix=f"Shape {i}\t")
 
-        # assemble datastructure for post-processing
-        mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
-        network_hat = FDNetwork.from_mesh(mesh_hat)
-        # network_hat.print_stats()
-        # print()
+        if view or save:
+            # predict equilibrium states for viz and i/o
+            eqstate_hat, fd_params_hat = model.predict_states(xyz, structure)
+
+            # assemble datastructure for post-processing
+            mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
+            network_hat = FDNetwork.from_mesh(mesh_hat)
+            network_hat.print_stats()
+            print()
 
         # export prediction
         if save:
@@ -296,6 +297,14 @@ def predict_batch(
         errors = [terms[label].item() for terms in loss_terms_batch]
         print(f"{label.capitalize()} over {num_predictions} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
 
+    if task_name == "tower":
+        errors = []
+        for terms in loss_terms_batch:
+            error = 0.0
+            error += terms["shape error"].item()
+            error += terms["height error"].item()
+            errors.append(error)
+        print(f"Task error over {num_predictions} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
 
 # ===============================================================================
 # Main
