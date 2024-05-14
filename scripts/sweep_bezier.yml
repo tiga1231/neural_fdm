@@ -9,6 +9,8 @@ metric:
 parameters:
   model:
     value: "autoencoder"
+  from_pretrained:
+    value: False
   # randomness
   seed:
     value: 91
@@ -35,6 +37,8 @@ parameters:
   # encoder
   encoder:
     parameters:
+      shift:
+        value: 0.0
       hidden_layer_size:
         values: [128, 256, 512, 1024]
       hidden_layer_num:
@@ -81,6 +85,8 @@ parameters:
       learning_rate:
         # NOTE: Be careful with scientific notation in YAML!
         values: [1.0e-3, 3.0e-3, 1.0e-4, 3.0e-4, 5.0e-4, 1.0e-5, 3.0e-5, 5.0e-5]
+      clip_norm:
+        value: 0.0
   # training
   training:
     parameters:
