@@ -3,7 +3,7 @@ seed: 91
 # data generator
 generator:
   # options: "bezier_symmetric_double", "bezier_symmetric", "bezier_asymmetric"
-  name: "bezier_symmetric_double"
+  name: "bezier_asymmetric"
   bounds: "saddle"  # options: pillow, dome, saddle
   num_uv: 10
   size: 10.0

@@ -8,12 +8,12 @@ metric:
 # parameters to be sweeped
 parameters:
   model:
-    value: "formfinder"  # Supported models are formfinder, autoencoder, and piggy
+    value: "autoencoder"  # Supported models are formfinder, autoencoder, and piggy
   from_pretrained:
-    value: True
+    value: False
   # randomness
   seed:
-    value: 91
+    values: [89, 90, 91]
   # data generator
   generator:
     # we need to specify "parameters" again in every nested field of hyperparameters
@@ -92,7 +92,7 @@ parameters:
       residual:
         parameters:
           include:
-            value: False
+            value: True
           weight:
             value: 1.0
           scale:
@@ -102,7 +102,7 @@ parameters:
           include:
             value: True
           weight:
-            value: 10.0
+            values: [1.0, 5.0, 10.0]
   # optimizer
   optimizer:
     parameters:
@@ -110,13 +110,13 @@ parameters:
         value: "adam"
       learning_rate:
         # NOTE: Be careful with scientific notation in YAML!
-        values: [0.003, 0.001, 0.0003, 0.0001]
+        values: [0.001, 0.0003, 0.0001, 0.00003, 0.00001]
       clip_norm:
-        values: [0.01, 0.1]
+        value: 0.0
   # training
   training:
     parameters:
       steps:
-        value: 3000
+        value: 5000
       batch_size:
         value: 16

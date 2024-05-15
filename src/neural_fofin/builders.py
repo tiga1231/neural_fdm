@@ -45,8 +45,6 @@ def ellipse_minmax_values():
     """
     # radius 1, radius 2, rotation
     # radii are scale factors relative to the base radius of a tower
-    # minval = [0.5, 0.5, 0.0]
-    # maxval = [1.5, 1.5, 0.0]
     minval = [0.5, 0.5, 0.0]
     maxval = [1.5, 1.5, 0.0]
 
@@ -59,8 +57,6 @@ def ellipse_rotated_minmax_values():
     """
     # radius 1, radius 2, rotation
     # radii are scale factors relative to the base radius of a tower
-    # minval = [0.75, 0.75, -30.0]
-    # maxval = [1.25, 1.25, 30.0]
     minval = [0.5, 0.5, -15.0]
     maxval = [1.5, 1.5, 15.0]
 
