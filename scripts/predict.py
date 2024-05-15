@@ -243,28 +243,47 @@ def predict_batch(
             else:
                 edgecolor = EDGECOLOR
 
+            vertices_2_view = list(mesh.vertices())
+            color_load = Color.from_rgb255(0, 150, 10)
+            reactioncolor = color_load
+            if task_name == "bezier":
+                vertices_2_view = []
+                for vkey in mesh.vertices():
+                    if len(mesh.vertex_neighbors(vkey)) < 3:
+                        continue
+                    if mesh.is_vertex_on_boundary(vkey):
+                        continue
+                    vertices_2_view.append(vkey)
+
+                reactioncolor = {}
+                for vkey in mesh.vertices():
+                    _color = Color.pink()
+                    # if mesh.is_vertex_on_boundary(vkey):
+                        # _color = color_load
+                    reactioncolor[vkey] = _color
+
             viewer.add(
                 network_hat,
                 edgewidth=(0.01, 0.2),
                 edgecolor=edgecolor,
                 show_edges=True,
                 edges=[edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)],
-                nodes=[node for node in mesh.vertices() if len(mesh.vertex_neighbors(node)) > 2],
+                nodes=vertices_2_view,
                 show_loads=False,
                 loadscale=1.0,
                 show_reactions=True,
                 reactionscale=1.0,
-                reactioncolor=Color.from_rgb255(0, 150, 10),
+                reactioncolor=reactioncolor
             )
 
             if task_name == "bezier":
                 # approximated mesh
-                viewer.add(
-                     mesh_hat,
-                     show_points=False,
-                     show_edges=False,
-                     opacity=0.2
-                 )
+                # viewer.add(
+                     # mesh_hat,
+                     # show_points=False,
+                     # show_edges=False,
+                     # opacity=0.1
+                 # )
 
                 # target mesh
                 viewer.add(
