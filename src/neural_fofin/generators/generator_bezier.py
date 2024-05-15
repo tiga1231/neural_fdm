@@ -41,15 +41,22 @@ class BezierSurfacePointGenerator:
         shape = self.surface.grid.tile.shape
         return jrn.uniform(key, shape=shape, minval=self.minval, maxval=self.maxval)
 
+    def evaluate_points(self, transform):
+        """
+        Generate transformed points.
+        """
+        points = self.surface.evaluate_points(self.u, self.v, transform)
+
+        return jnp.ravel(points)
+
     def __call__(self, key, wiggle=True):
         """
+        Generate (wiggled) points.
         """
         if wiggle:
             transform = self.wiggle(key)
 
-        points = self.surface.evaluate_points(self.u, self.v, transform)
-
-        return jnp.ravel(points)
+        return self.evaluate_points(transform)
 
 
 class BezierSurfaceSymmetricDoublePointGenerator(BezierSurfacePointGenerator):
