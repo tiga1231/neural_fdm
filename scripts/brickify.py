@@ -496,6 +496,14 @@ def brickify(
         bricks, meshes = generate_bricks(mesh, thickness)
         mesh_bottom, mesh_top = meshes
 
+        if save:
+            filepath = os.path.join(DATA, f"{name}_top.json")
+            mesh_top.to_json(filepath)
+            print(f"Saved mesh top to {filepath}")
+            filepath = os.path.join(DATA, f"{name}_bottom.json")
+            mesh_bottom.to_json(filepath)
+            print(f"Saved mesh bottom to {filepath}")
+
     # generate scaffolding
     if do_scaffold:
         scaffold_mesh = generate_scaffolding(mesh, thickness)
