@@ -34,7 +34,8 @@ def train(
         from_pretrained=False,
         checkpoint_every=None,
         plot=True,
-        save=True
+        save_model=True,
+        save_losses=True,
 ):
     """
     Train a model to approximate a family of arbitrary shapes with mechanically-feasible geometries.
@@ -94,14 +95,15 @@ def train(
         # plot_latent_mean_std(loss_history)
         # plot_stiffness_condition_num(loss_history)
 
-    if save:
-        print("\nSaving results")
+    if save_model:
+        print("\nSaving model")
 
         # save trained model
         filepath = os.path.join(DATA, f"{filename}.eqx")
         save_model(filepath, trained_model)
         print(f"Saved model to {filepath}")
 
+    if save_losses:
         # save loss history
         labels = loss_history[0].keys()
         for label in labels:

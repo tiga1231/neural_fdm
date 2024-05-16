@@ -14,7 +14,7 @@ fdm:
   load: 0.0  # 0.0, scale of vertical area load
 # encoder
 encoder:
-  shift: 1.0
+  shift: 0.0
   hidden_layer_size: 256
   hidden_layer_num: 5  # 3
   activation_fn_name: "elu"
@@ -51,8 +51,8 @@ loss:
 optimizer:
   name: "adam"
   learning_rate: 0.001  # 0.001 then 0.00001, Be careful with scientific notation in YAML!
-  clip_norm: 0.01  # 0.01
+  clip_norm: 0.0  # 0.01
 # training
 training:
-  steps: 3000
+  steps: 1500
   batch_size: 16
