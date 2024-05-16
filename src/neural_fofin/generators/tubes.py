@@ -140,6 +140,29 @@ class EllipticalTubePointGenerator(TubePointGenerator):
 
         return jrn.uniform(key, shape=shape, minval=minval, maxval=maxval)
 
+    def evaluate_points(self, transform):
+        """
+        Generate transformed points.
+        """
+        heights = jnp.linspace(0.0, self.height, self.num_levels)
+        radii = jnp.ones(shape=(self.num_levels, 2)) * self.radius
+        angles = jnp.ones(shape=(self.num_levels,))
+
+        wiggle_radii, wiggle_angle = transform
+        wiggle_radii = wiggle_radii * self.radius
+        radii = radii.at[self.levels_rings_comp, :].set(wiggle_radii)
+        angles = angles.at[self.levels_rings_comp].set(wiggle_angle)
+
+        points = points_on_ellipses(
+            radii[:, 0],
+            radii[:, 1],
+            heights,
+            self.num_sides,
+            angles,
+        )
+
+        return jnp.ravel(points)
+
     def points_on_tube(self, key=None, wiggle=False):
         """
         """
