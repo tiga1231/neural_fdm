@@ -24,7 +24,9 @@ from jaxopt import ScipyBoundedMinimize
 from compas.colors import Color
 from compas.colors import ColorMap
 from compas.geometry import Polygon
+from compas.geometry import Polyline
 from compas.geometry import Line
+from compas.utilities import remap_values
 
 from jax_fdm.datastructures import FDNetwork
 from jax_fdm.equilibrium import datastructure_updated
@@ -41,6 +43,22 @@ from neural_fofin.builders import build_loss_function
 from neural_fofin.losses import print_loss_summary
 
 
+CAMERA_CONFIG_BEZIER = {
+    "color": (1.0, 1.0, 1.0, 1.0),
+    "position": (30.34, 30.28, 42.94),
+    "target": (0.956, 0.727, 1.287),
+    "distance": 20.0,
+}
+
+CAMERA_CONFIG_TOWER = {
+    "color": (1.0, 1.0, 1.0, 1.0),
+    "position": (10.718, 10.883, 14.159),
+    "target": (-0.902, -0.873, 3.846),
+    "distance": 19.482960680274577,
+    "rotation": (1.013, 0.000, 2.362),
+}
+
+
 # ===============================================================================
 # Script function
 # ===============================================================================
@@ -54,11 +72,18 @@ def optimize_batch(
         maxiter=5000,
         seed=None,
         batch_size=None,
-        verbose=True,
+        slice=(0, -1),  # (50, 53) for bezier
         save=False,
         view=False,
-        slice=(0, -1),  # (50, 53) for bezier
-        edgecolor="force"
+        edgecolor="force",
+        show_reactions=False,
+        edgewidth=(0.01, 0.3),
+        fmax=None,
+        fmax_tens=None,
+        fmax_comp=None,
+        qmin=None,
+        qmax=None,
+        verbose=True,
 ):
     """
     Solve the prediction task on a batch target shapes with direct optimization with box constraints.
@@ -103,12 +128,15 @@ def optimize_batch(
     SAVE = save
     QMIN = blow
     QMAX = bup
+    EDGEWIDTH = edgewidth
 
-    CAMERA_CONFIG = {
-        "position": (30.34, 30.28, 42.94),
-        "target": (0.956, 0.727, 1.287),
-        "distance": 20.0,
-    }
+    # pick camera configuration for task
+    if task_name == "bezier":
+        CAMERA_CONFIG = CAMERA_CONFIG_BEZIER
+        _width = 900
+    elif task_name == "tower":
+        CAMERA_CONFIG = CAMERA_CONFIG_TOWER
+        _width = 450
 
     # pick optimizer name
     optimizer_names = {"lbfgsb": "L-BFGS-B", "slsqp": "SLSQP"}
@@ -230,8 +258,8 @@ def optimize_batch(
         eqstate_hat, fd_params_hat = model_opt.predict_states(xyz, structure)
         mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
         network_hat = FDNetwork.from_mesh(mesh_hat)
-        # if verbose:
-        #    network_hat.print_stats()
+        if verbose:
+            network_hat.print_stats()
 
         # export prediction
         if SAVE:
@@ -249,7 +277,7 @@ def optimize_batch(
                 mesh_target.vertex_attributes(key, "xyz", _xyz[idx])
 
             viewer = Viewer(
-                width=900,
+                width=_width,
                 height=900,
                 show_grid=False,
                 viewmode="lighted"
@@ -259,44 +287,121 @@ def optimize_batch(
             viewer.view.camera.position = CAMERA_CONFIG["position"]
             viewer.view.camera.target = CAMERA_CONFIG["target"]
             viewer.view.camera.distance = CAMERA_CONFIG["distance"]
+            _rotation = CAMERA_CONFIG.get("rotation")
+            if _rotation:
+                viewer.view.camera.rotation = _rotation
+
+            # edges to view
+            # NOTE: we are not visualizing edges on boundaries since they are supported
+            edges_2_view = [edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)]
+
+            # compute stats
+            forces_all = []
+            forces_comp_all = []
+            forces_tens_all = []
+            qs_all = []
+            for edge in network_hat.edges():
+
+                force = network_hat.edge_force(edge)
+                force_abs = fabs(force)
+                forces_all.append(force_abs)
+                if force < 0.0:
+                    forces_comp_all.append(force_abs)
+                else:
+                    forces_tens_all.append(force_abs)
+
+                if mesh_hat.edge_attribute(edge, "tag") != "ring":
+                    qs_all.append(fabs(network_hat.edge_forcedensity(edge)))
+
+            fmin = 0.0
+            fmin_comp = 0.0
+            fmin_tens = 0.0
+            if fmax is None:
+                fmax = max(forces_all)
+            if fmax_tens is None:
+                fmax_tens = max(forces_tens_all)
+            if fmax_comp is None:
+                fmax_comp = max(forces_comp_all)
+            if qmin is None:
+                qmin = min(qs_all)
+            if qmax is None:
+                qmax = max(qs_all)
+
+            # edge width
+            width_min, width_max = EDGEWIDTH
+            _forces = [fabs(mesh_hat.edge_force(edge)) for edge in mesh_hat.edges()]
+            _forces = remap_values(_forces, original_min=fmin, original_max=fmax)
+            _widths = remap_values(_forces, width_min, width_max)
+            edgewidth = {edge: width for edge, width in zip(mesh_hat.edges(), _widths)}
 
             # edge colors
-            if EDGECOLOR == "force":
-
-                color_end = Color.from_rgb255(12, 119, 184)
-                color_start = Color.white()
-                cmap = ColorMap.from_two_colors(color_start, color_end)
-
+            edgecolor = EDGECOLOR
+            if edgecolor == "fd":
                 edgecolor = {}
-                forces = [fabs(network_hat.edge_force(edge)) for edge in network_hat.edges()]
-                fmin = min(forces)
-                fmax = max(forces)
 
-                for edge in network_hat.edges():
-                    force = network_hat.edge_force(edge) * -1.0
+                cmap = ColorMap.from_mpl("viridis")
+                _edges = [edge for edge in mesh_hat.edges() if mesh_hat.edge_attribute(edge, "tag") != "ring"]
+                values = [fabs(mesh_hat.edge_forcedensity(edge)) for edge in _edges]
+                ratios = remap_values(values, original_min=qmin, original_max=qmax)
+                edgecolor = {edge: cmap(ratio) for edge, ratio in zip(_edges, ratios)}
+
+                for edge in mesh_hat.edges():
+                    if mesh_hat.edge_attribute(edge, "tag") == "ring":
+                        edgecolor[edge] = Color.grey()  # .darkened()
+
+            elif edgecolor == "force":
+                edgecolor = {}
+
+                color_start = Color.white()
+                color_comp_end = Color.from_rgb255(12, 119, 184)
+                cmap_comp = ColorMap.from_two_colors(color_start, color_comp_end)
+                color_tens_end = Color.from_rgb255(227, 6, 75)
+                cmap_tens = ColorMap.from_two_colors(color_start, color_tens_end)
+
+                for edge in mesh_hat.edges():
+
+                    force = mesh_hat.edge_force(edge)
+
                     if force < 0.0:
-                        _color = Color.from_rgb255(227, 6, 75)
+                        _cmap = cmap_comp
+                        _fmin = fmin_comp
+                        _fmax = fmax_comp
                     else:
-                        value = (force - fmin) / (fmax - fmin)
-                        _color = cmap(value)
+                        _cmap = cmap_tens
+                        _fmin = fmin_tens
+                        _fmax = fmax_tens
 
-                    edgecolor[edge] = _color
-            else:
-                edgecolor = EDGECOLOR
+                    value = (fabs(force) - _fmin) / (_fmax - _fmin)
+                    edgecolor[edge] = _cmap(value)
 
             viewer.add(
                 network_hat,
-                edgewidth=(0.01, 0.3),
+                edgewidth=edgewidth,
                 edgecolor=edgecolor,
                 show_edges=True,
-                edges=[edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)],
+                edges=edges_2_view,
                 nodes=[node for node in mesh.vertices() if len(mesh.vertex_neighbors(node)) > 2],
                 show_loads=False,
                 loadscale=1.0,
-                show_reactions=True,
+                show_reactions=show_reactions,
                 reactionscale=1.0,
                 reactioncolor=Color.from_rgb255(0, 150, 10),
             )
+
+            viewer.add(
+                mesh_hat,
+                show_points=False,
+                show_edges=False,
+                opacity=0.7,
+                color=Color.grey().lightened(100),
+            )
+
+            for _vertices in mesh.vertices_on_boundaries():
+                viewer.add(
+                    Polyline([mesh_hat.vertex_coordinates(vkey) for vkey in _vertices]),
+                    linewidth=4.0,
+                    color=Color.black().lightened()
+                    )
 
             if task_name == "bezier":
                 # target mesh
@@ -319,18 +424,14 @@ def optimize_batch(
             elif task_name == "tower":
                 rings = jnp.reshape(xyz, generator.shape_tube)[generator.levels_rings_comp, :, :]
                 for ring in rings:
-                    ring = Polygon(ring.tolist())
-                    viewer.add(ring, opacity=0.5)
-
-                lengths = []
-                xyz_hat = model_opt(xyz, structure)
-                rings_hat = jnp.reshape(xyz_hat, generator.shape_tube)[generator.levels_rings_comp, :, :]
-                for ring_a, ring_b in zip(rings, rings_hat):
-                    for pt_a, pt_b in zip(ring_a, ring_b):
-                        line = Line(pt_a, pt_b)
-                        viewer.add(line)
-                        lengths.append(line.length**2)
-
+                    ring = ring.tolist()
+                    polygon = Polygon(ring)
+                    viewer.add(polygon, opacity=0.5)
+                    viewer.add(
+                        Polyline(ring + ring[:1]),
+                        linewidth=4.0,
+                        color=Color.black().lightened()
+                    )
             # show le crème
             viewer.show()
 

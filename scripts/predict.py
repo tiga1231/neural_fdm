@@ -20,6 +20,7 @@ from compas.colors import Color
 from compas.colors import ColorMap
 from compas.geometry import Polygon
 from compas.geometry import Line
+from compas.utilities import remap_values
 
 from jax_fdm.datastructures import FDNetwork
 from jax_fdm.equilibrium import datastructure_updated
@@ -240,6 +241,19 @@ def predict_batch(
                         _color = cmap(value)
 
                     edgecolor[edge] = _color
+
+            elif task_name == "tower" and EDGECOLOR == "fd":
+                edgecolor = {}
+                cmap = ColorMap.from_mpl("viridis")
+                _edges = [edge for edge in network_hat.edges() if mesh.edge_attribute(edge, "tag") == "cable"]
+                values = [fabs(mesh_hat.edge_forcedensity(edge)) for edge in _edges]
+                ratios = remap_values(values)
+                edgecolor = {edge: cmap(ratio) for edge, ratio in zip(_edges, ratios)}
+                for edge in network_hat.edges():
+                    if mesh.edge_attribute(edge, "tag") != "cable":
+                        # edgecolor[edge] = Color.grey().darkened()
+                        edgecolor[edge] = Color.pink()
+
             else:
                 edgecolor = EDGECOLOR
 
@@ -267,7 +281,7 @@ def predict_batch(
 
             viewer.add(
                 network_hat,
-                edgewidth=(0.01, 0.3),
+                edgewidth=(0.01, 0.25),
                 edgecolor=edgecolor,
                 show_edges=True,
                 edges=[edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)],

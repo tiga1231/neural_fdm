@@ -16,6 +16,7 @@ from jax import vmap
 import jax.random as jrn
 
 from compas.colors import Color
+from compas.colors import ColorMap
 from compas.geometry import Polygon
 from compas.geometry import Polyline
 from compas.geometry import Line
@@ -78,11 +79,43 @@ beziers = {
     "saddle": BEZIER_SADDLE,
 }
 
-CAMERA_CONFIG = {
+tower_angles = [0.0, 0.0, 0.0]
+tower_radii_fixed = [0.75, 0.75]
+tower_radii = [tower_radii_fixed, [0.75, 0.75], tower_radii_fixed]  # 1.0, 1.5
+towers = {
+    -30: [tower_radii, [0.0, -30.0, 0.0]],
+    -22: [tower_radii, [0.0, -22.0, 0.0]],
+    -15: [tower_radii, [0.0, -15.0, 0.0]],
+    -7: [tower_radii, [0.0, -7, 0.0]],
+    0: [tower_radii, [0.0, 0.0, 0.0]],
+    7: [tower_radii, [0.0, 7.0, 0.0]],
+    15: [tower_radii, [0.0, 15.0, 0.0]],
+    22: [tower_radii, [0.0, 22.0, 0.0]],
+    30: [tower_radii, [0.0, 30.0, 0.0]],
+    #
+    0.5: [[tower_radii_fixed, [0.5, 0.5], tower_radii_fixed], tower_angles],
+    0.75: [[tower_radii_fixed, [0.75, 0.75], tower_radii_fixed], tower_angles],
+    1.0: [[tower_radii_fixed, [1.0, 1.0], tower_radii_fixed], tower_angles],
+    1.25: [[tower_radii_fixed, [1.25, 1.25], tower_radii_fixed], tower_angles],
+    1.5: [[tower_radii_fixed, [1.5, 1.5], tower_radii_fixed], tower_angles],
+
+}
+
+
+
+CAMERA_CONFIG_BEZIER = {
     "color": (1.0, 1.0, 1.0, 1.0),
     "position": (30.34, 30.28, 42.94),
     "target": (0.956, 0.727, 1.287),
     "distance": 20.0,
+}
+
+CAMERA_CONFIG_TOWER = {
+    "color": (1.0, 1.0, 1.0, 1.0),
+    "position": (10.718, 10.883, 14.159),
+    "target": (-0.902, -0.873, 3.846),
+    "distance": 19.482960680274577,
+    "rotation": (1.013, 0.000, 2.362),
 }
 
 
@@ -93,12 +126,14 @@ CAMERA_CONFIG = {
 def visualize(
         model_names,
         task_name,
-        shape_name,
+        shape_name=None,
+        shape_index=0,
         view=True,
-        plot=True,
+        plot=False,
         save=False,
-        edgewidth=(0.01, 0.3),
+        edgewidth=(0.01, 0.25),
         edgecolor="force",
+        show_reactions=False,
         reactionscale=0.5,
         plot_metric="deltas",
 ):
@@ -167,7 +202,7 @@ def visualize(
     compute_loss = build_loss_function(config, generator)
 
     # print info
-    print(f"Making predictions with {model_names} on {generator_name} dataset with {bounds_name} bounds\n")
+    print(f"Making predictions on {generator_name} dataset with {bounds_name} bounds\n")
     print(f"Structure size: {structure.num_vertices} vertices, {structure.num_edges} edges")
 
 # ===============================================================================
@@ -175,15 +210,18 @@ def visualize(
 # ===============================================================================
 
     # sample target points
-    # sample target points at random if no shape name
-    if shape_name and "bezier" in task_name:
+    if shape_name is not None and "bezier" in task_name:
         transform = beziers[shape_name]
         transform = jnp.array(transform)
         xyz = generator.evaluate_points(transform)
+    elif shape_name is not None and "tower" in task_name and bounds_name == "twisted":
+        transforms = towers[shape_name]
+        transform = [jnp.array(T) for T in transforms]
+        xyz = generator.evaluate_points(transform)
+    # sample target points at random if no shape name
     else:
         xyz_batch = vmap(generator)(jrn.split(generator_key, batch_size))
-        xyz = xyz_batch[0, :]
-
+        xyz = xyz_batch[shape_index, :]
 
     # create target mesh
     mesh_target = mesh.copy()
@@ -196,6 +234,8 @@ def visualize(
 # ===============================================================================
 
     print("\nLoading models")
+    if isinstance(model_names, str):
+        model_names = [model_names]
     models_data = {model_name: {} for model_name in model_names}
 
     for model_name in model_names:
@@ -242,19 +282,22 @@ def visualize(
 # ===============================================================================
 
     print("\nCalculating statistics")
+
     deltas_all = []
     residuals_all = []
     forces_all = []
-
+    forces_comp_all = []
+    forces_tens_all = []
+    qs_all = []
     for _, data in models_data.items():
 
         mesh = data["mesh"]
         network = data["network"]
 
         for vkey in mesh.vertices():
-            xyz_target = mesh_target.vertex_coordinates(vkey)
-            xyz = mesh.vertex_coordinates(vkey)
-            delta = distance_point_point(xyz_target, xyz)
+            _xyz_target = mesh_target.vertex_coordinates(vkey)
+            _xyz = mesh.vertex_coordinates(vkey)
+            delta = distance_point_point(_xyz_target, _xyz)
             deltas_all.append(delta)
 
         for vkey in mesh.vertices():
@@ -264,10 +307,17 @@ def visualize(
             residuals_all.append(length_vector(residual))
 
         for edge in network.edges():
+
             force = network.edge_force(edge)
-            if force > 0.0:
-                force = 0.0
-            forces_all.append(fabs(force))
+            force_abs = fabs(force)
+            forces_all.append(force_abs)
+            if force < 0.0:
+                forces_comp_all.append(force_abs)
+            else:
+                forces_tens_all.append(force_abs)
+
+            if mesh_hat.edge_attribute(edge, "tag") != "ring":
+                qs_all.append(fabs(network.edge_forcedensity(edge)))
 
     delta_min = 0.0
     delta_max = max(deltas_all)
@@ -277,9 +327,21 @@ def visualize(
     residual_max = max(residuals_all)
     print(f"{residual_min=} {residual_max=:.4f}")
 
-    fmin = min(forces_all)
+    fmin = 0.0  # min(forces_all)
     fmax = max(forces_all)
     print(f"{fmin=:.4f} {fmax=:.4f}")
+
+    fmin_comp = 0.0  # min(forces_comp_all)
+    fmax_comp = max(forces_comp_all)
+    print(f"{fmin_comp=:.4f} {fmax_comp=:.4f}")
+
+    fmin_tens = 0.0  # min(forces_tens_all)
+    fmax_tens = max(forces_tens_all)
+    print(f"{fmin_tens=:.4f} {fmax_tens=:.4f}")
+
+    qmin = min(qs_all)
+    qmax = max(qs_all)
+    print(f"{qmin=:.4f} {qmax=:.4f}")
 
 # ===============================================================================
 # Viewing
@@ -287,6 +349,13 @@ def visualize(
 
     # visualization
     if view:
+        # pick camera configuration for task
+        if task_name == "bezier":
+            CAMERA_CONFIG = CAMERA_CONFIG_BEZIER
+            _width = 900
+        elif task_name == "tower":
+            CAMERA_CONFIG = CAMERA_CONFIG_TOWER
+            _width = 450
 
         # view target mesh alone
         if task_name == "bezier":
@@ -302,13 +371,18 @@ def visualize(
             viewer.view.camera.target = CAMERA_CONFIG["target"]
             viewer.view.camera.distance = CAMERA_CONFIG["distance"]
 
+            _rotation = CAMERA_CONFIG.get("rotation")
+            if _rotation:
+                viewer.view.camera.rotation = _rotation
+
             # target shape
             viewer.add(
                  mesh_target,
                  show_points=False,
                  show_edges=False,
-                 opacity=0.3
-             )
+                 opacity=0.7,
+                 color=Color.grey().lightened(100),
+            )
 
             viewer.add(
                 FDNetwork.from_mesh(mesh_target),
@@ -322,8 +396,9 @@ def visualize(
 
         # view each model prediction
         for model_name, data in models_data.items():
+
             viewer = Viewer(
-                width=900,
+                width=_width,
                 height=900,
                 show_grid=False,
                 viewmode="lighted"
@@ -334,41 +409,94 @@ def visualize(
             viewer.view.camera.target = CAMERA_CONFIG["target"]
             viewer.view.camera.distance = CAMERA_CONFIG["distance"]
 
+            _rotation = CAMERA_CONFIG.get("rotation")
+            if _rotation:
+                # if bounds_name != "twisted":
+                    # rx, ry, rz = _rotation
+                    # _rotation = rx, ry, 0.0
+                viewer.view.camera.rotation = _rotation
+
             # query datastructures
             network_hat = data["network"]
             mesh_hat = data["mesh"]
 
+            # vertices to view
+            vertices_2_view = list(mesh.vertices())
+            if EDGECOLOR in ("fd", "fds") and task_name == "bezier":
+                vertices_2_view = [vkey for vkey in vertices_2_view if not mesh.is_vertex_on_boundary(vkey)]
+
+            # edges to view
+            # NOTE: we are not visualizing edges on boundaries since they are supported
+            edges_2_view = [edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)]
+            # if task_name == "tower":
+                # edges_2_view = [edge for edge in edges_2_view if mesh.edge_attribute(edge, "tag") == "cable"]
+
             # edge width
             width_min, width_max = EDGEWIDTH
-            _forces = [fabs(network_hat.edge_force(edge)) for edge in network_hat.edges()]
-            _forces = remap_values(_forces, fmin, fmax)
-            widths = remap_values(_forces, width_min, width_max)
-            edgewidth = {edge: width for edge, width in zip(network_hat.edges(), widths)}
+            _forces = [fabs(mesh_hat.edge_force(edge)) for edge in mesh_hat.edges()]
+            _forces = remap_values(_forces, original_min=fmin, original_max=fmax)
+            _widths = remap_values(_forces, width_min, width_max)
+            edgewidth = {edge: width for edge, width in zip(mesh_hat.edges(), _widths)}
 
             # edge colors
             edgecolor = EDGECOLOR
-            # vertices to view
-            vertices_2_view = list(mesh.vertices())
+            if edgecolor == "fds":
+                edgecolor = {}
+
+                cmap = ColorMap.from_mpl("viridis")
+                _edges = [edge for edge in mesh_hat.edges() if mesh_hat.edge_attribute(edge, "tag") != "ring"]
+                values = [fabs(mesh_hat.edge_forcedensity(edge)) for edge in _edges]
+                ratios = remap_values(values, original_min=qmin, original_max=qmax)
+                edgecolor = {edge: cmap(ratio) for edge, ratio in zip(_edges, ratios)}
+
+                for edge in mesh_hat.edges():
+                    if mesh_hat.edge_attribute(edge, "tag") == "ring":
+                        edgecolor[edge] = Color.grey()  # .darkened()
+
+            elif edgecolor == "force":
+                edgecolor = {}
+
+                color_start = Color.white()
+                color_comp_end = Color.from_rgb255(12, 119, 184)
+                cmap_comp = ColorMap.from_two_colors(color_start, color_comp_end)
+                color_tens_end = Color.from_rgb255(227, 6, 75)
+                cmap_tens = ColorMap.from_two_colors(color_start, color_tens_end)
+
+                for edge in mesh_hat.edges():
+
+                    force = mesh_hat.edge_force(edge)
+
+                    if force < 0.0:
+                        _cmap = cmap_comp
+                        _fmin = fmin_comp
+                        _fmax = fmax_comp
+                    else:
+                        _cmap = cmap_tens
+                        _fmin = fmin_tens
+                        _fmax = fmax_tens
+
+                    value = (fabs(force) - _fmin) / (_fmax - _fmin)
+                    edgecolor[edge] = _cmap(value)
 
             # reaction view
             _reactionscale = reactionscale
             if model_name == "autoencoder":
-                _reactionscale *= 0.3
-            # reactioncolor = Color.from_rgb255(0, 150, 10)  # load green
-            reactioncolor = Color.grey().darkened()  # load green
-            show_reactions = True
-            # if EDGECOLOR == "fd":
-            #    show_reactions = False
+                _reactionscale *= 0.4
+
+            reactioncolor = Color.from_rgb255(0, 150, 10)  # load green
+            if EDGECOLOR == "fd":
+                reactioncolor = Color.grey().darkened()  # load green
+            # show_reactions = True
 
             if task_name == "bezier":
 
-                vertices_2_view = []
-                for vkey in mesh.vertices():
-                    if len(mesh.vertex_neighbors(vkey)) < 3:
-                        continue
-                    # if mesh.is_vertex_on_boundary(vkey):
-                    #    continue
-                    vertices_2_view.append(vkey)
+                # vertices_2_view = []
+                # for vkey in mesh.vertices():
+                #     if len(mesh.vertex_neighbors(vkey)) < 3:
+                #         continue
+                #     # if mesh.is_vertex_on_boundary(vkey):
+                #     #    continue
+                #     vertices_2_view.append(vkey)
 
                 _reactioncolor = {}
                 for vkey in mesh.vertices():
@@ -384,7 +512,7 @@ def visualize(
                 edgewidth=edgewidth,
                 edgecolor=edgecolor,
                 show_edges=True,
-                edges=[edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)],
+                edges=edges_2_view,
                 nodes=vertices_2_view,
                 show_loads=False,
                 loadscale=1.0,
@@ -393,49 +521,86 @@ def visualize(
                 reactioncolor=reactioncolor
             )
 
+            viewer.add(
+                mesh_hat,
+                show_points=False,
+                show_edges=False,
+                opacity=0.7,
+                color=Color.grey().lightened(100),
+            )
+
+            for _vertices in mesh.vertices_on_boundaries():
+                viewer.add(
+                    Polyline([mesh_hat.vertex_coordinates(vkey) for vkey in _vertices]),
+                    linewidth=4.0,
+                    color=Color.black().lightened()
+                    )
+
             if task_name == "bezier":
                 # approximated mesh
-                viewer.add(
-                     mesh_hat,
-                     show_points=False,
-                     show_edges=False,
-                     opacity=0.3
-                 )
+                # viewer.add(
+                #      mesh_hat,
+                #      show_points=False,
+                #      show_edges=False,
+                #      opacity=0.3
+                #  )
 
-                # target mesh
-                if edgecolor != "fd":
-                    viewer.add(
-                        FDNetwork.from_mesh(mesh_target),
-                        as_wireframe=True,
-                        show_points=False,
-                        linewidth=4.0,
-                        color=Color.black().lightened()
-                        )
-                else:
-                    viewer.add(
+                viewer.add(
+                    FDNetwork.from_mesh(mesh_target),
+                    as_wireframe=True,
+                    show_points=False,
+                    linewidth=4.0,
+                    color=Color.black().lightened()
+                   )
+
+                viewer.add(
                         mesh_hat,
                         show_points=False,
                         show_edges=False,
-                        opacity=0.3
+                        opacity=0.2
                     )
 
+                # target mesh
+                # if edgecolor != "fd":
+                #     viewer.add(
+                #         FDNetwork.from_mesh(mesh_target),
+                #         as_wireframe=True,
+                #         show_points=False,
+                #         linewidth=4.0,
+                #         color=Color.black().lightened()
+                #         )
+                # else:
+                #     viewer.add(
+                #         mesh_hat,
+                #         show_points=False,
+                #         show_edges=False,
+                #         opacity=0.2
+                #     )
+
+                    # viewer.add(
+                    #     Polyline([mesh_hat.vertex_coordinates(vkey) for vkey in mesh.vertices_on_boundary()]),
+                    #     linewidth=4.0,
+                    #     color=Color.black().lightened()
+                    # )
+
+            elif task_name == "tower": # and EDGECOLOR == "force":
+                rings = jnp.reshape(xyz, generator.shape_tube)[generator.levels_rings_comp, :, :]
+                for ring in rings:
+                    ring = ring.tolist()
+                    polygon = Polygon(ring)
+
+                    viewer.add(polygon, opacity=0.5)
                     viewer.add(
-                        Polyline([mesh_hat.vertex_coordinates(vkey) for vkey in mesh.vertices_on_boundary()]),
+                        Polyline(ring + ring[:1]),
                         linewidth=4.0,
                         color=Color.black().lightened()
                     )
 
-            elif task_name == "tower":
-                rings = jnp.reshape(xyz, generator.shape_tube)[generator.levels_rings_comp, :, :]
-                for ring in rings:
-                    ring = Polygon(ring.tolist())
-                    viewer.add(ring, opacity=0.5)
-
-                xyz_hat = model(xyz, structure)
-                rings_hat = jnp.reshape(xyz_hat, generator.shape_tube)[generator.levels_rings_comp, :, :]
-                for ring_a, ring_b in zip(rings, rings_hat):
-                    for pt_a, pt_b in zip(ring_a, ring_b):
-                        viewer.add(Line(pt_a, pt_b))
+                # xyz_hat = model(xyz, structure)
+                # rings_hat = jnp.reshape(xyz_hat, generator.shape_tube)[generator.levels_rings_comp, :, :]
+                # for ring_a, ring_b in zip(rings, rings_hat):
+                #     for pt_a, pt_b in zip(ring_a, ring_b):
+                #         viewer.add(Line(pt_a, pt_b))
 
             # show le crème
             viewer.show()
