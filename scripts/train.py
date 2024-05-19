@@ -21,7 +21,7 @@ from neural_fofin.builders import build_neural_model
 from neural_fofin.builders import build_optimizer
 
 from neural_fofin.serialization import load_model
-from neural_fofin.serialization import save_model
+from neural_fofin.serialization import save_model as save_model_fn
 
 
 # ===============================================================================
@@ -99,8 +99,8 @@ def train(
         print("\nSaving model")
 
         # save trained model
-        filepath = os.path.join(DATA, f"{filename}.eqx")
-        save_model(filepath, trained_model)
+        filepath = os.path.join(DATA, f"{filename}_lyrical.eqx")
+        save_model_fn(filepath, trained_model)
         print(f"Saved model to {filepath}")
 
     if save_losses:
@@ -108,7 +108,7 @@ def train(
         labels = loss_history[0].keys()
         for label in labels:
             _label = "_".join(label.split())
-            filename_loss = f"losses_{filename}_{_label}.txt"
+            filename_loss = f"losses_{filename}_lyrical_{_label}.txt"
 
             filepath = os.path.join(DATA, filename_loss)
             with open(filepath, "w") as file:

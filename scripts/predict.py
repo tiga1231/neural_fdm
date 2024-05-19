@@ -86,9 +86,6 @@ def predict_batch(
         Supported color palettes are "fd" to display force densities, and "force" to show forces.
     """
     START, STOP = slice
-    if STOP == -1:
-        STOP = batch_size
-
     EDGECOLOR = edgecolor  # force, fd
 
     CAMERA_CONFIG = {
@@ -107,6 +104,9 @@ def predict_batch(
     training_params = config["training"]
     if batch_size is None:
         batch_size = training_params["batch_size"]
+
+    if STOP == -1:
+        STOP = batch_size
 
     generator_name = config['generator']['name']
     bounds_name = config['generator']['bounds']
@@ -152,6 +152,8 @@ def predict_batch(
     # report batch losses
     _, loss_terms = compute_loss(model, structure, xyz_batch, aux_data=True)
     print_loss_summary(loss_terms, prefix="Batch\t")
+    for term, value in loss_terms.items():
+        print(value)
 
     # make individual predictions
     if not predict_in_sequence:
@@ -180,15 +182,19 @@ def predict_batch(
             aux_data=True
         )
 
+        # predict equilibrium states for viz and i/o
+        eqstate_hat, fd_params_hat = model.predict_states(xyz, structure)
+        mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
+
+        # extract max force for residual forces normalization
+        loss_terms["force max"] = jnp.max(jnp.abs(eqstate_hat.forces))
+        loss_terms["area"] = jnp.array(mesh_hat.area())
+
         loss_terms_batch.append(loss_terms)
         print_loss_summary(loss_terms, prefix=f"Shape {i}\t")
 
         if view or save:
-            # predict equilibrium states for viz and i/o
-            eqstate_hat, fd_params_hat = model.predict_states(xyz, structure)
-
             # assemble datastructure for post-processing
-            mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
             network_hat = FDNetwork.from_mesh(mesh_hat)
             network_hat.print_stats()
             print()
@@ -334,14 +340,24 @@ def predict_batch(
         errors = [terms[label].item() for terms in loss_terms_batch]
         print(f"{label.capitalize()} over {num_predictions} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
 
+    errors = []
+    for terms in loss_terms_batch:
+        if task_name == "bezier":
+            factor = terms["area"].item() * 0.5
+        elif task_name == "tower":
+            factor = terms["force max"].item()
+        error = terms["residual error"].item() / factor
+        errors.append(error)
+    print(f"Normalized residual error over {num_predictions} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
+
     if task_name == "tower":
         errors = []
         for terms in loss_terms_batch:
             error = 0.0
-            error += terms["shape error"].item()
-            error += terms["height error"].item()
+            error += terms["shape error"].item() ** 0.5
+            error += terms["height error"].item() ** 0.5
             errors.append(error)
-        print(f"Task error over {num_predictions} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
+        print(f"Sq root of shape error over {num_predictions} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
 
 
 # ===============================================================================

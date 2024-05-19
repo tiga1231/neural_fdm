@@ -14,9 +14,9 @@ fdm:
   load: 0.0  # 0.0, scale of vertical area load
 # encoder
 encoder:
-  shift: 0.0
-  hidden_layer_size: 256
-  hidden_layer_num: 5  # 3
+  shift: 1.0  # 1.0
+  hidden_layer_size: 256  # 256
+  hidden_layer_num: 5  # 5
   activation_fn_name: "elu"
   final_activation_fn_name: "softplus"  # needs softplus to ensure positive output
 # decoder
@@ -41,7 +41,7 @@ loss:
     weight: 1.0  # weight of the smoothness energy term in the loss function
     scale: 1.0  # 30.0, bbox length (used for normalization)
   residual:  # PINN term
-    include: True
+    include: False
     weight: 1.0  # weight of the residual error term in the loss function
     scale: 1.0  # 0.5, fdm load scale (used for normalization)
   regularization:  # regularize predicted force densities
@@ -50,9 +50,9 @@ loss:
 # optimizer
 optimizer:
   name: "adam"
-  learning_rate: 0.001  # 0.001 then 0.00001, Be careful with scientific notation in YAML!
-  clip_norm: 0.0  # 0.01
+  learning_rate: 0.001  # 0.001 then 0.0001, be careful with scientific notation in YAML!
+  clip_norm: 0.01  # 0.01
 # training
 training:
-  steps: 1500
-  batch_size: 16
+  steps: 1000
+  batch_size: 16  # 16

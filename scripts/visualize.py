@@ -73,10 +73,19 @@ BEZIER_SADDLE = [
     [0.0, 0.0, 0.0]
 ]
 
+# cannon vault
+BEZIER_CANNON = [
+    [0.0, 0.0, 6.0],
+    [0.0, 0.0, 6.0],
+    [0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0]
+]
+
 beziers = {
     "pillow": BEZIER_PILLOW,
     "dome": BEZIER_DOME,
     "saddle": BEZIER_SADDLE,
+    "cannon": BEZIER_CANNON,
 }
 
 tower_angles = [0.0, 0.0, 0.0]
@@ -100,7 +109,6 @@ towers = {
     1.5: [[tower_radii_fixed, [1.5, 1.5], tower_radii_fixed], tower_angles],
 
 }
-
 
 
 CAMERA_CONFIG_BEZIER = {
@@ -214,6 +222,7 @@ def visualize(
         transform = beziers[shape_name]
         transform = jnp.array(transform)
         xyz = generator.evaluate_points(transform)
+
     elif shape_name is not None and "tower" in task_name and bounds_name == "twisted":
         transforms = towers[shape_name]
         transform = [jnp.array(T) for T in transforms]
@@ -289,6 +298,10 @@ def visualize(
     forces_comp_all = []
     forces_tens_all = []
     qs_all = []
+    qs_log_all = []
+    from math import log as log
+    log_tol = 1.0
+
     for _, data in models_data.items():
 
         mesh = data["mesh"]
@@ -318,6 +331,7 @@ def visualize(
 
             if mesh_hat.edge_attribute(edge, "tag") != "ring":
                 qs_all.append(fabs(network.edge_forcedensity(edge)))
+                qs_log_all.append(log(fabs(network.edge_forcedensity(edge) + log_tol)))
 
     delta_min = 0.0
     delta_max = max(deltas_all)
@@ -342,6 +356,10 @@ def visualize(
     qmin = min(qs_all)
     qmax = max(qs_all)
     print(f"{qmin=:.4f} {qmax=:.4f}")
+
+    qmin_log = min(qs_log_all)
+    qmax_log = max(qs_log_all)
+    print(f"{qmin_log=:.4f} {qmax_log=:.4f}")
 
 # ===============================================================================
 # Viewing
@@ -422,7 +440,7 @@ def visualize(
 
             # vertices to view
             vertices_2_view = list(mesh.vertices())
-            if EDGECOLOR in ("fd", "fds") and task_name == "bezier":
+            if EDGECOLOR in ("fd", "fds", "fd_log") and task_name == "bezier":
                 vertices_2_view = [vkey for vkey in vertices_2_view if not mesh.is_vertex_on_boundary(vkey)]
 
             # edges to view
@@ -447,6 +465,19 @@ def visualize(
                 _edges = [edge for edge in mesh_hat.edges() if mesh_hat.edge_attribute(edge, "tag") != "ring"]
                 values = [fabs(mesh_hat.edge_forcedensity(edge)) for edge in _edges]
                 ratios = remap_values(values, original_min=qmin, original_max=qmax)
+                edgecolor = {edge: cmap(ratio) for edge, ratio in zip(_edges, ratios)}
+
+                for edge in mesh_hat.edges():
+                    if mesh_hat.edge_attribute(edge, "tag") == "ring":
+                        edgecolor[edge] = Color.grey()  # .darkened()
+
+            if edgecolor == "fd_log":
+                edgecolor = {}
+
+                cmap = ColorMap.from_mpl("viridis")
+                _edges = [edge for edge in mesh_hat.edges() if mesh_hat.edge_attribute(edge, "tag") != "ring"]
+                values = [log(fabs(mesh_hat.edge_forcedensity(edge)) + log_tol) for edge in _edges]
+                ratios = remap_values(values, original_min=qmin_log, original_max=qmax_log)
                 edgecolor = {edge: cmap(ratio) for edge, ratio in zip(_edges, ratios)}
 
                 for edge in mesh_hat.edges():
@@ -481,7 +512,9 @@ def visualize(
             # reaction view
             _reactionscale = reactionscale
             if model_name == "autoencoder":
-                _reactionscale *= 0.4
+                _reactionscale *= 1.0  # 0.5
+            elif model_name == "autoencoder_pinn":
+                _reactionscale *= -10.0
 
             reactioncolor = Color.from_rgb255(0, 150, 10)  # load green
             if EDGECOLOR == "fd":

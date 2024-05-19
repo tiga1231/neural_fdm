@@ -25,7 +25,10 @@ from compas.colors import Color
 from compas.colors import ColorMap
 from compas.geometry import Polygon
 from compas.geometry import Polyline
+from compas.geometry import Plane
 from compas.geometry import Line
+from compas.geometry import Translation
+from compas.geometry import Frame
 from compas.utilities import remap_values
 
 from jax_fdm.datastructures import FDNetwork
@@ -119,9 +122,10 @@ def optimize_batch(
         slice=(0, -1),  # (50, 53) for bezier
         save=False,
         view=False,
+        view_result=False,
         edgecolor="force",
         show_reactions=False,
-        edgewidth=(0.01, 0.25),
+        edgewidth=(0.01, 0.15),
         fmax=None,
         fmax_tens=None,
         fmax_comp=None,
@@ -428,34 +432,35 @@ def optimize_batch(
                     value = (fabs(force) - _fmin) / (_fmax - _fmin)
                     edgecolor[edge] = _cmap(value)
 
-            viewer.add(
-                network_hat,
-                edgewidth=edgewidth,
-                edgecolor=edgecolor,
-                show_edges=True,
-                edges=edges_2_view,
-                nodes=[node for node in mesh.vertices() if len(mesh.vertex_neighbors(node)) > 2],
-                show_loads=False,
-                loadscale=1.0,
-                show_reactions=show_reactions,
-                reactionscale=1.0,
-                reactioncolor=Color.from_rgb255(0, 150, 10),
-            )
-
-            viewer.add(
-                mesh_hat,
-                show_points=False,
-                show_edges=False,
-                opacity=0.7,
-                color=Color.grey().lightened(100),
-            )
-
-            for _vertices in mesh.vertices_on_boundaries():
+            if view_result:
                 viewer.add(
-                    Polyline([mesh_hat.vertex_coordinates(vkey) for vkey in _vertices]),
-                    linewidth=4.0,
-                    color=Color.black().lightened()
-                    )
+                    network_hat,
+                    edgewidth=edgewidth,
+                    edgecolor=edgecolor,
+                    show_edges=True,
+                    edges=edges_2_view,
+                    nodes=[node for node in mesh.vertices() if len(mesh.vertex_neighbors(node)) > 2],
+                    show_loads=False,
+                    loadscale=1.0,
+                    show_reactions=show_reactions,
+                    reactionscale=1.0,
+                    reactioncolor=Color.from_rgb255(0, 150, 10),
+                )
+
+                viewer.add(
+                    mesh_hat,
+                    show_points=False,
+                    show_edges=False,
+                    opacity=0.7,
+                    color=Color.grey().lightened(100),
+                )
+
+                for _vertices in mesh.vertices_on_boundaries():
+                    viewer.add(
+                        Polyline([mesh_hat.vertex_coordinates(vkey) for vkey in _vertices]),
+                        linewidth=4.0,
+                        color=Color.black().lightened()
+                        )
 
             if task_name == "bezier":
                 # target mesh
@@ -477,15 +482,79 @@ def optimize_batch(
 
             elif task_name == "tower":
                 rings = jnp.reshape(xyz, generator.shape_tube)[generator.levels_rings_comp, :, :]
+
                 for ring in rings:
+
                     ring = ring.tolist()
+
                     polygon = Polygon(ring)
+
+                    # viewer.add(polygon, opacity=0.5)
                     viewer.add(polygon, opacity=0.5)
+
                     viewer.add(
                         Polyline(ring + ring[:1]),
                         linewidth=4.0,
                         color=Color.black().lightened()
                     )
+
+                # draw planes, transparent, thick-ish boundary
+                heights = jnp.linspace(0.0, generator.height, generator.num_levels)
+                counter = 0
+                from neural_fofin.generators import points_on_ellipse
+                for i, height in enumerate(heights):
+
+                    origin_pt = [0.0, 0.0, height]
+                    plane = Plane(origin_pt, [0.0, 0.0, 1.0])
+                    frame = Frame(origin_pt, [1.0, 0.0, 0.0], [0.0, 1.0, 0.0])
+
+                    circle = points_on_ellipse(
+                        generator.radius,
+                        generator.radius,
+                        height,
+                        generator.num_sides,
+                    )
+                    circle = circle.tolist()
+                    # circle = Polygon.from_sides_and_radius_xy(
+                    #         generator.num_sides,
+                    #         generator.radius,
+                    #     )
+                    # circle.transform(Translation.from_vector(origin_pt))
+                    # circle = circle.points
+
+                    if i in generator.levels_rings_comp:
+
+                        viewer.add(
+                            Polyline(circle + circle[:1]),
+                            linewidth=2.0,
+                            color=Color.grey().lightened()
+                        )
+
+                        # viewer.add(Line(origin_pt, circle[0]), linewidth=2.0)
+                        # viewer.add(Line(origin_pt, rings[counter][0]), linewidth=2.0)
+                        # counter += 1
+
+                        continue
+
+                    size = 1.0
+                    object = viewer.add(plane,
+                                        size=size,
+                                        linewidth=0.1,
+                                        color=Color.grey().lightened(10),
+                                        opacity=0.1,
+                                        )
+
+                    # square = [frame.to_world_coordinates([-size, -size, 0]),
+                    #           frame.to_world_coordinates([size, -size, 0]),
+                    #           frame.to_world_coordinates([size, size, 0]),
+                    #           frame.to_world_coordinates([-size, size, 0])]
+
+                    # viewer.add(
+                    #     Polyline(square + square[:1]),
+                    #     linewidth=1.0,
+                    #     color=Color.black()  # .lightened()
+                    # )
+
             # show le crème
             viewer.show()
 
