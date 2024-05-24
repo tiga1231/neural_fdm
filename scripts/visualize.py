@@ -19,7 +19,6 @@ from compas.colors import Color
 from compas.colors import ColorMap
 from compas.geometry import Polygon
 from compas.geometry import Polyline
-from compas.geometry import Line
 from compas.geometry import distance_point_point
 from compas.geometry import length_vector
 from compas.utilities import remap_values
@@ -442,6 +441,9 @@ def visualize(
             vertices_2_view = list(mesh.vertices())
             if EDGECOLOR in ("fd", "fds", "fd_log") and task_name == "bezier":
                 vertices_2_view = [vkey for vkey in vertices_2_view if not mesh.is_vertex_on_boundary(vkey)]
+            elif EDGECOLOR == "force" and task_name == "tower":
+                print("Omitting boundary vertices")
+                vertices_2_view = [vkey for vkey in vertices_2_view if not mesh.is_vertex_on_boundary(vkey)]
 
             # edges to view
             # NOTE: we are not visualizing edges on boundaries since they are supported
@@ -511,14 +513,18 @@ def visualize(
 
             # reaction view
             _reactionscale = reactionscale
-            if model_name == "autoencoder":
-                _reactionscale *= 1.0  # 0.5
-            elif model_name == "autoencoder_pinn":
-                _reactionscale *= -10.0
+            if task_name == "bezier":
+                if model_name == "autoencoder":
+                    _reactionscale *= 1.0  # 0.5
+                elif model_name == "autoencoder_pinn":
+                    _reactionscale *= -10.0
+            else:
+                if model_name == "autoencoder_pinn":
+                    _reactionscale *= 20.0
 
             reactioncolor = Color.from_rgb255(0, 150, 10)  # load green
             if EDGECOLOR == "fd":
-                reactioncolor = Color.grey().darkened()  # load green
+                reactioncolor = Color.grey().darkened()  # load dary gray
             # show_reactions = True
 
             if task_name == "bezier":
@@ -534,6 +540,24 @@ def visualize(
                 _reactioncolor = {}
                 for vkey in mesh.vertices():
                     _color = Color.pink()
+                    if mesh.is_vertex_on_boundary(vkey):
+                        _color = reactioncolor
+                    _reactioncolor[vkey] = _color
+                reactioncolor = _reactioncolor
+
+            elif task_name == "tower":
+
+                # vertices_2_view = []
+                # for vkey in mesh.vertices():
+                #     if len(mesh.vertex_neighbors(vkey)) < 3:
+                #         continue
+                #     # if mesh.is_vertex_on_boundary(vkey):
+                #     #    continue
+                #     vertices_2_view.append(vkey)
+
+                _reactioncolor = {}
+                for vkey in mesh.vertices():
+                    _color = Color.from_rgb255(0, 150, 10)  # Color.pink()
                     if mesh.is_vertex_on_boundary(vkey):
                         _color = reactioncolor
                     _reactioncolor[vkey] = _color

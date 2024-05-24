@@ -222,6 +222,7 @@ def optimize_batch(
 
     # create model
     print(f"Directly optimizing with {optimizer_name} for {generator_name} dataset with {bounds_name} bounds on seed {seed}")
+    print(f"Structure size: {structure.num_vertices} vertices, {structure.num_edges} edges")
     model = build_fd_decoder_parametrized(q0, mesh, fd_params)
 
     # sample data batch
