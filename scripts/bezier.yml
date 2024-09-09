@@ -1,13 +1,14 @@
 # randomness
-seed: 91
+seed: 91  # 91
 # data generator
 generator:
-  # options: "bezier_symmetric_double", "bezier_symmetric", "bezier_asymmetric"
-  name: "bezier_symmetric"  # "bezier_symmetric_double"
-  bounds: "saddle"  # options: pillow, dome, saddle
+  # options: "bezier_symmetric_double", "bezier_symmetric", "bezier_asymmetric", "bezier_lerp"
+  name: "bezier_lerp"  # "bezier_symmetric_double"
+  bounds: "dome"  # options: pillow, dome, saddle
   num_uv: 10
   size: 10.0
   num_points: 4  # grid points
+  blend_factor: 0.0  # blend factor between two surfaces, only for "bezier_blend"
 # fd simulation
 fdm:
   load: -0.5  # -0.5, scale of vertical area load

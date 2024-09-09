@@ -13,6 +13,7 @@ from neural_fofin.generators import BezierSurfacePointGenerator
 from neural_fofin.generators import BezierSurfaceAsymmetricPointGenerator
 from neural_fofin.generators import BezierSurfaceSymmetricPointGenerator
 from neural_fofin.generators import BezierSurfaceSymmetricDoublePointGenerator
+from neural_fofin.generators import BezierSurfaceBlendPointGenerator
 
 from neural_fofin.generators import CircularTubePointGenerator
 from neural_fofin.generators import EllipticalTubePointGenerator
@@ -153,6 +154,9 @@ def saddle_minmax_values():
 
 
 def get_bezier_generator_minmax_values(name, bounds):
+    """
+    Calculate XYZ bounds for a given Bezier data generator.
+    """
     experiments = {
         "pillow": pillow_minmax_values,
         "dome": dome_minmax_values,
@@ -163,24 +167,54 @@ def get_bezier_generator_minmax_values(name, bounds):
     if not values_fn:
         raise KeyError(f"Experiment bounds: {bounds} is currently unsupported!")
 
-    # generate values on a quarter tile
+    # generate values on a quarter tile (double symmetry)
     minval, maxval = values_fn()
 
-    # concatenate bounds based on whether generator is symmetric or 2-symmetric
+    # concatenate bounds based on generator type and symmetry
     name_parts = name.split("_")
+
+    # generator that blends between a symmetry and asymmetric surfaces
+    if "lerp" in name_parts:
+        return _get_bezier_generator_minmax_values_blend(minval, maxval)
+
+    # generators with symmetry
     if "symmetric" in name_parts:
         if "double" not in name_parts:
-            minval = minval + minval
-            maxval = maxval + maxval
+            minval, maxval = _get_bezier_generator_minmax_values_symmetric(minval, maxval)
     elif "asymmetric" in name_parts:
-        minval = minval + minval + minval + minval
-        maxval = maxval + maxval + maxval + maxval
+        minval, maxval = _get_bezier_generator_minmax_values_asymmetric(minval, maxval)
 
     # array-ify
     minval = jnp.array(minval)
     maxval = jnp.array(maxval)
 
     return minval, maxval
+
+
+def _get_bezier_generator_minmax_values_symmetric(minval, maxval):
+    minval = minval + minval
+    maxval = maxval + maxval
+
+    return minval, maxval
+
+
+def _get_bezier_generator_minmax_values_asymmetric(minval, maxval):
+    minval = minval + minval + minval + minval
+    maxval = maxval + maxval + maxval + maxval
+
+    return minval, maxval
+
+
+def _get_bezier_generator_minmax_values_blend(minval, maxval):
+    minval_b, maxval_b = _get_bezier_generator_minmax_values_asymmetric(minval, maxval)
+
+    minval_a = jnp.array(minval)
+    maxval_a = jnp.array(maxval)
+
+    minval_b = jnp.array(minval_b)
+    maxval_b = jnp.array(maxval_b)
+
+    return (minval_a, minval_b), (maxval_a, maxval_b)
 
 
 # ===============================================================================
@@ -226,10 +260,11 @@ def build_bezier_point_generator(generator_params):
     num_v = generator_params["num_uv"]
     size = generator_params["size"]
     num_pts = generator_params["num_points"]
-    bounds = generator_params["bounds"]
+    bounds_name = generator_params["bounds"]
+    blend_factor = generator_params["blend_factor"]
 
     # wiggle bounds for task
-    minval, maxval = get_bezier_generator_minmax_values(name, bounds)
+    minval, maxval = get_bezier_generator_minmax_values(name, bounds_name)
 
     # Create data generator
     u = jnp.linspace(0.0, 1.0, num_u)
@@ -239,14 +274,15 @@ def build_bezier_point_generator(generator_params):
     generators = {
         "bezier_symmetric": BezierSurfaceSymmetricPointGenerator,
         "bezier_symmetric_double": BezierSurfaceSymmetricDoublePointGenerator,
-        "bezier_asymmetric": BezierSurfaceAsymmetricPointGenerator
+        "bezier_asymmetric": BezierSurfaceAsymmetricPointGenerator,
+        "bezier_lerp": BezierSurfaceBlendPointGenerator
     }
 
     generator = generators.get(name)
     if not generator:
         raise ValueError(f"Generator {name} is not supported yet!")
 
-    return generator(size, num_pts, u, v, minval, maxval)
+    return generator(size, num_pts, u, v, minval, maxval, blend_factor)
 
 
 def build_data_generator(config):

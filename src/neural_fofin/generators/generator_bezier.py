@@ -63,7 +63,7 @@ class BezierSurfaceSymmetricDoublePointGenerator(BezierSurfacePointGenerator):
     """
     A generator that outputs point evaluated on a wiggled, doubly-symmetric bezier surface.
     """
-    def __init__(self, size, num_pts, u, v, minval, maxval):
+    def __init__(self, size, num_pts, u, v, minval, maxval, *args, **kwargs):
         surface = BezierSurfaceSymmetricDouble(size, num_pts)
         super().__init__(surface, u, v, minval, maxval)
 
@@ -72,7 +72,7 @@ class BezierSurfaceSymmetricPointGenerator(BezierSurfacePointGenerator):
     """
     A generator that outputs point evaluated on a wiggled, symmetric bezier surface.
     """
-    def __init__(self, size, num_pts, u, v, minval, maxval):
+    def __init__(self, size, num_pts, u, v, minval, maxval, *args, **kwargs):
         surface = BezierSurfaceSymmetric(size, num_pts)
         super().__init__(surface, u, v, minval, maxval)
 
@@ -81,6 +81,33 @@ class BezierSurfaceAsymmetricPointGenerator(BezierSurfacePointGenerator):
     """
     A generator that outputs point evaluated on a wiggled bezier surface.
     """
-    def __init__(self, size, num_pts, u, v, minval, maxval):
+    def __init__(self, size, num_pts, u, v, minval, maxval, *args, **kwargs):
         surface = BezierSurfaceAsymmetric(size, num_pts)
         super().__init__(surface, u, v, minval, maxval)
+
+
+class BezierSurfaceBlendPointGenerator(BezierSurfacePointGenerator):
+    """
+    A generator that outputs points interpolated between two wiggled bezier surfaces.
+    One surface is doubly-symmetric and the other completely asymmetric.
+    """
+    def __init__(self, size, num_pts, u, v, minval, maxval, alpha=0.5):
+        minval_a, minval_b = minval
+        maxval_a, maxval_b = maxval
+
+        self.generator_a = BezierSurfaceSymmetricDoublePointGenerator(size, num_pts, u, v, minval_a, maxval_a)
+        self.generator_b = BezierSurfaceAsymmetricPointGenerator(size, num_pts, u, v, minval_b, maxval_b)
+
+        self.alpha = alpha
+
+        surface = BezierSurfaceAsymmetric(size, num_pts)
+        super().__init__(surface, u, v, minval_a, maxval_b)
+
+    def __call__(self, key, wiggle=True):
+        """
+        Generate (wiggled) points.
+        """
+        points_a = self.generator_a(key, wiggle)
+        points_b = self.generator_b(key, wiggle)
+
+        return self.alpha * points_a + (1.0 - self.alpha) * points_b
