@@ -3,12 +3,12 @@ seed: 91  # 91
 # data generator
 generator:
   # options: "bezier_symmetric_double", "bezier_symmetric", "bezier_asymmetric", "bezier_lerp"
-  name: "bezier_lerp"  # "bezier_symmetric_double"
-  bounds: "dome"  # options: pillow, dome, saddle
+  name: "bezier_symmetric_double"  # "bezier_symmetric_double"
+  bounds: "saddle"  # options: pillow, dome, saddle
   num_uv: 10
   size: 10.0
   num_points: 4  # grid points
-  blend_factor: 0.0  # blend factor between two surfaces, only for "bezier_blend"
+  lerp_factor: 0.5  # scalar factor in [0, 1] to interpolate between 2 surfaces, only for bezier_lerp
 # fd simulation
 fdm:
   load: -0.5  # -0.5, scale of vertical area load
