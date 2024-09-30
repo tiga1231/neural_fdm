@@ -1,6 +1,7 @@
 import jax.random as jrn
 import jax.numpy as jnp
 
+from neural_fofin.generators.bezier import evaluate_bezier_surface
 from neural_fofin.generators.bezier import BezierSurfaceAsymmetric
 from neural_fofin.generators.bezier import BezierSurfaceSymmetric
 from neural_fofin.generators.bezier import BezierSurfaceSymmetricDouble
@@ -86,28 +87,35 @@ class BezierSurfaceAsymmetricPointGenerator(BezierSurfacePointGenerator):
         super().__init__(surface, u, v, minval, maxval)
 
 
-class BezierSurfaceBlendPointGenerator(BezierSurfacePointGenerator):
+class BezierSurfaceLerpPointGenerator(BezierSurfacePointGenerator):
     """
     A generator that outputs points interpolated between two wiggled bezier surfaces.
+
+    Notes
+    -----
     One surface is doubly-symmetric and the other completely asymmetric.
     """
-    def __init__(self, size, num_pts, u, v, minval, maxval, alpha=0.5):
+    def __init__(self, size, num_pts, u, v, minval, maxval, alpha, *args, **kwargs):
         minval_a, minval_b = minval
         maxval_a, maxval_b = maxval
 
-        self.generator_a = BezierSurfaceSymmetricDoublePointGenerator(size, num_pts, u, v, minval_a, maxval_a)
-        self.generator_b = BezierSurfaceAsymmetricPointGenerator(size, num_pts, u, v, minval_b, maxval_b)
-
+        surface = BezierSurfaceSymmetricDouble(size, num_pts)
+        super().__init__(surface, u, v, minval_a, maxval_a)
+        self.generator_other = BezierSurfaceAsymmetricPointGenerator(size, num_pts, u, v, minval_b, maxval_b)
         self.alpha = alpha
-
-        surface = BezierSurfaceAsymmetric(size, num_pts)
-        super().__init__(surface, u, v, minval_a, maxval_b)
 
     def __call__(self, key, wiggle=True):
         """
         Generate (wiggled) points.
         """
-        points_a = self.generator_a(key, wiggle)
-        points_b = self.generator_b(key, wiggle)
+        if wiggle:
+            transform_this = self.wiggle(key)
+            transform_other = self.generator_other.wiggle(key)
 
-        return self.alpha * points_a + (1.0 - self.alpha) * points_b
+        control_points_this = self.surface.control_points(transform_this)
+        control_points_other = self.generator_other.surface.control_points(transform_other)
+        control_points = (1.0 - self.alpha) * control_points_this + self.alpha * control_points_other
+
+        points = evaluate_bezier_surface(control_points, self.u, self.v)
+
+        return jnp.ravel(points)

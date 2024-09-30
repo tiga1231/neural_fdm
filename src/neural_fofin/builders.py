@@ -13,7 +13,7 @@ from neural_fofin.generators import BezierSurfacePointGenerator
 from neural_fofin.generators import BezierSurfaceAsymmetricPointGenerator
 from neural_fofin.generators import BezierSurfaceSymmetricPointGenerator
 from neural_fofin.generators import BezierSurfaceSymmetricDoublePointGenerator
-from neural_fofin.generators import BezierSurfaceBlendPointGenerator
+from neural_fofin.generators import BezierSurfaceLerpPointGenerator
 
 from neural_fofin.generators import CircularTubePointGenerator
 from neural_fofin.generators import EllipticalTubePointGenerator
@@ -167,7 +167,7 @@ def get_bezier_generator_minmax_values(name, bounds):
     if not values_fn:
         raise KeyError(f"Experiment bounds: {bounds} is currently unsupported!")
 
-    # generate values on a quarter tile (double symmetry)
+    # generate values on a quarter tile (assumes double symmetry)
     minval, maxval = values_fn()
 
     # concatenate bounds based on generator type and symmetry
@@ -261,7 +261,7 @@ def build_bezier_point_generator(generator_params):
     size = generator_params["size"]
     num_pts = generator_params["num_points"]
     bounds_name = generator_params["bounds"]
-    blend_factor = generator_params["blend_factor"]
+    lerp_factor = generator_params.get("lerp_factor")
 
     # wiggle bounds for task
     minval, maxval = get_bezier_generator_minmax_values(name, bounds_name)
@@ -275,14 +275,14 @@ def build_bezier_point_generator(generator_params):
         "bezier_symmetric": BezierSurfaceSymmetricPointGenerator,
         "bezier_symmetric_double": BezierSurfaceSymmetricDoublePointGenerator,
         "bezier_asymmetric": BezierSurfaceAsymmetricPointGenerator,
-        "bezier_lerp": BezierSurfaceBlendPointGenerator
+        "bezier_lerp": BezierSurfaceLerpPointGenerator
     }
 
     generator = generators.get(name)
     if not generator:
         raise ValueError(f"Generator {name} is not supported yet!")
 
-    return generator(size, num_pts, u, v, minval, maxval, blend_factor)
+    return generator(size, num_pts, u, v, minval, maxval, lerp_factor)
 
 
 def build_data_generator(config):
