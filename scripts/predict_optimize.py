@@ -370,7 +370,7 @@ def predict_optimize_batch(
             error += terms["shape error"].item()
             error += terms["height error"].item()
             errors.append(error)
-        print(f"Task error over {num_opts} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
+        print(f"Shape + height error over {num_opts} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
 
 # ===============================================================================
 # Helper functions

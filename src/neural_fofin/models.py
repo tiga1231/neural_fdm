@@ -293,7 +293,7 @@ class MLPDecoder(Decoder, eqx.nn.MLP):
         """
         """
         # unpack parameters
-        q, x_fixed, lodas = params
+        q, x_fixed, loads = params
 
         # predict x
         x_free = self._get_xyz(params)

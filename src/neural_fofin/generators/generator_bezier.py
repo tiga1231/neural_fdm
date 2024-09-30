@@ -93,7 +93,7 @@ class BezierSurfaceLerpPointGenerator(BezierSurfacePointGenerator):
 
     Notes
     -----
-    One surface is doubly-symmetric and the other completely asymmetric.
+    One surface is doubly-symmetric and the other asymmetric.
     """
     def __init__(self, size, num_pts, u, v, minval, maxval, alpha, *args, **kwargs):
         minval_a, minval_b = minval

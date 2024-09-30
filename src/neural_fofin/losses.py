@@ -4,6 +4,8 @@ from jax import vmap
 from neural_fofin.helpers import vertices_residuals_from_xyz
 from neural_fofin.models import AutoEncoderPiggy
 
+from jax.debug import print as jprint
+
 
 # ===============================================================================
 # Loss assemblers
@@ -421,7 +423,10 @@ def compute_q_regularization(q):
     var_q_pos = jnp.var(q, where=sign_q > 0)
     var_q_neg = jnp.var(q, where=sign_q < 0)
 
-    return jnp.mean(var_q_pos) + jnp.mean(var_q_neg)
+    # NOTE: jnp.mean is doing nothing here because the size of the variance arrays is 1
+    result = jnp.mean(var_q_pos) + jnp.mean(var_q_neg)
+
+    return result
 
 
 # ===============================================================================
