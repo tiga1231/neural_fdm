@@ -1,5 +1,5 @@
 # randomness
-seed: 91  # 91
+seed: 90  # 90
 # data generator
 generator:
   name: "tower_ellipse"  # options: tower_ellipse, tower_circle
@@ -41,7 +41,7 @@ loss:
     weight: 1.0  # weight of the smoothness energy term in the loss function
     scale: 1.0  # 30.0, bbox length (used for normalization)
   residual:  # PINN term
-    include: False
+    include: True
     weight: 1.0  # weight of the residual error term in the loss function
     scale: 1.0  # 0.5, fdm load scale (used for normalization)
   regularization:  # regularize predicted force densities
@@ -54,5 +54,5 @@ optimizer:
   clip_norm: 0.01  # 0.01
 # training
 training:
-  steps: 1000
+  steps: 10000
   batch_size: 16  # 16

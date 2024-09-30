@@ -94,7 +94,7 @@ parameters:
           include:
             value: True
           weight:
-            value: 1.0
+            values: [0.01, 0.1, 1.0, 10.0, 100.0]
           scale:
             value: 1.0
       regularization:
@@ -102,7 +102,7 @@ parameters:
           include:
             value: True
           weight:
-            values: [1.0, 5.0, 10.0]
+            value: 10.0
   # optimizer
   optimizer:
     parameters:
@@ -110,13 +110,13 @@ parameters:
         value: "adam"
       learning_rate:
         # NOTE: Be careful with scientific notation in YAML!
-        values: [0.001, 0.0003, 0.0001, 0.00003, 0.00001]
+        value: 0.001
       clip_norm:
         value: 0.0
   # training
   training:
     parameters:
       steps:
-        value: 5000
+        value: 10000
       batch_size:
         value: 16
