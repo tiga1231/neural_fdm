@@ -6,7 +6,11 @@ from functools import partial
 
 import jax
 import jax.random as jrn
+import jax.tree_util as jtu
+
 from jax import vmap
+
+import equinox as eqx
 
 from neural_fofin import DATA
 
@@ -99,7 +103,7 @@ def train(
         print("\nSaving model")
 
         # save trained model
-        filepath = os.path.join(DATA, f"{filename}_lyrical.eqx")
+        filepath = os.path.join(DATA, f"{filename}.eqx")
         save_model_fn(filepath, trained_model)
         print(f"Saved model to {filepath}")
 
@@ -108,7 +112,7 @@ def train(
         labels = loss_history[0].keys()
         for label in labels:
             _label = "_".join(label.split())
-            filename_loss = f"losses_{filename}_lyrical_{_label}.txt"
+            filename_loss = f"losses_{filename}_{_label}.txt"
 
             filepath = os.path.join(DATA, filename_loss)
             with open(filepath, "w") as file:
@@ -157,9 +161,9 @@ def train_model_from_config(model_name, config, pretrained=False, callback=None)
     print(f"\nTraining {model_name} on {generator_name} dataset with {bounds_name} bounds")
     generator = build_data_generator(config)
     structure = build_connectivity_structure_from_generator(config, generator)
-    optimizer = build_optimizer(config)
     compute_loss = build_loss_function(config, generator)
     model = build_neural_model(model_name, config, generator, model_key)
+    optimizer = build_optimizer(config)
 
     if pretrained:
         print("Starting from pretrained model")
@@ -173,6 +177,7 @@ def train_model_from_config(model_name, config, pretrained=False, callback=None)
     # warmstart
     start_loss = compute_loss(model, structure, xyz)
     print(f"The structure has {structure.num_vertices} vertices and {structure.num_edges} edges")
+    print(f"Model parameter count: {count_model_params(model)}")
     print(f"{model_name.capitalize()} start loss: {start_loss:.6f}")
 
     # train models
@@ -219,7 +224,16 @@ def checkpoint_model(
     """
     if step > 0 and step % checkpoint_step == 0:
         filepath = os.path.join(DATA, f"{filename}_{step}.eqx")
-        save_model(filepath, model)
+        save_model_fn(filepath, model)
+
+
+def count_model_params(model):
+    """
+    Count the number of trainable model parameters.
+    """
+    spec = eqx.is_inexact_array
+
+    return sum(x.size for x in jtu.tree_leaves(eqx.filter(model, spec)))
 
 
 # ===============================================================================
