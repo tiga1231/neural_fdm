@@ -72,6 +72,22 @@ BEZIER_SADDLE = [
     [0.0, 0.0, 0.0]
 ]
 
+# cute hypar
+BEZIER_HYPAR = [
+    [0.0, 0.0, 1.5],
+    [-1.25, 0.0, 7.5],
+    [0.0, 1.25, 0.0],
+    [0.0, 0.0, 0.0]
+]
+
+# cute pringle
+BEZIER_PRINGLE = [
+    [0.0, 0.0, 1.5],
+    [1.25, 1.25, 0.0],
+    [-1.25, 0.0, 7.5],
+    [0.0, 0.0, 0.0]
+]
+
 # cannon vault
 BEZIER_CANNON = [
     [0.0, 0.0, 6.0],
@@ -84,6 +100,8 @@ beziers = {
     "pillow": BEZIER_PILLOW,
     "dome": BEZIER_DOME,
     "saddle": BEZIER_SADDLE,
+    "hypar": BEZIER_HYPAR,
+    "pringle": BEZIER_PRINGLE,
     "cannon": BEZIER_CANNON,
 }
 
@@ -117,6 +135,16 @@ CAMERA_CONFIG_BEZIER = {
     "distance": 20.0,
 }
 
+CAMERA_CONFIG_BEZIER_TOP = {
+    "color": (1.0, 1.0, 1.0, 1.0),
+    "position": (0.3, 0.85, 7.5),
+    "target": (0.3, 0.85, 0.000),
+    "distance": 7.5,
+    "rotation": (0.000, 0.000, 0.000),
+    "use_top_view": True
+}
+
+
 CAMERA_CONFIG_TOWER = {
     "color": (1.0, 1.0, 1.0, 1.0),
     "position": (10.718, 10.883, 14.159),
@@ -124,6 +152,11 @@ CAMERA_CONFIG_TOWER = {
     "distance": 19.482960680274577,
     "rotation": (1.013, 0.000, 2.362),
 }
+
+USE_CONFIG_BEZIER_TOP = False
+
+if USE_CONFIG_BEZIER_TOP:
+    CAMERA_CONFIG_BEZIER = CAMERA_CONFIG_BEZIER_TOP
 
 
 # ===============================================================================
@@ -135,11 +168,13 @@ def visualize(
         task_name,
         shape_name=None,
         shape_index=0,
+        seed=None,
+        batch_size=None,
         view=True,
         plot=False,
         save=False,
         edgewidth=(0.01, 0.25),
-        edgecolor="force",
+        edgecolor="fd",
         show_reactions=False,
         reactionscale=0.5,
         plot_metric="deltas",
@@ -191,9 +226,9 @@ def visualize(
         config = yaml.load(file, Loader=yaml.FullLoader)
 
     # unpack parameters
-    seed = config["seed"]
+    seed = seed or config["seed"]
     training_params = config["training"]
-    batch_size = training_params["batch_size"]
+    batch_size = batch_size or training_params["batch_size"]
 
     generator_name = config['generator']['name']
     bounds_name = config['generator']['bounds']
@@ -384,6 +419,9 @@ def visualize(
             )
 
             # modify view
+            if CAMERA_CONFIG.get("use_top_view"):
+                viewer.view.camera.view.current = viewer.view.camera.view.TOP
+
             viewer.view.camera.position = CAMERA_CONFIG["position"]
             viewer.view.camera.target = CAMERA_CONFIG["target"]
             viewer.view.camera.distance = CAMERA_CONFIG["distance"]
@@ -405,7 +443,7 @@ def visualize(
                 FDNetwork.from_mesh(mesh_target),
                 as_wireframe=True,
                 show_points=False,
-                linewidth=4.0,
+                linewidth=4.0,  # 4.0 for 3d, 1.0 for top
                 color=Color.black().lightened()
                 )
 
@@ -422,15 +460,15 @@ def visualize(
             )
 
             # modify view
+            if CAMERA_CONFIG.get("use_top_view"):
+                viewer.view.camera.view.current = viewer.view.camera.view.TOP
+
             viewer.view.camera.position = CAMERA_CONFIG["position"]
             viewer.view.camera.target = CAMERA_CONFIG["target"]
             viewer.view.camera.distance = CAMERA_CONFIG["distance"]
 
             _rotation = CAMERA_CONFIG.get("rotation")
             if _rotation:
-                # if bounds_name != "twisted":
-                    # rx, ry, rz = _rotation
-                    # _rotation = rx, ry, 0.0
                 viewer.view.camera.rotation = _rotation
 
             # query datastructures
@@ -448,8 +486,6 @@ def visualize(
             # edges to view
             # NOTE: we are not visualizing edges on boundaries since they are supported
             edges_2_view = [edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)]
-            # if task_name == "tower":
-                # edges_2_view = [edge for edge in edges_2_view if mesh.edge_attribute(edge, "tag") == "cable"]
 
             # edge width
             width_min, width_max = EDGEWIDTH
@@ -524,18 +560,9 @@ def visualize(
 
             reactioncolor = Color.from_rgb255(0, 150, 10)  # load green
             if EDGECOLOR == "fd":
-                reactioncolor = Color.grey().darkened()  # load dary gray
-            # show_reactions = True
+                reactioncolor = Color.grey().darkened()  # load dark gray
 
             if task_name == "bezier":
-
-                # vertices_2_view = []
-                # for vkey in mesh.vertices():
-                #     if len(mesh.vertex_neighbors(vkey)) < 3:
-                #         continue
-                #     # if mesh.is_vertex_on_boundary(vkey):
-                #     #    continue
-                #     vertices_2_view.append(vkey)
 
                 _reactioncolor = {}
                 for vkey in mesh.vertices():
@@ -547,23 +574,16 @@ def visualize(
 
             elif task_name == "tower":
 
-                # vertices_2_view = []
-                # for vkey in mesh.vertices():
-                #     if len(mesh.vertex_neighbors(vkey)) < 3:
-                #         continue
-                #     # if mesh.is_vertex_on_boundary(vkey):
-                #     #    continue
-                #     vertices_2_view.append(vkey)
-
                 _reactioncolor = {}
                 for vkey in mesh.vertices():
-                    _color = Color.from_rgb255(0, 150, 10)  # Color.pink()
+                    _color = Color.from_rgb255(0, 150, 10)
                     if mesh.is_vertex_on_boundary(vkey):
                         _color = reactioncolor
                     _reactioncolor[vkey] = _color
                 reactioncolor = _reactioncolor
 
             # display stylized network
+            print(f"Reaction scale: {_reactionscale}")
             viewer.add(
                 network_hat,
                 edgewidth=edgewidth,
@@ -594,53 +614,24 @@ def visualize(
                     )
 
             if task_name == "bezier":
+                pass
                 # approximated mesh
                 # viewer.add(
-                #      mesh_hat,
-                #      show_points=False,
-                #      show_edges=False,
-                #      opacity=0.3
-                #  )
+                #     FDNetwork.from_mesh(mesh_target),
+                #     as_wireframe=True,
+                #     show_points=False,
+                #     linewidth=4.0,
+                #     color=Color.black().lightened()
+                #    )
 
-                viewer.add(
-                    FDNetwork.from_mesh(mesh_target),
-                    as_wireframe=True,
-                    show_points=False,
-                    linewidth=4.0,
-                    color=Color.black().lightened()
-                   )
-
-                viewer.add(
-                        mesh_hat,
-                        show_points=False,
-                        show_edges=False,
-                        opacity=0.2
-                    )
-
-                # target mesh
-                # if edgecolor != "fd":
-                #     viewer.add(
-                #         FDNetwork.from_mesh(mesh_target),
-                #         as_wireframe=True,
-                #         show_points=False,
-                #         linewidth=4.0,
-                #         color=Color.black().lightened()
-                #         )
-                # else:
-                #     viewer.add(
+                # viewer.add(
                 #         mesh_hat,
                 #         show_points=False,
                 #         show_edges=False,
                 #         opacity=0.2
                 #     )
 
-                    # viewer.add(
-                    #     Polyline([mesh_hat.vertex_coordinates(vkey) for vkey in mesh.vertices_on_boundary()]),
-                    #     linewidth=4.0,
-                    #     color=Color.black().lightened()
-                    # )
-
-            elif task_name == "tower": # and EDGECOLOR == "force":
+            elif task_name == "tower":
                 rings = jnp.reshape(xyz, generator.shape_tube)[generator.levels_rings_comp, :, :]
                 for ring in rings:
                     ring = ring.tolist()
@@ -652,12 +643,6 @@ def visualize(
                         linewidth=4.0,
                         color=Color.black().lightened()
                     )
-
-                # xyz_hat = model(xyz, structure)
-                # rings_hat = jnp.reshape(xyz_hat, generator.shape_tube)[generator.levels_rings_comp, :, :]
-                # for ring_a, ring_b in zip(rings, rings_hat):
-                #     for pt_a, pt_b in zip(ring_a, ring_b):
-                #         viewer.add(Line(pt_a, pt_b))
 
             # show le crème
             viewer.show()
