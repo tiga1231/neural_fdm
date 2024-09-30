@@ -7,6 +7,8 @@ import yaml
 
 import warnings
 
+import matplotlib.pyplot as plt
+
 from time import perf_counter
 from statistics import mean
 from statistics import stdev
@@ -25,7 +27,6 @@ from compas.colors import Color
 from compas.colors import ColorMap
 from compas.geometry import Polygon
 from compas.geometry import Polyline
-from compas.geometry import Line
 from compas.utilities import remap_values
 
 from jax_fdm.datastructures import FDNetwork
@@ -71,6 +72,22 @@ BEZIER_SADDLE = [
     [0.0, 0.0, 0.0]
 ]
 
+# cute hypar
+BEZIER_HYPAR = [
+    [0.0, 0.0, 1.5],
+    [-1.25, 0.0, 7.5],
+    [0.0, 1.25, 0.0],
+    [0.0, 0.0, 0.0]
+]
+
+# cute pringle
+BEZIER_PRINGLE = [
+    [0.0, 0.0, 1.5],
+    [1.25, 1.25, 0.0],
+    [-1.25, 0.0, 7.5],
+    [0.0, 0.0, 0.0]
+]
+
 # cannon vault
 BEZIER_CANNON = [
     [0.0, 0.0, 6.0],
@@ -83,6 +100,8 @@ beziers = {
     "pillow": BEZIER_PILLOW,
     "dome": BEZIER_DOME,
     "saddle": BEZIER_SADDLE,
+    "hypar": BEZIER_HYPAR,
+    "pringle": BEZIER_PRINGLE,
     "cannon": BEZIER_CANNON,
 }
 
@@ -114,6 +133,7 @@ def optimize_batch(
         blow=1e-3,  # 1e-3
         bup=20.0,
         maxiter=5000,
+        tol=1e-6,
         seed=None,
         batch_size=None,
         slice=(0, -1),  # (50, 53) for bezier
@@ -128,6 +148,7 @@ def optimize_batch(
         qmin=None,
         qmax=None,
         verbose=True,
+        record=False,
 ):
     """
     Solve the prediction task on a batch target shapes with direct optimization with box constraints.
@@ -241,14 +262,18 @@ def optimize_batch(
     # define optimization function
     warnings.filterwarnings("ignore")
 
+    history = []
+    recorder = lambda x: history.append(x) if record else None
+
     opt = ScipyBoundedMinimize(
         fun=compute_loss_diffable,
         method=optimizer_name,
         jit=False,
-        tol=1e-6,
+        tol=tol,
         maxiter=maxiter,
         options={"disp": False},
         value_and_grad=True,
+        callback=recorder
     )
 
     # define parameter bounds
@@ -276,8 +301,9 @@ def optimize_batch(
         xyz_slice = xyz[None, :]
 
     num_opts = xyz_slice.shape[0]
+    num_opts = 0
     for i, xyz in enumerate(xyz_slice):
-
+        num_opts += 1
         xyz = xyz[None, :]
 
         # report start losses
@@ -301,6 +327,20 @@ def optimize_batch(
             print(f"\tOpt success?: {opt_res.success}")
             print(f"\tOpt iters: {opt_res.iter_num}")
             print(f"\tOpt time: {opt_time:.4f} sec")
+
+        if record:
+            _losses = []
+            for xk in history:
+                _loss, _ = compute_loss_diffable(xk, xyz)
+                _losses.append(_loss)
+
+            plt.figure()
+            plt.plot(jnp.array(_losses))
+            plt.xlabel("Steps")
+            plt.ylabel("Loss")
+            plt.yscale("log")
+            plt.grid()
+            plt.show()
 
         if opt_res.success:
             were_successful += 1
@@ -491,26 +531,27 @@ def optimize_batch(
 
     # report statistics
     print(f"\nSuccessful optimizations: {were_successful}/{num_opts}")
-    print(f"Optimization time over {num_opts} optimizations (s): {mean(opt_times):.4f} (+-{stdev(opt_times):.4f})")
+    if num_opts > 1:
+        print(f"Optimization time over {num_opts} optimizations (s): {mean(opt_times):.4f} (+-{stdev(opt_times):.4f})")
 
-    labels = loss_terms_batch[0].keys()
-    for label in labels:
-        errors = [terms[label].item() for terms in loss_terms_batch]
-        print(f"{label.capitalize()} over {num_opts} optimizations: {mean(errors):.4f} (+-{stdev(errors):.4f})")
+        labels = loss_terms_batch[0].keys()
+        for label in labels:
+            errors = [terms[label].item() for terms in loss_terms_batch]
+            print(f"{label.capitalize()} over {num_opts} optimizations: {mean(errors):.4f} (+-{stdev(errors):.4f})")
 
-    if task_name == "tower":
-        errors = []
-        for terms in loss_terms_batch:
-            error = 0.0
-            error += terms["shape error"].item() ** 0.5
-            error += terms["height error"].item() ** 0.5
-            errors.append(error)
-        print(f"Sq root of shape error over {num_opts} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
+        if task_name == "tower":
+            errors = []
+            for terms in loss_terms_batch:
+                error = 0.0
+                error += terms["shape error"].item()
+                error += terms["height error"].item()
+                errors.append(error)
+            print(f"Shape + height error over {num_opts} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
+
 
 # ===============================================================================
 # Helper functions
 # ===============================================================================
-
 
 def calculate_params_init(mesh, param_init, key, minval, maxval):
     """
