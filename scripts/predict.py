@@ -2,6 +2,7 @@
 Predict the force densities and shapes of a batch of target shapes with a pretrained model.
 """
 import os
+from functools import partial
 from math import fabs
 import yaml
 
@@ -37,6 +38,8 @@ from neural_fofin.builders import build_neural_model
 from neural_fofin.losses import print_loss_summary
 
 from neural_fofin.serialization import load_model
+
+from train import count_model_params
 
 
 # ===============================================================================
@@ -130,12 +133,15 @@ def predict_batch(
     _model_name = model_name.split("_")[0]
     model_skeleton = build_neural_model(_model_name, config, generator, model_key)
     model = load_model(filepath, model_skeleton)
+    print(f"Model parameter count: {count_model_params(model)}")
 
     # sample data batch
     xyz_batch = vmap(generator)(jrn.split(generator_key, batch_size))
+    # timed_fn = jit(vmap(model.encode))
+    timed_fn = jit(vmap(partial(model, structure=structure)))
 
-    encoding_fn = jit(vmap(model.encode))
-    encoding_fn(xyz_batch)
+    # warmstart
+    timed_fn(xyz_batch)
 
     # time inference time (encoding only) on batch
     if time_batch_inference:
@@ -144,16 +150,14 @@ def predict_batch(
         times = []
         for i in range(10):
             start = perf_counter()
-            encoding_fn(xyz_batch)
-            duration = perf_counter() - start
+            timed_fn(xyz_batch)
+            duration = 1000.0 * (perf_counter() - start)  # time in milliseconds
             times.append(duration)
-        print(f"Inference time on batch size {batch_size}: {mean(times):.5f} (+-{stdev(times):.5f}) s")
+        print(f"Inference time on batch size {batch_size}: {mean(times):.5f} (+-{stdev(times):.5f}) ms")
 
     # report batch losses
     _, loss_terms = compute_loss(model, structure, xyz_batch, aux_data=True)
     print_loss_summary(loss_terms, prefix="Batch\t")
-    for term, value in loss_terms.items():
-        print(value)
 
     # make individual predictions
     if not predict_in_sequence:
@@ -169,8 +173,8 @@ def predict_batch(
 
         # do inference on one design
         start = perf_counter()
-        encoding_fn(xyz[None, :])
-        opt_time = perf_counter() - start
+        timed_fn(xyz[None, :])
+        opt_time = 1000.0 * (perf_counter() - start)  # time in milliseconds
         opt_times.append(opt_time)
         num_predictions += 1
 
@@ -332,8 +336,8 @@ def predict_batch(
             # show le crème
             viewer.show()
 
-        # report statistics
-    print(f"Inference time over {num_predictions} samples (s): {mean(opt_times):.4f} (+-{stdev(opt_times):.4f})")
+    # report statistics
+    print(f"Inference time over {num_predictions} samples (ms): {mean(opt_times):.4f} (+-{stdev(opt_times):.4f})")
 
     labels = loss_terms_batch[0].keys()
     for label in labels:
@@ -354,10 +358,10 @@ def predict_batch(
         errors = []
         for terms in loss_terms_batch:
             error = 0.0
-            error += terms["shape error"].item() ** 0.5
-            error += terms["height error"].item() ** 0.5
+            error += terms["shape error"].item()
+            error += terms["height error"].item()
             errors.append(error)
-        print(f"Sq root of shape error over {num_predictions} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
+        print(f"Shape + height error over {num_predictions} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
 
 
 # ===============================================================================
