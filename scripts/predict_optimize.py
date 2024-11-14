@@ -199,7 +199,7 @@ def predict_optimize_batch(
 
     were_successful = 0
     if STOP == -1:
-        STOP == batch_size
+        STOP = batch_size
 
     xyz_slice = xyz_batch[START:STOP]
     num_opts = xyz_slice.shape[0]
