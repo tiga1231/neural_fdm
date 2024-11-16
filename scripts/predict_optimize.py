@@ -225,9 +225,9 @@ def predict_optimize_batch(
             print_loss_summary(loss_terms, prefix="\tStart")
 
         # optimize
-        start = perf_counter()
+        start_time = perf_counter()
         diff_model_opt, opt_res = opt.run(diff_decoder, bounds, xyz)
-        opt_time = perf_counter() - start
+        opt_time = perf_counter() - start_time
 
         # unite optimal and static submodels
         model_opt = eqx.combine(diff_model_opt, static_decoder)

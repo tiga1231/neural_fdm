@@ -17,6 +17,8 @@ import jax.numpy as jnp
 
 import jax.random as jrn
 
+import equinox as eqx
+
 from compas.colors import Color
 from compas.colors import ColorMap
 from compas.geometry import Polygon
@@ -56,6 +58,7 @@ def predict_batch(
         slice=(0, -1),  # (50, 53) for bezier
         view=False,
         save=False,
+        save_metrics=True,
         edgecolor="force"):
     """
     Predict a batch of target shapes with a pretrained model.
@@ -83,7 +86,9 @@ def predict_batch(
     view: `bool`
         If `True`, view the predicted shapes.
     save: `bool`
-        If `True`, save the predicted shapes as JSON files.
+        If `True`, saves the predicted shapes as JSON files.
+    save_metrics: `bool`
+        If `True`, saves the calculated batch metrics in text files.
     edgecolor: `str`
         The color palette for the edges.
         Supported color palettes are "fd" to display force densities, and "force" to show forces.
@@ -137,20 +142,26 @@ def predict_batch(
 
     # sample data batch
     xyz_batch = vmap(generator)(jrn.split(generator_key, batch_size))
-    # timed_fn = jit(vmap(model.encode))
+
+    # inference function to time
     timed_fn = jit(vmap(partial(model, structure=structure)))
 
-    # warmstart
-    timed_fn(xyz_batch)
+    # NOTE: Using eqx.debug to ensure this function is compiled at most once
+    timed_fn = vmap(partial(model, structure=structure))
+    timed_fn = eqx.debug.assert_max_traces(timed_fn, max_traces=1)
+    timed_fn = jit(timed_fn)
 
-    # time inference time (encoding only) on batch
+    # time inference time on full batch
     if time_batch_inference:
+
         # warmstart
+        timed_fn(xyz_batch)
+
         # time
         times = []
         for i in range(10):
             start = perf_counter()
-            timed_fn(xyz_batch)
+            timed_fn(xyz_batch).block_until_ready()
             duration = 1000.0 * (perf_counter() - start)  # time in milliseconds
             times.append(duration)
         print(f"Inference time on batch size {batch_size}: {mean(times):.5f} (+-{stdev(times):.5f}) ms")
@@ -168,14 +179,24 @@ def predict_batch(
     loss_terms_batch = []
     num_predictions = 0
 
+    # warmstart again, just in case
+    _xyz_ = xyz_batch[0][None, :]
+    start_time = perf_counter()
+    timed_fn(_xyz_).block_until_ready()
+    end_time = perf_counter() - start_time
+    print(f"JIT compilation time: {end_time * 1000.0:.2f} ms")
+
+    start = perf_counter()
     for i in range(START, STOP):
+
         xyz = xyz_batch[i]
+        _xyz = xyz[None, :]
 
         # do inference on one design
-        start = perf_counter()
-        timed_fn(xyz[None, :])
-        opt_time = 1000.0 * (perf_counter() - start)  # time in milliseconds
-        opt_times.append(opt_time)
+        start_time = perf_counter()
+        timed_fn(_xyz).block_until_ready()
+        end_time = perf_counter() - start_time  # time in seconds
+        opt_times.append(end_time)
         num_predictions += 1
 
         # calculate loss
@@ -190,9 +211,11 @@ def predict_batch(
         eqstate_hat, fd_params_hat = model.predict_states(xyz, structure)
         mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
 
-        # extract max force for residual forces normalization
+        # extract additional statistics
         loss_terms["force max"] = jnp.max(jnp.abs(eqstate_hat.forces))
         loss_terms["area"] = jnp.array(mesh_hat.area())
+        loss_terms["loadpath"] = jnp.array(mesh_hat.loadpath())
+        loss_terms["time"] = jnp.array([end_time])
 
         loss_terms_batch.append(loss_terms)
         print_loss_summary(loss_terms, prefix=f"Shape {i}\t")
@@ -261,7 +284,6 @@ def predict_batch(
                 edgecolor = {edge: cmap(ratio) for edge, ratio in zip(_edges, ratios)}
                 for edge in network_hat.edges():
                     if mesh.edge_attribute(edge, "tag") != "cable":
-                        # edgecolor[edge] = Color.grey().darkened()
                         edgecolor[edge] = Color.pink()
 
             else:
@@ -278,8 +300,6 @@ def predict_batch(
                 for vkey in mesh.vertices():
                     if len(mesh.vertex_neighbors(vkey)) < 3:
                         continue
-                    # if mesh.is_vertex_on_boundary(vkey):
-                    #    continue
                     vertices_2_view.append(vkey)
 
                 reactioncolor = {}
@@ -337,6 +357,7 @@ def predict_batch(
             viewer.show()
 
     # report statistics
+    opt_times = [t * 1000.0 for t in opt_times]  # Convert seconds to milliseconds
     print(f"Inference time over {num_predictions} samples (ms): {mean(opt_times):.4f} (+-{stdev(opt_times):.4f})")
 
     labels = loss_terms_batch[0].keys()
@@ -362,6 +383,20 @@ def predict_batch(
             error += terms["height error"].item()
             errors.append(error)
         print(f"Shape + height error over {num_predictions} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
+
+    if save_metrics:
+        metric_names = ["loadpath"]
+        for name in metric_names:
+
+            metrics = [f"{terms[name].item()}\n" for terms in loss_terms_batch]
+
+            filename = f"{model_name}_{task_name}_{'_'.join(name.split())}_eval.txt"
+            filepath = os.path.join(DATA, filename)
+
+            with open(filepath, 'w') as output:
+                output.writelines(metrics)
+
+            print(f"Saved batch {name} metric to {filepath}")
 
 
 # ===============================================================================
