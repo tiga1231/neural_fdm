@@ -130,7 +130,7 @@ def optimize_batch(
         task_name,
         shape_name=None,
         param_init=None,
-        blow=1e-3,  # 1e-3
+        blow=0.0,  # 1e-3
         bup=20.0,
         maxiter=5000,
         tol=1e-6,
@@ -149,6 +149,7 @@ def optimize_batch(
         qmax=None,
         verbose=True,
         record=False,
+        save_metrics=True,
 ):
     """
     Solve the prediction task on a batch target shapes with direct optimization with box constraints.
@@ -189,6 +190,8 @@ def optimize_batch(
     edgecolor: `str`
         The color palette for the edges.
         Supported color palettes are "fd" to display force densities, and "force" to show forces.
+    save_metrics: `bool`
+        If `True`, saves the calcualted batch metrics in text files.
     """
     START, STOP = slice
     EDGECOLOR = edgecolor  # force, fd
@@ -249,6 +252,7 @@ def optimize_batch(
 
     # wrap loss function to meet jax and jaxopt's ideosyncracies
     @eqx.filter_jit
+    @eqx.debug.assert_max_traces(max_traces=1)  # Ensure this function is compiled at most once
     @eqx.filter_value_and_grad
     def compute_loss_diffable(diff_model, xyz_target):
         """
@@ -257,7 +261,10 @@ def optimize_batch(
         return compute_loss(_model, structure, xyz_target, aux_data=False)
 
     # warmstart loss function to eliminate jit compilation time from perf measurements
+    start_time = perf_counter()
     _ = compute_loss_diffable(diff_model, xyz_target=xyz_batch[None, 0])
+    end_time = perf_counter() - start_time
+    print(f"JIT compilation time (loss): {end_time:.4f} s")
 
     # define optimization function
     warnings.filterwarnings("ignore")
@@ -268,7 +275,7 @@ def optimize_batch(
     opt = ScipyBoundedMinimize(
         fun=compute_loss_diffable,
         method=optimizer_name,
-        jit=False,
+        jit=False,  # set to False because we pre-jitted the value_and_grad function
         tol=tol,
         maxiter=maxiter,
         options={"disp": False},
@@ -289,7 +296,7 @@ def optimize_batch(
 
     were_successful = 0
     if STOP == -1:
-        STOP == batch_size
+        STOP = batch_size
 
     xyz_slice = xyz_batch[START:STOP]
 
@@ -300,28 +307,44 @@ def optimize_batch(
         xyz = generator.evaluate_points(transform)
         xyz_slice = xyz[None, :]
 
-    num_opts = xyz_slice.shape[0]
+    # Warmstart optimization
+    _xyz_ = xyz_batch[0][None, :]
+    start_time = perf_counter()
+    diff_model_opt, opt_res = opt.run(diff_model, bounds, _xyz_)
+    end_time = perf_counter() - start_time
+    print(f"\tJIT compilation time (optimizer): {end_time:.4f} s")
+
     num_opts = 0
     for i, xyz in enumerate(xyz_slice):
+
         num_opts += 1
         xyz = xyz[None, :]
 
         # report start losses
         _, loss_terms = compute_loss(model, structure, xyz, aux_data=True)
         if verbose:
-            print(f"Shape {i}")
+            print(f"\nShape {i}")
             print_loss_summary(loss_terms, prefix="\tStart")
 
         # optimize
-        start = perf_counter()
+        start_time = perf_counter()
         diff_model_opt, opt_res = opt.run(diff_model, bounds, xyz)
-        opt_time = perf_counter() - start
+        opt_time = perf_counter() - start_time
 
         # unite optimal and static submodels
         model_opt = eqx.combine(diff_model_opt, static_model)
 
+        # assemble datastructure for post-processing
+        eqstate_hat, fd_params_hat = model_opt.predict_states(xyz, structure)
+        mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
+        network_hat = FDNetwork.from_mesh(mesh_hat)
+
         # evaluate loss function at optimum point
         _, loss_terms = compute_loss(model_opt, structure, xyz, aux_data=True)
+
+        # extract additional statistics
+        loss_terms["loadpath"] = jnp.array(mesh_hat.loadpath())
+
         if verbose:
             print_loss_summary(loss_terms, prefix="\tEnd")
             print(f"\tOpt success?: {opt_res.success}")
@@ -349,11 +372,11 @@ def optimize_batch(
         loss_terms_batch.append(loss_terms)
 
         # assemble datastructure for post-processing
-        eqstate_hat, fd_params_hat = model_opt.predict_states(xyz, structure)
-        mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
-        network_hat = FDNetwork.from_mesh(mesh_hat)
-        if verbose:
-            network_hat.print_stats()
+        # eqstate_hat, fd_params_hat = model_opt.predict_states(xyz, structure)
+        # mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
+        # network_hat = FDNetwork.from_mesh(mesh_hat)
+        # if verbose:
+        #    network_hat.print_stats()
 
         # export prediction
         if SAVE:
@@ -547,6 +570,20 @@ def optimize_batch(
                 error += terms["height error"].item()
                 errors.append(error)
             print(f"Shape + height error over {num_opts} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
+
+    if save_metrics:
+        metric_names = ["loadpath"]
+        for name in metric_names:
+
+            metrics = [f"{terms[name].item()}\n" for terms in loss_terms_batch]
+
+            filename = f"{optimizer}_{task_name}_{'_'.join(name.split())}_eval.txt"
+            filepath = os.path.join(DATA, filename)
+
+            with open(filepath, 'w') as output:
+                output.writelines(metrics)
+
+            print(f"Saved batch {name} metric to {filepath}")
 
 
 # ===============================================================================
