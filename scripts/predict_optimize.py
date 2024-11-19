@@ -152,7 +152,7 @@ def predict_optimize_batch(
     q0 = calculate_params_init(mesh, None, key, QMIN, QMAX)
 
     # create model
-    print(f"Directly optimizing with {optimizer_name} for {generator_name} dataset with {bounds_name} bounds on seed {seed}")
+    print(f"Directly optimizing with {optimizer_name} using {model_name} init for {generator_name} dataset with {bounds_name} bounds on seed {seed}")
     decoder = build_fd_decoder_parametrized(q0, mesh, fd_params)
 
     # sample data batch
@@ -202,6 +202,14 @@ def predict_optimize_batch(
         STOP = batch_size
 
     xyz_slice = xyz_batch[START:STOP]
+
+    # Warmstart optimization
+    _xyz_ = xyz_slice[0][None, :]
+    start_time = perf_counter()
+    diff_model_opt, opt_res = opt.run(diff_decoder, bounds, _xyz_)
+    end_time = perf_counter() - start_time
+    print(f"\tJIT compilation time (optimizer): {end_time:.4f} s")
+
     num_opts = xyz_slice.shape[0]
     for i, xyz in enumerate(xyz_slice):
 
@@ -250,8 +258,6 @@ def predict_optimize_batch(
         eqstate_hat, fd_params_hat = model_opt.predict_states(xyz, structure)
         mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
         network_hat = FDNetwork.from_mesh(mesh_hat)
-        # if verbose:
-        #    network_hat.print_stats()
 
         # export prediction
         if SAVE:

@@ -291,6 +291,7 @@ def optimize_batch(
 
     # optimize
     print("\nOptimizing shapes in sequence")
+    qs = []
     opt_times = []
     loss_terms_batch = []
 
@@ -344,6 +345,7 @@ def optimize_batch(
 
         # extract additional statistics
         loss_terms["loadpath"] = jnp.array(mesh_hat.loadpath())
+        # loss_terms["q"] = jnp.mean(fd_params_hat.q)
 
         if verbose:
             print_loss_summary(loss_terms, prefix="\tEnd")
@@ -368,15 +370,9 @@ def optimize_batch(
         if opt_res.success:
             were_successful += 1
 
+        qs.extend([_q.item() for _q in fd_params_hat.q])
         opt_times.append(opt_time)
         loss_terms_batch.append(loss_terms)
-
-        # assemble datastructure for post-processing
-        # eqstate_hat, fd_params_hat = model_opt.predict_states(xyz, structure)
-        # mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
-        # network_hat = FDNetwork.from_mesh(mesh_hat)
-        # if verbose:
-        #    network_hat.print_stats()
 
         # export prediction
         if SAVE:
@@ -584,6 +580,16 @@ def optimize_batch(
                 output.writelines(metrics)
 
             print(f"Saved batch {name} metric to {filepath}")
+
+        # Export force densities
+        filename = f"{optimizer}_{task_name}_q_eval.txt"
+        filepath = os.path.join(DATA, filename)
+
+        metrics = [f"{_q}\n" for _q in qs]
+        with open(filepath, 'w') as output:
+            output.writelines(metrics)
+
+        print(f"Saved batch {name} metric to {filepath}")
 
 
 # ===============================================================================

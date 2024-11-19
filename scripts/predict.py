@@ -53,7 +53,7 @@ def predict_batch(
         task_name,
         seed=None,
         batch_size=None,
-        time_batch_inference=True,
+        time_batch_inference=False,
         predict_in_sequence=True,
         slice=(0, -1),  # (50, 53) for bezier
         view=False,
@@ -175,6 +175,7 @@ def predict_batch(
         return
 
     print("\nPredicting shapes in sequence")
+    qs = []
     opt_times = []
     loss_terms_batch = []
     num_predictions = 0
@@ -219,6 +220,10 @@ def predict_batch(
 
         loss_terms_batch.append(loss_terms)
         print_loss_summary(loss_terms, prefix=f"Shape {i}\t")
+
+        # loss_terms["q"] = jnp.mean(fd_params_hat.q)
+        # loss_terms["q"] = fd_params_hat.q
+        qs.extend([_q.item() for _q in fd_params_hat.q])
 
         if view or save:
             # assemble datastructure for post-processing
@@ -397,6 +402,16 @@ def predict_batch(
                 output.writelines(metrics)
 
             print(f"Saved batch {name} metric to {filepath}")
+
+        # Export force densities
+        filename = f"{model_name}_{task_name}_q_eval.txt"
+        filepath = os.path.join(DATA, filename)
+
+        metrics = [f"{_q}\n" for _q in qs]
+        with open(filepath, 'w') as output:
+            output.writelines(metrics)
+
+        print(f"Saved batch {name} metric to {filepath}")
 
 
 # ===============================================================================
