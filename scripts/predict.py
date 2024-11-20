@@ -58,7 +58,7 @@ def predict_batch(
         slice=(0, -1),  # (50, 53) for bezier
         view=False,
         save=False,
-        save_metrics=True,
+        save_metrics=False,
         edgecolor="force"):
     """
     Predict a batch of target shapes with a pretrained model.

@@ -149,7 +149,7 @@ def optimize_batch(
         qmax=None,
         verbose=True,
         record=False,
-        save_metrics=True,
+        save_metrics=False,
 ):
     """
     Solve the prediction task on a batch target shapes with direct optimization with box constraints.
@@ -413,12 +413,13 @@ def optimize_batch(
             forces_comp_all = []
             forces_tens_all = []
             qs_all = []
+
             for edge in network_hat.edges():
 
                 force = network_hat.edge_force(edge)
                 force_abs = fabs(force)
                 forces_all.append(force_abs)
-                if force < 0.0:
+                if force <= 0.0:
                     forces_comp_all.append(force_abs)
                 else:
                     forces_tens_all.append(force_abs)
@@ -432,9 +433,15 @@ def optimize_batch(
             if fmax is None:
                 fmax = max(forces_all)
             if fmax_tens is None:
-                fmax_tens = max(forces_tens_all)
+                if forces_tens_all:
+                    fmax_tens = max(forces_tens_all)
+                else:
+                    fmax_tens = 0.0
             if fmax_comp is None:
-                fmax_comp = max(forces_comp_all)
+                if forces_comp_all:
+                    fmax_comp = max(forces_comp_all)
+                else:
+                    fmax_comp = 0.0
             if qmin is None:
                 qmin = min(qs_all)
             if qmax is None:
@@ -475,7 +482,7 @@ def optimize_batch(
 
                     force = mesh_hat.edge_force(edge)
 
-                    if force < 0.0:
+                    if force <= 0.0:
                         _cmap = cmap_comp
                         _fmin = fmin_comp
                         _fmax = fmax_comp
