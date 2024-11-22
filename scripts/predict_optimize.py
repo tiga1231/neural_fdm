@@ -163,6 +163,7 @@ def predict_optimize_batch(
 
     # wrap loss function to meet jax and jaxopt's ideosyncracies
     @eqx.filter_jit
+    @eqx.debug.assert_max_traces(max_traces=1)  # Ensure this function is compiled at most once
     @eqx.filter_value_and_grad
     def compute_loss_diffable(diff_decoder, xyz_target):
         """
@@ -179,7 +180,7 @@ def predict_optimize_batch(
     opt = ScipyBoundedMinimize(
         fun=compute_loss_diffable,
         method=optimizer_name,
-        jit=False,
+        jit=True,
         tol=1e-6,
         maxiter=maxiter,
         options={"disp": False},

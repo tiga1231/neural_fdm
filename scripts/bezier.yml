@@ -5,7 +5,7 @@ generator:
   # options: "bezier_symmetric_double", "bezier_symmetric", "bezier_asymmetric", "bezier_lerp"
   name: "bezier_symmetric_double"  # "bezier_symmetric_double"
   bounds: "saddle"  # options: pillow, dome, saddle
-  num_uv: 10
+  num_uv: 16  # 10, 16, 23
   size: 10.0
   num_points: 4  # grid points
   lerp_factor: 0.5  # scalar factor in [0, 1] to interpolate between 2 surfaces, only for bezier_lerp

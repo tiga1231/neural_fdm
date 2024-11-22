@@ -275,7 +275,7 @@ def optimize_batch(
     opt = ScipyBoundedMinimize(
         fun=compute_loss_diffable,
         method=optimizer_name,
-        jit=False,  # set to False because we pre-jitted the value_and_grad function
+        jit=True,
         tol=tol,
         maxiter=maxiter,
         options={"disp": False},
