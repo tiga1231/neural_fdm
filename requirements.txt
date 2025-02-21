@@ -1,5 +1,5 @@
 compas==1.17.10
-jax-fdm
+jax-fdm==0.8.6
 tqdm
 optax
 pyyaml
