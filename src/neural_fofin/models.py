@@ -248,7 +248,6 @@ class FDDecoder(Decoder):
                                        xyz_fixed,
                                        loads,
                                        structure)
-
         return jnp.ravel(x_hat)
 
 

@@ -3,6 +3,7 @@ Predict the force densities and shapes of a batch of target shapes with a pretra
 """
 import os
 from math import fabs
+from math import log
 import yaml
 
 import matplotlib.cm as cm
@@ -17,6 +18,8 @@ import jax.random as jrn
 
 from compas.colors import Color
 from compas.colors import ColorMap
+from compas.datastructures import mesh_transformed
+from compas.geometry import Line
 from compas.geometry import Polygon
 from compas.geometry import Polyline
 from compas.geometry import distance_point_point
@@ -154,7 +157,6 @@ CAMERA_CONFIG_TOWER = {
 }
 
 USE_CONFIG_BEZIER_TOP = False
-
 if USE_CONFIG_BEZIER_TOP:
     CAMERA_CONFIG_BEZIER = CAMERA_CONFIG_BEZIER_TOP
 
@@ -177,10 +179,12 @@ def visualize(
         edgecolor="fd",
         show_reactions=False,
         reactionscale=0.5,
-        plot_metric="deltas",
+        plot_prediction=False,
+        plot_target=True,
+        plot_metric=None,  # None, residual, delta
 ):
     """
-    Predict a batch of target shapes with a pretrained model.
+    Visualize model predictions for one target shape.
 
     Parameters
     ___________
@@ -333,13 +337,17 @@ def visualize(
     forces_tens_all = []
     qs_all = []
     qs_log_all = []
-    from math import log as log
+    areas_all = []
     log_tol = 1.0
 
     for _, data in models_data.items():
 
         mesh = data["mesh"]
         network = data["network"]
+
+        area = mesh.area()
+        areas_all.append(area)
+        print(f"{area=}")
 
         for vkey in mesh.vertices():
             _xyz_target = mesh_target.vertex_coordinates(vkey)
@@ -395,6 +403,11 @@ def visualize(
     qmax_log = max(qs_log_all)
     print(f"{qmin_log=:.4f} {qmax_log=:.4f}")
 
+    area_min = min(areas_all)
+    area_max = max(areas_all)
+    print(f"{area_min=:.4f} {area_max=:.4f}")
+    raise
+
 # ===============================================================================
 # Viewing
 # ===============================================================================
@@ -431,27 +444,34 @@ def visualize(
                 viewer.view.camera.rotation = _rotation
 
             # target shape
+            print("\nViewing target...")
+            MESH_TARGET_COLOR = Color.grey().lightened(100)
+            MESH_TARGET_OPACITY = 0.7
+            if USE_CONFIG_BEZIER_TOP:
+                MESH_TARGET_OPACITY = 0.4
             viewer.add(
                  mesh_target,
                  show_points=False,
                  show_edges=False,
-                 opacity=0.7,
-                 color=Color.grey().lightened(100),
+                 opacity=MESH_TARGET_OPACITY,
+                 color=MESH_TARGET_COLOR,
             )
 
-            viewer.add(
-                FDNetwork.from_mesh(mesh_target),
-                as_wireframe=True,
-                show_points=False,
-                linewidth=4.0,  # 4.0 for 3d, 1.0 for top
-                color=Color.black().lightened()
-                )
+            if not USE_CONFIG_BEZIER_TOP:
+                viewer.add(
+                    FDNetwork.from_mesh(mesh_target),
+                    as_wireframe=True,
+                    show_points=False,
+                    linewidth=4.0,  # 4.0 for 3d, 1.0 for top
+                    color=Color.black().lightened()
+                    )
 
             viewer.show()
 
         # view each model prediction
         for model_name, data in models_data.items():
 
+            print(f"\nViewing {model_name} prediction...")
             viewer = Viewer(
                 width=_width,
                 height=900,
@@ -602,8 +622,8 @@ def visualize(
                 mesh_hat,
                 show_points=False,
                 show_edges=False,
-                opacity=0.7,
-                color=Color.grey().lightened(100),
+                opacity=MESH_TARGET_OPACITY,
+                color=MESH_TARGET_COLOR,
             )
 
             for _vertices in mesh.vertices_on_boundaries():
@@ -613,8 +633,7 @@ def visualize(
                     color=Color.black().lightened()
                     )
 
-            if task_name == "bezier":
-                pass
+            # if task_name == "bezier":
                 # approximated mesh
                 # viewer.add(
                 #     FDNetwork.from_mesh(mesh_target),
@@ -631,7 +650,7 @@ def visualize(
                 #         opacity=0.2
                 #     )
 
-            elif task_name == "tower":
+            if task_name == "tower":
                 rings = jnp.reshape(xyz, generator.shape_tube)[generator.levels_rings_comp, :, :]
                 for ring in rings:
                     ring = ring.tolist()
@@ -657,33 +676,77 @@ def visualize(
         edges_to_plot = [edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)]
         nodesize = 12.0
 
-        plotter = Plotter(
-                figsize=(9, 9),
-                dpi=150
-            )
-
-        plotter.add(mesh,
-                    show_vertices=True,
-                    vertexsize=nodesize,
-                    vertexcolor={vkey: Color.white() for vkey in mesh.vertices()},
-                    edgecolor={edge: Color(0.1, 0.1, 0.1) for edge in mesh.edges()},
-                    edgewidth={edge: 1.0 for edge in mesh.edges()},
-                    show_edges=True,
-                    facecolor={fkey: Color(0.95, 0.95, 0.95) for fkey in mesh.faces()})
-        # zoom in
-        plotter.zoom_extents()
-
-        if save:
-            parts = [task_name, shape_name]
-            filename = f"plot_{'_'.join(parts)}_target.png"
-            FILE_OUT = os.path.abspath(os.path.join(FIGURES, filename))
-            print(f"Saving plot to {FILE_OUT}")
-            plotter.save(FILE_OUT, bbox_inches=0.0, transparent=True)
-
-        # show le crème
-        plotter.show()
-
         for name, data in models_data.items():
+            print(f"\nPlotting for {name}")
+
+            plotter = Plotter(figsize=(6, 6), dpi=150)
+
+            # Transformations
+            T = np.eye(4)
+            if view:
+                P = viewer.view.camera.projection(viewer.width, viewer.height)
+                W = viewer.view.camera.viewworld()
+                P[1, 1] = P[0, 0]
+                T = P @ W
+
+                nodesize = nodesize / 10.0
+
+            if plot_prediction:
+                mesh = mesh_transformed(mesh, T)
+                plotter.add(mesh,
+                            show_vertices=True,
+                            vertexsize=nodesize,
+                            vertexcolor={vkey: Color.white() for vkey in mesh.vertices()},
+                            edgecolor={edge: Color(0.1, 0.1, 0.1) for edge in mesh.edges()},
+                            edgewidth={edge: 1.0 for edge in mesh.edges()},
+                            show_edges=True,
+                            facecolor={fkey: Color(0.95, 0.95, 0.95) for fkey in mesh.faces()})
+
+            if plot_target:
+
+                mesh_target = mesh_transformed(mesh_target, T)
+
+                for u, v in mesh_target.edges():
+                    if mesh.is_edge_fully_supported((u, v)):
+                        lc = Color(0.0, 0.0, 0.0)
+                        ls = "solid"
+                    else:
+                        lc = Color(0.2, 0.2, 0.2)
+                        ls = (0, (5, 3))  # "dotted", "dashed"
+                    a, b = mesh_target.edge_coordinates(u, v)
+                    line = Line(a, b)
+
+                    plotter.add(line,
+                                draw_as_segment=True,
+                                color=lc,
+                                linestyle=ls,
+                                linewidth=1.0,
+                                zorder=1300,
+                                )
+
+            # zoom in
+            plotter.zoom_extents()
+
+            if save:
+                shape_id = shape_name or str(shape_index)
+                parts = [generator_name, bounds_name, shape_id]
+                if generator_name == "bezier_lerp":
+                    parts.insert(1, str(int(10.0 * config['generator']['lerp_factor'])))
+                if plot_prediction:
+                    parts.append(name)
+                if plot_target:
+                    parts.append("target")
+                filename = f"plot_{'_'.join(parts)}.pdf"
+                FILE_OUT = os.path.abspath(os.path.join(FIGURES, filename))
+                print(f"Saving plot to {FILE_OUT}")
+                plotter.save(FILE_OUT, bbox_inches=0.0, transparent=True)
+
+            # show le crème
+            plotter.show()
+
+            if PLOT_MODE is None:
+                continue
+
             print(f"\nPlotting {PLOT_MODE} for {name}")
 
             plotter = Plotter(
@@ -696,10 +759,10 @@ def visualize(
             mesh_hat = data["mesh"]
 
             # plot sheets
+            nodecolor = Color.white()
             if PLOT_MODE == "fd":
 
                 edgecolor = PLOT_MODE
-                nodecolor = Color.white()
                 # nodes_to_plot = [node for node in mesh.vertices() if not mesh.is_vertex_on_boundary(node)]
                 edges_to_plot = list(mesh.edges())
                 edgewidth = (1.0, 9.0)
@@ -817,7 +880,6 @@ def visualize(
                 show_reactions=show_reactions,
                 reactionscale=reaction_scale,
                 reactioncolor=reaction_color,
-                # sizepolicy="absolute",
             )
 
             # zoom in
