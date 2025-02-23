@@ -406,7 +406,6 @@ def visualize(
     area_min = min(areas_all)
     area_max = max(areas_all)
     print(f"{area_min=:.4f} {area_max=:.4f}")
-    raise
 
 # ===============================================================================
 # Viewing

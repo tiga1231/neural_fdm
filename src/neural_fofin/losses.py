@@ -5,6 +5,7 @@ from neural_fofin.helpers import vertices_residuals_from_xyz
 from neural_fofin.models import AutoEncoderPiggy
 
 from jax.debug import print as jprint
+from jax.debug import breakpoint
 
 
 # ===============================================================================
@@ -333,7 +334,6 @@ def compute_error_residual(x_hat, params_hat, structure, indices):
     """
     Calculate the residual error.
     """
-
     def calculate_residuals(_x_hat, _params_hat):
         """
         _x_hat: the shape predicted by the model
@@ -347,14 +347,14 @@ def compute_error_residual(x_hat, params_hat, structure, indices):
 
         # return jnp.linalg.norm(residual_vectors_free, axis=-1)
         # return jnp.sqrt(jnp.sum(jnp.square(residual_vectors_free), axis=-1))
-        # return jnp.square(residual_vectors_free)
         return jnp.square(residual_vectors_free)
 
-    error = vmap(calculate_residuals)(x_hat, params_hat)
-    # batch_error = jnp.sum(error, axis=-1)
-    batch_error = jnp.sqrt(jnp.sum(error, axis=-1))
+    residuals = vmap(calculate_residuals)(x_hat, params_hat)
+    shape_residuals = jnp.sqrt(jnp.sum(residuals, axis=-1))
+    batch_residual = jnp.mean(shape_residuals, axis=-1)
 
-    return jnp.mean(batch_error, axis=-1)
+    return batch_residual
+
 
 
 # ===============================================================================
