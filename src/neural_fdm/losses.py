@@ -4,9 +4,6 @@ from jax import vmap
 from neural_fdm.helpers import vertices_residuals_from_xyz
 from neural_fdm.models import AutoEncoderPiggy
 
-from jax.debug import print as jprint
-from jax.debug import breakpoint
-
 
 # ===============================================================================
 # Loss assemblers
