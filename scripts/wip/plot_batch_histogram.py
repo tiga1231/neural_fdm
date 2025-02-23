@@ -23,22 +23,22 @@ from jax_fdm.equilibrium import LoadState
 from jax_fdm.equilibrium import EquilibriumParametersState
 from jax_fdm.equilibrium import datastructure_updated
 
-from neural_fofin import DATA
-from neural_fofin import FIGURES
-from neural_fofin import SCRIPTS
+from neural_fdm import DATA
+from neural_fdm import FIGURES
+from neural_fdm import SCRIPTS
 
-from neural_fofin.experiments import build_data_objects
-from neural_fofin.experiments import build_neural_objects
-from neural_fofin.experiments import build_mesh
+from neural_fdm.experiments import build_data_objects
+from neural_fdm.experiments import build_neural_objects
+from neural_fdm.experiments import build_mesh
 
-from neural_fofin.models import AutoEncoder
-from neural_fofin.models import PiggyDecoder
-from neural_fofin.models import ForceDensityModel
+from neural_fdm.models import AutoEncoder
+from neural_fdm.models import PiggyDecoder
+from neural_fdm.models import ForceDensityModel
 
-from neural_fofin.training_coupled import compute_loss_autoencoder
-from neural_fofin.training_coupled import compute_loss_piggybacker
+from neural_fdm.training_coupled import compute_loss_autoencoder
+from neural_fdm.training_coupled import compute_loss_piggybacker
 
-from neural_fofin.serialization import load_model
+from neural_fdm.serialization import load_model
 
 
 # local script parameters

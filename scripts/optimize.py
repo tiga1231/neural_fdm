@@ -33,15 +33,15 @@ from jax_fdm.datastructures import FDNetwork
 from jax_fdm.equilibrium import datastructure_updated
 from jax_fdm.visualization import Viewer
 
-from neural_fofin import DATA
+from neural_fdm import DATA
 
-from neural_fofin.builders import build_mesh_from_generator
-from neural_fofin.builders import build_data_generator
-from neural_fofin.builders import build_connectivity_structure_from_generator
-from neural_fofin.builders import build_fd_decoder_parametrized
-from neural_fofin.builders import build_loss_function
+from neural_fdm.builders import build_mesh_from_generator
+from neural_fdm.builders import build_data_generator
+from neural_fdm.builders import build_connectivity_structure_from_generator
+from neural_fdm.builders import build_fd_decoder_parametrized
+from neural_fdm.builders import build_loss_function
 
-from neural_fofin.losses import print_loss_summary
+from neural_fdm.losses import print_loss_summary
 
 
 # ===============================================================================

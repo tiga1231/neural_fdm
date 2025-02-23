@@ -8,7 +8,7 @@ import equinox as eqx
 
 from tqdm import tqdm
 
-from neural_fofin.models import AutoEncoderPiggy
+from neural_fdm.models import AutoEncoderPiggy
 
 
 def train_step_piggy(model, structure, optimizer, generator, opt_state, *, loss_fn, batch_size, key):

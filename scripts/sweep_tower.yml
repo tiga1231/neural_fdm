@@ -1,6 +1,6 @@
 # wandb variables
 program: sweep.py
-project: neural_fofin_tower
+project: neural_fdm_tower
 method: grid  # grid, random
 metric:
   goal: minimize

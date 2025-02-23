@@ -1,6 +1,6 @@
 import wandb
 
-from neural_fofin.serialization import save_model
+from neural_fdm.serialization import save_model
 
 from train import train_model_from_config
 

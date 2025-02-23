@@ -2,11 +2,11 @@ from setuptools import setup
 
 
 setup(
-    name='neural_fofin',
+    name='neural_fdm',
     version='0.1.0',
-    description='Integrating form-finding simulations into neural networks',
+    description='Combining differentiable mechanics simulations with neural networks',
     author='Rafael Pastrana',
     license='MIT',
-    packages=["neural_fofin"],
+    packages=["neural_fdm"],
     package_dir={"": "src"}
 )

@@ -39,7 +39,7 @@ from compas_cgal.meshing import mesh_remesh
 from jax_fdm.datastructures import FDMesh
 from jax_fdm.visualization import Viewer
 
-from neural_fofin import DATA
+from neural_fdm import DATA
 
 from text_2_mesh import text_2_mesh
 

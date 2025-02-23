@@ -8,9 +8,9 @@ from jaxtyping import Array, Float, Bool
 
 from jax_fdm.equilibrium import EquilibriumModel
 
-from neural_fofin.helpers import calculate_area_loads
-from neural_fofin.helpers import calculate_equilibrium_state
-from neural_fofin.helpers import calculate_fd_params_state
+from neural_fdm.helpers import calculate_area_loads
+from neural_fdm.helpers import calculate_equilibrium_state
+from neural_fdm.helpers import calculate_fd_params_state
 
 
 # ===============================================================================

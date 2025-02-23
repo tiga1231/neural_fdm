@@ -339,7 +339,7 @@ if __name__ == "__main__":
 
     from compas.geometry import Polygon
     from jax_fdm.visualization import Viewer
-    from neural_fofin.generators import EllipticalTubePointGenerator
+    from neural_fdm.generators import EllipticalTubePointGenerator
 
     height = 10.0
     radius = 2.0
@@ -411,7 +411,7 @@ if __name__ == "__main__":
     #     viewer.show()
 
     print("Viewing")
-    from neural_fofin.builders import build_mesh_from_generator
+    from neural_fdm.builders import build_mesh_from_generator
     from jax_fdm.equilibrium import fdm
     from jax_fdm.datastructures import FDNetwork
 

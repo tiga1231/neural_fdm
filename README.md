@@ -36,8 +36,8 @@ pip install -e .
 Finally, clone and install this repository from source:
 
 ```bash
-git clone https://github.com/arpastrana/neural_fofin.git
-cd neural_fofin
+git clone https://github.com/arpastrana/neural_fdm.git
+cd neural_fdm
 pip install -e .
 ```
 Now, go ahead and play. Rock and roll 🎸! 

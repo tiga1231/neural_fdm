@@ -9,31 +9,31 @@ from functools import partial
 from jax_fdm.equilibrium import EquilibriumModel
 from jax_fdm.equilibrium import EquilibriumMeshStructure
 
-from neural_fofin.generators import BezierSurfacePointGenerator
-from neural_fofin.generators import BezierSurfaceAsymmetricPointGenerator
-from neural_fofin.generators import BezierSurfaceSymmetricPointGenerator
-from neural_fofin.generators import BezierSurfaceSymmetricDoublePointGenerator
-from neural_fofin.generators import BezierSurfaceLerpPointGenerator
+from neural_fdm.generators import BezierSurfacePointGenerator
+from neural_fdm.generators import BezierSurfaceAsymmetricPointGenerator
+from neural_fdm.generators import BezierSurfaceSymmetricPointGenerator
+from neural_fdm.generators import BezierSurfaceSymmetricDoublePointGenerator
+from neural_fdm.generators import BezierSurfaceLerpPointGenerator
 
-from neural_fofin.generators import CircularTubePointGenerator
-from neural_fofin.generators import EllipticalTubePointGenerator
-from neural_fofin.generators import TubePointGenerator
+from neural_fdm.generators import CircularTubePointGenerator
+from neural_fdm.generators import EllipticalTubePointGenerator
+from neural_fdm.generators import TubePointGenerator
 
-from neural_fofin.mesh import create_mesh_from_bezier_generator
-from neural_fofin.mesh import create_mesh_from_tube_generator
+from neural_fdm.mesh import create_mesh_from_bezier_generator
+from neural_fdm.mesh import create_mesh_from_tube_generator
 
-from neural_fofin.losses import compute_loss
-from neural_fofin.losses import compute_loss_shape_residual
-from neural_fofin.losses import compute_loss_residual_smoothness
-from neural_fofin.losses import compute_loss_shape_residual_smoothness
+from neural_fdm.losses import compute_loss
+from neural_fdm.losses import compute_loss_shape_residual
+from neural_fdm.losses import compute_loss_residual_smoothness
+from neural_fdm.losses import compute_loss_shape_residual_smoothness
 
-from neural_fofin.models import AutoEncoder
-from neural_fofin.models import AutoEncoderPiggy
-from neural_fofin.models import MLPEncoder
-from neural_fofin.models import FDDecoder
-from neural_fofin.models import FDDecoderParametrized
-from neural_fofin.models import MLPDecoder
-from neural_fofin.models import MLPDecoderXL
+from neural_fdm.models import AutoEncoder
+from neural_fdm.models import AutoEncoderPiggy
+from neural_fdm.models import MLPEncoder
+from neural_fdm.models import FDDecoder
+from neural_fdm.models import FDDecoderParametrized
+from neural_fdm.models import MLPDecoder
+from neural_fdm.models import MLPDecoderXL
 
 
 # ===============================================================================

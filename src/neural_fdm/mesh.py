@@ -7,7 +7,7 @@ import jax.numpy as jnp
 
 from jax_fdm.datastructures import FDMesh
 
-from neural_fofin.generators import evaluate_bezier_surface
+from neural_fdm.generators import evaluate_bezier_surface
 
 
 def create_mesh_from_tube_generator(generator, config, *args, **kwargs):

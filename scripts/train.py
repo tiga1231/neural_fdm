@@ -12,20 +12,20 @@ from jax import vmap
 
 import equinox as eqx
 
-from neural_fofin import DATA
+from neural_fdm import DATA
 
-from neural_fofin.training import train_model
+from neural_fdm.training import train_model
 
-from neural_fofin.plotting import plot_losses
+from neural_fdm.plotting import plot_losses
 
-from neural_fofin.builders import build_loss_function
-from neural_fofin.builders import build_data_generator
-from neural_fofin.builders import build_connectivity_structure_from_generator
-from neural_fofin.builders import build_neural_model
-from neural_fofin.builders import build_optimizer
+from neural_fdm.builders import build_loss_function
+from neural_fdm.builders import build_data_generator
+from neural_fdm.builders import build_connectivity_structure_from_generator
+from neural_fdm.builders import build_neural_model
+from neural_fdm.builders import build_optimizer
 
-from neural_fofin.serialization import load_model
-from neural_fofin.serialization import save_model as save_model_fn
+from neural_fdm.serialization import load_model
+from neural_fdm.serialization import save_model as save_model_fn
 
 
 # ===============================================================================
