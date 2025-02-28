@@ -1,6 +1,6 @@
 # randomness
 seed: 90  # 90
-# data generator
+# dataset
 generator:
   name: "tower_ellipse"  # options: tower_ellipse, tower_circle
   bounds: "twisted"  # options: straight, twisted
@@ -9,17 +9,16 @@ generator:
   num_sides: 16
   num_levels: 21
   num_rings: 3  # must be >=3, 2 of them are the top and bottom supports
-# fd simulation
+# simulator
 fdm:
   load: 0.0  # 0.0, scale of vertical area load
-# encoder
+# neural networks
 encoder:
   shift: 1.0  # 1.0
   hidden_layer_size: 256  # 256
   hidden_layer_num: 5  # 5
   activation_fn_name: "elu"
   final_activation_fn_name: "softplus"  # needs softplus to ensure positive output
-# decoder
 decoder:
   # If true, the decoder maps (q, boundary conditions) -> x. Otherwise, q -> x.
   include_params_xl: True
@@ -47,12 +46,11 @@ loss:
   regularization:  # regularize predicted force densities
     include: True
     weight: 10.0  # weight of the regularization term in the loss function
-# optimizer
+# optimization
 optimizer:
   name: "adam"
   learning_rate: 0.001  # 0.001 then 0.0001, be careful with scientific notation in YAML!
   clip_norm: 0.01  # 0.01
-# training
 training:
   steps: 10000
   batch_size: 16  # 16

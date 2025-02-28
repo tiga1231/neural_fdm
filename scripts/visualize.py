@@ -421,6 +421,9 @@ def visualize(
             CAMERA_CONFIG = CAMERA_CONFIG_TOWER
             _width = 450
 
+        MESH_TARGET_OPACITY = 0.7
+        MESH_TARGET_COLOR = Color.grey().lightened(100)
+
         # view target mesh alone
         if task_name == "bezier":
             viewer = Viewer(

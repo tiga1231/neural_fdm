@@ -130,13 +130,13 @@ def optimize_batch(
         task_name,
         shape_name=None,
         param_init=None,
-        blow=0.0,  # 1e-3
+        blow=0.0,
         bup=20.0,
         maxiter=5000,
         tol=1e-6,
         seed=None,
         batch_size=None,
-        slice=(0, -1),  # (50, 53) for bezier
+        slice=(0, -1),
         save=False,
         view=False,
         edgecolor="force",
@@ -247,12 +247,12 @@ def optimize_batch(
     # sample data batch
     xyz_batch = vmap(generator)(jrn.split(generator_key, batch_size))
 
-    # split mode
+    # split model
     diff_model, static_model = eqx.partition(model, eqx.is_inexact_array)
 
     # wrap loss function to meet jax and jaxopt's ideosyncracies
     @eqx.filter_jit
-    @eqx.debug.assert_max_traces(max_traces=1)  # Ensure this function is compiled at most once
+    @eqx.debug.assert_max_traces(max_traces=1)  # ensure this function is compiled at most once
     @eqx.filter_value_and_grad
     def compute_loss_diffable(diff_model, xyz_target):
         """
@@ -266,9 +266,7 @@ def optimize_batch(
     end_time = perf_counter() - start_time
     print(f"JIT compilation time (loss): {end_time:.4f} s")
 
-    # define optimization function
-    warnings.filterwarnings("ignore")
-
+    # define callback function
     history = []
     recorder = lambda x: history.append(x) if record else None
 
@@ -282,6 +280,9 @@ def optimize_batch(
         value_and_grad=True,
         callback=recorder
     )
+
+    # disable scipy warnings about hitting the box constraints
+    warnings.filterwarnings("ignore")
 
     # define parameter bounds
     bound_low, bound_up = calculate_params_bounds(mesh, q0, QMIN, QMAX)
@@ -324,7 +325,7 @@ def optimize_batch(
         # report start losses
         _, loss_terms = compute_loss(model, structure, xyz, aux_data=True)
         if verbose:
-            print(f"\nShape {i}")
+            print(f"\nShape {i + 1}")
             print_loss_summary(loss_terms, prefix="\tStart")
 
         # optimize
@@ -345,7 +346,6 @@ def optimize_batch(
 
         # extract additional statistics
         loss_terms["loadpath"] = jnp.array(mesh_hat.loadpath())
-        # loss_terms["q"] = jnp.mean(fd_params_hat.q)
 
         if verbose:
             print_loss_summary(loss_terms, prefix="\tEnd")

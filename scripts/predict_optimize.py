@@ -43,6 +43,7 @@ from neural_fdm.losses import print_loss_summary
 
 from neural_fdm.serialization import load_model
 
+
 # ===============================================================================
 # Script function
 # ===============================================================================
@@ -51,7 +52,7 @@ def predict_optimize_batch(
         model_name,
         optimizer,
         task_name,
-        blow=1e-3,  # 1e-3
+        blow=0.0,
         bup=20.0,
         maxiter=5000,
         seed=None,
@@ -230,7 +231,7 @@ def predict_optimize_batch(
         # report start losses
         _, loss_terms = compute_loss(decoder, structure, xyz, aux_data=True)
         if verbose:
-            print(f"Shape {i}")
+            print(f"Shape {i + 1}")
             print_loss_summary(loss_terms, prefix="\tStart")
 
         # optimize

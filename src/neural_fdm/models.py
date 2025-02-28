@@ -253,7 +253,7 @@ class FDDecoder(Decoder):
 
 class FDDecoderParametrized(FDDecoder):
     """
-    A parametrized force density decoder.
+    An directly optimizable force density decoder.
     """
     q: Array
 

@@ -1,6 +1,6 @@
 # randomness
 seed: 91  # 91
-# data generator
+# dataset
 generator:
   # options: "bezier_symmetric_double", "bezier_symmetric", "bezier_asymmetric", "bezier_lerp"
   name: "bezier_symmetric_double"  # "bezier_symmetric_double"
@@ -9,17 +9,16 @@ generator:
   size: 10.0
   num_points: 4  # grid points
   lerp_factor: 0.5  # scalar factor in [0, 1] to interpolate between 2 surfaces, only for bezier_lerp
-# fd simulation
+# simulator
 fdm:
   load: -0.5  # -0.5, scale of vertical area load
-# encoder
+# neural networks
 encoder:
   shift: 0.0
   hidden_layer_size: 256
   hidden_layer_num: 3
   activation_fn_name: "elu"
   final_activation_fn_name: "softplus"  # needs softplus to ensure positive output
-# decoder
 decoder:
   # If true, the decoder maps (z, boundary conditions) -> x. Otherwise, z -> x.
   include_params_xl: True
@@ -36,7 +35,7 @@ loss:
     include: True
     weight: 1.0  # weight of the residual error term in the loss function
     scale: 1.0  # 0.5, fdm load scale (used for normalization)
-# optimizer
+# optimization
 optimizer:
   name: "adam"
   learning_rate: 3.0e-5  # 3.0e-5 (formfinder),  5.0e-5 (others). Be careful with scientific notation in YAML!
