@@ -4,7 +4,7 @@ _Published at the International Conference on Learning Representations (ICLR) 20
 
 > This repository is under construction for public access. Please come back a tad bit later. In the meantime, feel free to peruse the repository files.
 
-![Our trained model, deployed in Rhino3D](https://drive.google.com/file/d/1JIbSwx6XO27MxGIGCJlEZK64uYBEKA-1/view?usp=sharing)
+![Our trained model, deployed in Rhino3D](https://drive.google.com/file/d/1JIbSwx6XO27MxGIGCJlEZK64uYBEKA-1)
 
 ## Abstract
 
