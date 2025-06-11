@@ -144,7 +144,6 @@ The `loss` function is the sum of multiple terms, that for the most part are a s
 We allow for more refined control on the scaling of each loss term in the file:
 - `include`: Whether or not to include the loss term during training. If set to `False`, then the value of the loss term is not calculated, saving some computation resources. By default, `include=True`.
 - `weight`: The scalar weight of the loss term used for callibrating model performance, called `kappa` in the [paper](https://arxiv.org/abs/2409.02606). It is particularly useful to tune the scale of the physics loss whent raining the PINN baseline. The weight is `weight=1.0` by default unless otherwise stated.
-- `scale`: An additional scalar used for normalization of the loss function values w.r.t. the bounding box of the design space, or the magnitude of the applied loads. We end up not using this hyperparameter (i.e., we set to to `1.0`).
 
 The `optimizer` hyperparameters are:
 - `name`: the name of the gradient-based optimizer. We currently support `adam` and `sgd` from the `optax` library, but only use `adam` in the [paper](https://arxiv.org/abs/2409.02606).

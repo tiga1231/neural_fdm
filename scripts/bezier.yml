@@ -30,11 +30,9 @@ loss:
   shape:
     include: True
     weight: 1.0  # weight of the shape error term in the loss function
-    scale: 1.0  # 30.0, bbox length (used for normalization)
   residual:  # PINN term
     include: True
     weight: 1.0  # weight of the residual error term in the loss function
-    scale: 1.0  # 0.5, fdm load scale (used for normalization)
 # optimization
 optimizer:
   name: "adam"

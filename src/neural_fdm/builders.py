@@ -23,9 +23,8 @@ from neural_fdm.mesh import create_mesh_from_bezier_generator
 from neural_fdm.mesh import create_mesh_from_tube_generator
 
 from neural_fdm.losses import compute_loss
-from neural_fdm.losses import compute_loss_shape_residual
-from neural_fdm.losses import compute_loss_residual_smoothness
-from neural_fdm.losses import compute_loss_shape_residual_smoothness
+from neural_fdm.losses import compute_loss_shell
+from neural_fdm.losses import compute_loss_tower
 
 from neural_fdm.models import AutoEncoder
 from neural_fdm.models import AutoEncoderPiggy
@@ -417,20 +416,15 @@ def build_loss_function(config, generator):
     loss_params = config["loss"]
 
     if "bezier" in task_name:
-        _loss_fn = compute_loss_shape_residual
+        _loss_fn = compute_loss_shell
 
     elif "tower" in task_name:
-        if loss_params["shape"]["include"] or loss_params["height"]["include"]:
+        # Store the shape and height dimensions for the loss evaluation
+        loss_params["shape"]["dims"] = generator.shape_tube
+        loss_params["shape"]["levels_compression"] = generator.levels_rings_comp
+        loss_params["shape"]["levels_tension"] = generator.levels_rings_tension
 
-            loss_params["shape"]["dims"] = generator.shape_tube
-            loss_params["shape"]["levels_compression"] = generator.levels_rings_comp
-            loss_params["height"]["dims"] = generator.shape_tube
-            loss_params["height"]["levels_tension"] = generator.levels_rings_tension
-
-            _loss_fn = compute_loss_shape_residual_smoothness
-        else:
-            loss_params["residual"]["indices"] = generator.indices_rings_comp_interior_ravel
-            _loss_fn = compute_loss_residual_smoothness
+        _loss_fn = compute_loss_tower        
 
     loss_fn = partial(
         compute_loss,
