@@ -122,13 +122,13 @@ We employ one of the simplest possible neural networks, the MLP, to quantify the
 This sets a baseline from which we can build upon with beefier architectures like graph neural networks, transformers, and beyond.
 
 The encoder hyperparameters are:
-- `shift`: The lower bound shift in output of the last layer of the encoder. This is precisely what we call `tau` in the paper.
+- `shift`: The lower bound shift in output of the last layer of the encoder. This is precisely what we call `tau` in the [paper](https://arxiv.org/abs/2409.02606).
 - `hidden_layer_size`: The width of every fully-connected hidden layer. We restrict the size to `256` in all the experiments.
 - `hidden_layer_num`: The number of hidden layers, output layer inclusive.
 - `activation_fn_name`: The name of the activation function after each hidden layer. We typically resort to `elu`.
 - `final_activation_fn_name`: The activation function name after the output layer. We use `softplus` to ensure a strictly positive output, as needed by the simulator decoder.
 
-The neural decoder's setup mirrors the encoder's, except for the `include_params_xl` flag. If set to `True`, then the decoder expects the latents and boundary conditions as inputs. Otherwise, it only decodes the latents. We fix this hyperparameter to `True` in the paper.
+The neural decoder's setup mirrors the encoder's, except for the `include_params_xl` flag. If set to `True`, then the decoder expects the latents and boundary conditions as inputs. Otherwise, it only decodes the latents. We fix this hyperparameter to `True` in the [paper](https://arxiv.org/abs/2409.02606).
 
 #### Simulator
 
@@ -140,14 +140,14 @@ If this value is nonzero, then the model will convert the area load into point l
 
 The training setup is also defined in the configuration file of the task, including the `loss` function to optimize for, the `optimizer` that updates the model parameters, and the `training` schedule that pretty much allocates the compute budget.
 
-The `loss` function is the sum of multiple terms, that for the most part are a shape loss and a physics loss, as we explain in the paper.
+The `loss` function is the sum of multiple terms, that for the most part are a shape loss and a physics loss, as we explain in the [paper](https://arxiv.org/abs/2409.02606).
 We allow for more refined control on the scaling of each loss term in the file:
 - `include`: Whether or not to include the loss term during training. If set to `False`, then the value of the loss term is not calculated, saving some computation resources. By default, `include=True`.
-- `weight`: The scalar weight of the loss term used for callibrating model performance, called `kappa` in the paper. It is particularly useful to tune the scale of the physics loss whent raining the PINN baseline. The weight is `weight=1.0` by default unless otherwise stated.
+- `weight`: The scalar weight of the loss term used for callibrating model performance, called `kappa` in the [paper](https://arxiv.org/abs/2409.02606). It is particularly useful to tune the scale of the physics loss whent raining the PINN baseline. The weight is `weight=1.0` by default unless otherwise stated.
 - `scale`: An additional scalar used for normalization of the loss function values w.r.t. the bounding box of the design space, or the magnitude of the applied loads. We end up not using this hyperparameter (i.e., we set to to `1.0`).
 
 The `optimizer` hyperparameters are:
-- `name`: the name of the gradient-based optimizer. We currently support `adam` and `sgd` from the `optax` library, but only use `adam` in the paper.
+- `name`: the name of the gradient-based optimizer. We currently support `adam` and `sgd` from the `optax` library, but only use `adam` in the [paper](https://arxiv.org/abs/2409.02606).
 - `learning_rate`: The constant learning rate. The rate is fixed, we ommit schedulers - it is more elegant.
 - `clip_norm`: The global norm for gradient clipping. If set to `0.0`, then gradient clipping is ignored.
 
@@ -166,7 +166,7 @@ python train.py <model_name> <task_name>
 ```
 
 Where `task_name` is either `bezier` for the shells task or `tower` for the towers task.
-Task-specific configuration details are given in the paper.
+Task-specific configuration details are given in the [paper](https://arxiv.org/abs/2409.02606).
 
 The `model_name` is where things get interesting. 
 In summary:
@@ -188,7 +188,7 @@ To evaluate the trained models at inference time on a test batch, run:
 ```bash
 python predict.py <model_name> <task_name> --batch_size=<batch_size> --seed=<test_seed>
 ```
-where we set to `--batch_size=100` during inference to match what we do in the paper.
+where we set to `--batch_size=100` during inference to match what we do in the [paper](https://arxiv.org/abs/2409.02606).
 The test set is created by a generator that follows the same configuration as the train set, except for the random seed. 
 We set `test_seed` to `90` in the `bezier` task and `test_seed` to `92` in the `tower` task.
 Feel free to specify other seed values to test the model on different test datasets.
@@ -204,7 +204,7 @@ python visualize.py <model_names> <task_name> --shape_index=<shape_index> --seed
 ```
 
 Unlike the other scripts, the visualization script lets you input a list of model names to render the predication each of the models makes on a single target shape.
-This allows us to display the shapes with the same color map range, as we do in the paper.
+This allows us to display the shapes with the same color map range, as we do in the [paper](https://arxiv.org/abs/2409.02606).
 The target shape is selected by inputting its index relative to the batch size with the `<shape_index>` argument.
 
 Check out the docstring of `visualize.py` for the nitty-gritty details of how to control color palettes, linewidths, and arrow scales to make pretty pictures.
@@ -226,7 +226,7 @@ Select one of them through their `optimizer_name`:
 
 The algorithms support box constraints on the simulation parameters.
 We take advantage of this feature to constrain their value to a specific sign and to range of reasonable values, depending on the task.
-The lower box constraint is equivalent to the effect that `tau` has on the decoder's output in the paper, by prescribing a minimum output value.
+The lower box constraint is equivalent to the effect that `tau` has on the decoder's output in the [paper](https://arxiv.org/abs/2409.02606), by prescribing a minimum output value.
 Both optimizers run for `maxiter=5000` iterations at most and stop early if they hit the convergence tolerance of `tol=1e-6`.
 
 We're in the business of local optimization, so the inialization affects convergence. 
@@ -261,7 +261,7 @@ The rest of the inputs proceed the same way, in peace and tranquility.
 
 ## Citation
 
-Consider citing our paper if this work was helpful to your research.
+Consider citing our [paper](https://arxiv.org/abs/2409.02606) if this work was helpful to your research.
 Don't worry, it's free.
 
 ```bibtex
