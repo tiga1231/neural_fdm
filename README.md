@@ -160,42 +160,10 @@ In summary:
 Our model is called `formfinder`, and the fully neural baseline is called `autoencoder`.
 Input the name of the model you wish to train. If `autoencoder` is trained with the `residual` (i.e., the physics loss is included and active), this model will become a PINN baseline and will internally be renamed as `autoencoder_pinn` (sorry, naming is hard).
 
+Task-specific configuration details are given in the paper.
+
 We invite you to check the docstring of the `train.py` script to see all the input options. 
 They would allow you to warmstart the training from an existing pretrained model, checkpoint every so often, as well as plot and export the loss history for your inspection.
-
-Task-specific configuration details come up next.
-
-### Shells
-
-- Randomness: `seed=91` for our model and the neural baselines.
-- Data generator: `bezier_symmetric_double` with `saddle` bounds, `num_uv=10`, `size=10`, and `num_points=4`.
-- Model: `load=-0.5`, `shift=1.0`, `hidden_layer_num=5`
-- Physics loss: The `weight` of the `residual` loss term varies with the model:
-  - Ours: `weight=1.0`
-  - NN: `weight=0.0`
-  - PINN: `weight=10.0`
-- Learning rate:
-  - Ours: `learning_rate=3.0e-5`
-  - NN and PINN baselines: `learning_rate=5.0e-5`
-- `clip_norm=0.0`
-- `batch_size=64`
-
-### Towers
-
-- Randomness: 
-  - Ours: `seed=91`
-  - NN and PINN baselines: `seed=90`
-- Data generator: `tower_ellipse` with `twisted` bounds, `height=10`, `radius=2.0`, `num_sides=16`, `num_levels=21`, and `num_rings=3`.
-- Model: `load=0.0`, `shift=1.0`, `hidden_layer_size=256`, `hidden_layer_num=3`
-- Physics loss:
-  - Ours and PINN: `weight=1.0`
-  - NN: `weight=0.0`  
-- Regularization loss: `weight=10`
-- Learning rate:
-    - Ours: `learning_rate=0.001` with `steps=5000` and then `learning_rate=0.0001` for another `steps=5000`.
-    - NN and PINN: `0.001` for `steps=10000`.
-- `clip_norm=0.01`
-- `batch_size=16`
 
 > A note on hyperparameter tuning. We utilized WandB to run hyperparameter sweeps. The sweeps are in turn handled by the `sweep.py` script in tandem with `sweep_bezier.yml` or `sweep_tower.yml` files, depending on the task. The structure of these sweep files mimics that of the configuration files described herein. We trust you'll be able to find your way around them if you really want to fiddle with them. 
 
