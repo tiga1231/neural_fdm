@@ -13,7 +13,6 @@ from compas.colors import Color
 from compas.geometry import Polygon
 from compas.geometry import Polyline
 from compas.geometry import Plane
-from compas.geometry import Frame
 
 from jax_fdm.visualization import Viewer
 
@@ -39,9 +38,9 @@ CAMERA_CONFIG_TOWER = {
 # Script function
 # ===============================================================================
 
-def view_tower_task(seed=None, batch_size=None, slice=(0, -1)):
+def view_tower_task(seed=None, batch_size=None, shape_index=0):
     """
-    View the description of the cablenet tower prediction task on a batch of targets.
+    View the description of the cablenet tower prediction task for a target shape.
 
     Parameters
     ----------
@@ -51,13 +50,10 @@ def view_tower_task(seed=None, batch_size=None, slice=(0, -1)):
     batch_size: `int` or `None`
         The size of the batch of target shapes.
         If `None`, it defaults to the task hyperparameters file.
-    slice: `tuple`
-        The start and stop indices of the slice of the batch for viewing.
-        Default: `(0, -1)`, which means all shapes in the batch.
+    shape_index: `int`
+        The index of the shape to view.
+        Default: `0`.
     """
-    # slice
-    START, STOP = slice
-    
     # pick camera configuration for task
     task_name = "tower"
     CAMERA_CONFIG = CAMERA_CONFIG_TOWER
@@ -83,104 +79,73 @@ def view_tower_task(seed=None, batch_size=None, slice=(0, -1)):
 
     # sample data batch
     xyz_batch = vmap(generator)(jrn.split(generator_key, batch_size))
+    xyz = xyz_batch[shape_index, :]
 
-    # view shapes in sequence
-    print("\nViewing shapes in sequence")
-    xyz_slice = xyz_batch[START:STOP]
-    for i, xyz in enumerate(xyz_slice):
+    # view task
 
-        # get shape from batch
-        xyz = xyz[None, :]
+    # create viewer
+    viewer = Viewer(
+        width=_width,
+        height=900,
+        show_grid=False,
+        viewmode="lighted"
+    )
 
-        # create viewer
-        viewer = Viewer(
-            width=_width,
-            height=900,
-            show_grid=False,
-            viewmode="lighted"
+    # modify view
+    viewer.view.camera.position = CAMERA_CONFIG["position"]
+    viewer.view.camera.target = CAMERA_CONFIG["target"]
+    viewer.view.camera.distance = CAMERA_CONFIG["distance"]
+    _rotation = CAMERA_CONFIG.get("rotation")
+    if _rotation:
+        viewer.view.camera.rotation = _rotation
+
+    # draw rings
+    rings = jnp.reshape(xyz, generator.shape_tube)[generator.levels_rings_comp, :, :]
+
+    for ring in rings:
+        ring = ring.tolist()
+        polygon = Polygon(ring)
+        
+        viewer.add(polygon, opacity=0.5)
+        viewer.add(
+            Polyline(ring + ring[:1]),
+            linewidth=4.0,
+            color=Color.black().lightened()
         )
 
-        # modify view
-        viewer.view.camera.position = CAMERA_CONFIG["position"]
-        viewer.view.camera.target = CAMERA_CONFIG["target"]
-        viewer.view.camera.distance = CAMERA_CONFIG["distance"]
-        _rotation = CAMERA_CONFIG.get("rotation")
-        if _rotation:
-            viewer.view.camera.rotation = _rotation
+    # draw planes, transparent, thick-ish boundary
+    heights = jnp.linspace(0.0, generator.height, generator.num_levels)        
+    
+    for i, height in enumerate(heights):
 
-        # draw rings
-        rings = jnp.reshape(xyz, generator.shape_tube)[generator.levels_rings_comp, :, :]
+        plane = Plane([0.0, 0.0, height], [0.0, 0.0, 1.0])
 
-        for ring in rings:
+        circle = points_on_ellipse(
+            generator.radius,
+            generator.radius,
+            height,
+            generator.num_sides
+            )
+        circle = circle.tolist()
 
-            ring = ring.tolist()
-            polygon = Polygon(ring)
-            
-            viewer.add(polygon, opacity=0.5)
+        if i in generator.levels_rings_comp:
             viewer.add(
-                Polyline(ring + ring[:1]),
-                linewidth=4.0,
-                color=Color.black().lightened()
-            )
-
-        # draw planes, transparent, thick-ish boundary
-        heights = jnp.linspace(0.0, generator.height, generator.num_levels)        
-        
-        for i, height in enumerate(heights):
-
-            origin_pt = [0.0, 0.0, height]
-            plane = Plane(origin_pt, [0.0, 0.0, 1.0])
-            
-
-            circle = points_on_ellipse(
-                generator.radius,
-                generator.radius,
-                height,
-                generator.num_sides,
-            )
-            circle = circle.tolist()
-            # circle = Polygon.from_sides_and_radius_xy(
-            #         generator.num_sides,
-            #         generator.radius,
-            #     )
-            # circle.transform(Translation.from_vector(origin_pt))
-            # circle = circle.points
-
-            if i in generator.levels_rings_comp:
-
-                viewer.add(
-                    Polyline(circle + circle[:1]),
-                    linewidth=2.0,
-                    color=Color.grey().lightened()
+                Polyline(circle + circle[:1]),
+                linewidth=2.0,
+                color=Color.grey().lightened()
                 )
+            # skip plane drawing for compression rings to avoid overlap
+            continue
 
-                # viewer.add(Line(origin_pt, circle[0]), linewidth=2.0)
-                # viewer.add(Line(origin_pt, rings[counter][0]), linewidth=2.0)
-                # counter += 1
-                continue
+        viewer.add(
+            plane,
+            size=1.0,
+            linewidth=0.1,
+            color=Color.grey().lightened(10),
+            opacity=0.1)
 
-            size = 1.0
-            viewer.add(
-                plane,
-                size=size,
-                linewidth=0.1,
-                color=Color.grey().lightened(10),
-                opacity=0.1)
-
-            # frame = Frame(origin_pt, [1.0, 0.0, 0.0], [0.0, 1.0, 0.0])
-            # square = [frame.to_world_coordinates([-size, -size, 0]),
-            #           frame.to_world_coordinates([size, -size, 0]),
-            #           frame.to_world_coordinates([size, size, 0]),
-            #           frame.to_world_coordinates([-size, size, 0])]
-
-            # viewer.add(
-            #     Polyline(square + square[:1]),
-            #     linewidth=1.0,
-            #     color=Color.black()  # .lightened()
-            # )
-
-        # show la crème
-        viewer.show()
+    # show viewer
+    viewer.show()
 
 
 # ===============================================================================
