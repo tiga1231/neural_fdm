@@ -1,6 +1,7 @@
 """
-Generate bricks on the faces of a mesh.
+Generate bricks off of the faces of an optimized mesh.
 """
+
 import os
 from random import randint
 
@@ -32,7 +33,6 @@ from compas.geometry import subtract_vectors
 from compas.utilities import pairwise
 from compas.utilities import geometric_key
 
-from compas_cgal.booleans import boolean_union_mesh_mesh
 from compas_cgal.booleans import boolean_difference_mesh_mesh
 from compas_cgal.meshing import mesh_remesh
 
@@ -51,6 +51,19 @@ from text_2_mesh import text_2_mesh
 def triangulate_face_quad(face, reverse=False):
     """
     Triangulate a mesh quad face.
+
+    Parameters
+    ___________
+    face: `list` of `int`
+        The face vertices.
+    reverse: `bool`, optional
+        If `True`, the face is reversed.
+        Default: `False`.
+
+    Returns
+    _______
+    new_faces: `list` of `list` of `int`
+        The two triangulated faces.
     """
     a, b, c, d = face
     if not reverse:
@@ -65,7 +78,19 @@ def triangulate_face_quad(face, reverse=False):
 
 def triangulate_face_ngon(face, vertices):
     """
-    Triangulate a mesh ngon face.
+    Triangulate a mesh polygonal face.
+
+    Parameters
+    ___________
+    face: `list` of `int`
+        The face vertices.
+    vertices: `list` of `list` of `float`
+        The xyz coordinates of the face vertices.
+
+    Returns
+    _______
+    new_faces: `list` of `list` of `int`
+        The triangulated faces.
     """
     midpoint = centroid_points([vertices[vkey] for vkey in face])
     vertices.append(midpoint)
@@ -82,8 +107,24 @@ def triangulate_face_ngon(face, vertices):
 
 def triangulate_face(face, vertices, reverse=False):
     """
-    Triangulates a mesh face.
+    Triangulate a mesh face based on its vertex count.
+
     The face is a list of indices pointing to a list with the vertices xyz coordinates.
+
+    Parameters
+    ___________
+    face: `list` of `int`
+        The face vertices.
+    vertices: `list` of `list` of `float`
+        The xyz coordinates of the face vertices.
+    reverse: `bool`, optional
+        If `True`, the face is reversed.
+        Default: `False`.
+
+    Returns
+    _______
+    new_faces: `list` of `list` of `int`
+        The triangulated faces.
     """
     assert len(face) > 2
 
@@ -104,16 +145,42 @@ def triangulate_face(face, vertices, reverse=False):
 def calculate_brick_thicknesses(thickness):
     """
     Calculate the top and bottom thicknesses of a brick.
-    """
-    thick_bottom = thickness / 3.0
-    thick_top = 2.0 * thickness / 3.0
 
-    return thick_bottom, thick_top
+    Parameters
+    ___________
+    thickness: `float`
+        The brick thickness.
+
+    Returns
+    _______
+    thickness_bottom: `float`
+        The bottom thickness of the brick.
+    thickness_top: `float`
+        The top thickness of the brick.
+    """
+    thickness_bottom = thickness / 3.0
+    thickness_top = 2.0 * thickness / 3.0
+
+    return thickness_bottom, thickness_top
 
 
 def generate_bricks(mesh, thickness):
     """
     Generate a solid brick per mesh face.
+
+    Parameters
+    ___________
+    mesh: `compas.datastructures.Mesh`
+        The mesh whose faces will be turned into bricks.
+    thickness: `float`
+        The global brick thickness.
+
+    Returns
+    _______
+    bricks: `dict` of `compas.datastructures.Mesh`
+        The bricks meshes (closed, watertight).
+    meshes: `tuple` of `compas.datastructures.Mesh`
+        The meshes of the bottom and top faces of the bricks to create the scaffolding.
     """
     thick_bottom, thick_top = calculate_brick_thicknesses(thickness)
 
@@ -176,6 +243,31 @@ def generate_bricks(mesh, thickness):
 def add_text_engraving(fkey, bricks, mesh_bottom, text, depth=1):
     """
     Engrave the underside of a brick mesh with text.
+
+    Parameters
+    ___________
+    fkey: `int`
+        The face key of the brick to engrave.
+    bricks: `dict` of `compas.datastructures.Mesh`
+        The brick meshes.
+    mesh_bottom: `compas.datastructures.Mesh`
+        The mesh of the bottom face of the brick.
+    text: `str`
+        The text to engrave.
+    depth: `float`, optional
+        The depth of the engraving.
+        Default: `1.0`.
+
+    Returns
+    _______
+    text_mesh: `compas.datastructures.Mesh`
+        The thickened text mesh.
+    bbox_mesh: `compas.datastructures.Mesh`
+        The bounding box of the text.
+    face_mesh: `compas.datastructures.Mesh`
+        A mesh with the face of the brick where the text is engraved.
+    brick: `compas.datastructures.Mesh`
+        The engraved brick mesh.
     """
     # generate text mesh
     text_mesh = text_2_mesh(text)
@@ -190,7 +282,7 @@ def add_text_engraving(fkey, bricks, mesh_bottom, text, depth=1):
     brick = bricks[fkey]
 
     # generate face plane
-    vertices = mesh_bottom.face_coordinates(fkey)  # faces_topbottom[fkey][0]  # NOTE: or -1?
+    vertices = mesh_bottom.face_coordinates(fkey)
     face = list(range(len(vertices)))
     tri_faces = triangulate_face(face, vertices)
 
@@ -203,8 +295,7 @@ def add_text_engraving(fkey, bricks, mesh_bottom, text, depth=1):
     big_face_mesh = Mesh.from_vertices_and_faces(vertices, [big_face])
 
     center = centroid_points(big_face_vertices)
-    normal = normal_triangle(big_face_vertices)
-    # normal = scale_vector(normal, -1.0)
+    normal = normal_triangle(big_face_vertices)    
     plane = Plane(center, normal)
     brick_frame = Frame.from_plane(plane)
 
@@ -241,6 +332,13 @@ def add_text_engraving(fkey, bricks, mesh_bottom, text, depth=1):
 def generate_scaffolding(mesh, thickness):
     """
     Generate the scaffolding platform under the bricks.
+
+    Parameters
+    ----------
+    mesh: `compas.datastructures.Mesh`
+        The shell the scaffolding will support.
+    thickness: `float`
+        The scaffolding thickness.
     """
     # convert
     scaffold_mesh = mesh_offset(mesh, 1.0 * thickness / 2.0)
@@ -262,6 +360,19 @@ def generate_scaffolding(mesh, thickness):
 
 def calculate_vertex_nbr_line(vkey, mesh):
     """
+    Find the line connecting a boundary vertex to its 'perpendicular' neighbor on the interior.
+
+    Parameters
+    ----------
+    vkey: `int`
+        The vertex key.
+    mesh: `compas.datastructures.Mesh`
+        The mesh.
+
+    Returns
+    -------
+    line: `tuple` of `list` of `float`
+        The line connecting the vertex to its neighbor.
     """
     # sift neighbors
     nbrs_boundary = []
@@ -304,7 +415,19 @@ def calculate_vertex_nbr_line(vkey, mesh):
 
 def generate_boundary_support(mesh, thickness):
     """
-    Generate the support mesh bearing the bricks at the boundary.
+    Generate the mesh of the support ring bearing the bricks at the boundary.
+
+    Parameters
+    ----------
+    mesh: `compas.datastructures.Mesh`
+        The middle surface of the masonry shell.
+    thickness: `float`
+        The thickness of the ring.
+
+    Returns
+    -------
+    support_mesh: `compas.datastructures.Mesh`
+        The support ring mesh.
     """
     thick_bottom, thick_top = calculate_brick_thicknesses(thickness)
 
@@ -379,54 +502,6 @@ def generate_boundary_support(mesh, thickness):
     return support_mesh
 
 
-def add_registration_spheres(brick, radius, fkey, mesh):
-
-    count = 0
-    for edge in mesh.face_halfedges(fkey):
-        xyz = mesh.edge_midpoint(*edge)
-        sphere = Sphere(xyz, radius)
-        A = brick.to_vertices_and_faces(triangulated=True)
-        B = sphere.to_vertices_and_faces(u=16, v=16, triangulated=True)
-        B = mesh_remesh(B, radius / 50.0, 50)
-        V, F = boolean_union_mesh_mesh(A, B)
-        brick = Mesh.from_vertices_and_faces(V, F)
-        count += 1
-
-    return brick
-
-
-def carve_registration_spheres(brick, radius, fkey, mesh):
-
-    count = 0
-    for edge in mesh.face_halfedges(fkey):
-        xyz = mesh.edge_midpoint(*edge)
-        sphere = Sphere(xyz, radius)
-        A = brick.to_vertices_and_faces(triangulated=True)
-        # A = mesh_remesh(A, radius / 5., 50)
-        B = sphere.to_vertices_and_faces(u=16, v=16, triangulated=True)
-        # B = mesh_remesh(B, radius / 5., 50)
-        V, F = boolean_difference_mesh_mesh(A, B)
-        brick = Mesh.from_vertices_and_faces(V, F)
-        count += 1
-
-    return brick
-
-
-def mesh_order_faces_xy(mesh):
-    """
-    Order the faces based on their X coordinate.
-    """
-    vertices, faces = mesh.to_vertices_and_faces()
-
-    def sort_fn(face):
-        x, y, z = centroid_points([mesh.vertex_coordinates(vkey) for vkey in face])
-        return x, y
-
-    faces_sorted = sorted(faces, key=sort_fn)
-
-    return Mesh.from_vertices_and_faces(vertices, faces_sorted)
-
-
 # ===============================================================================
 # Script function
 # ===============================================================================
@@ -443,29 +518,35 @@ def brickify(
         save=False
 ):
     """
-    Generate bricks on the faces of a mesh.
-    One face = one brick.
+    Generate bricks on the faces of a mesh. One face = one brick.
 
     Parameters
-    ___________
+    ----------
     name: `str`
         The mesh name (without extension).
     thickness: `float`
         The brick thickness.
-    scale: `float`
-        The mesh scale.
-    dual: `bool`
+    scale: `float`, optional
+        The mesh scale, whether to scale it down or up to fit in a printer's bed.
+        Default: `1.0`.
+    dual: `bool`, optional
         If `True`, the script will work on the dual of the input mesh.
-    do_bricks: `bool`
+        Default: `True`.
+    do_bricks: `bool`, optional
+        If `True`, generate the bricks as closed, watertight meshes.
+        Default: `False`.
+    do_label: `bool`, optional
         If `True`, engrave the bricks with labels via mesh boolean differences.
-    do_label: `bool`
-        If `True`, it engraves the bricks with labels via mesh boolean differences.
-    do_scaffold: `bool`
-        If `True`, it generates scaffolding platform.
-    do_support: `bool`
-        If `True`, it creates the perimetral support for the bricks.
-    save: `bool`
-        If `True`, it will save all generated data as both JSON and OBJ files.
+        Default: `False`.
+    do_scaffold: `bool`, optional
+        If `True`, generate scaffolding platform.
+        Default: `False`.
+    do_support: `bool`, optional
+        If `True`, create the perimetral support for the bricks.
+        Default: `False`.
+    save: `bool`, optional
+        If `True`, save all generated data as both JSON and OBJ files.
+        Default: `False`.
     """
     CAMERA_CONFIG = {
         "position": (30.34, 30.28, 42.94),
@@ -482,9 +563,6 @@ def brickify(
     if dual:
         mesh = mesh_dual(mesh, include_boundary=True)
         mesh_delete_duplicate_vertices(mesh)
-
-        # reorder faces according to x, y coordinates because dual messes it up
-        # mesh = mesh_order_faces_xy(mesh)
 
     # scale mesh
     if scale != 1.0:

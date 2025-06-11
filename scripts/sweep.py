@@ -11,7 +11,18 @@ from train import train_model_from_config
 
 def log_to_wandb(model, opt_state, loss_vals, step):
     """
-    Record metrics in weights and biases.
+    Record metrics in weights and biases. Used as a callback in the training loop.
+
+    Parameters
+    ----------
+    model: `eqx.Module`
+        The model to record the metrics of.
+    opt_state: `eqx.Module`
+        The optimizer state.
+    loss_vals: `dict`
+        The loss values.
+    step: `int`
+        The current training step.
     """
     metrics = {}
     for key, value in loss_vals.items():
@@ -26,7 +37,13 @@ def log_to_wandb(model, opt_state, loss_vals, step):
 
 def sweep(**kwargs):
     """
-    Sweep a model to find adequate hyper-parameters that best solve a design task on form-found geometries.
+    Sweep a model to find adequate hyperparameters.
+    We use weights and biases to execute and log the training loops.
+
+    Parameters
+    ----------
+    **kwargs: `dict`
+        Optional keyword arguments.
     """
     wandb.init()
 

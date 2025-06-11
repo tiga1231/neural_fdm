@@ -1,3 +1,7 @@
+"""
+Train a model to approximate a family of arbitrary shapes with mechanically-feasible geometries.
+"""
+
 import os
 import time
 import yaml
@@ -16,7 +20,7 @@ from neural_fdm import DATA
 
 from neural_fdm.training import train_model
 
-from neural_fdm.plotting import plot_losses
+from neural_fdm.plotting import plot_losses as plot_loss_curves
 
 from neural_fdm.builders import build_loss_function
 from neural_fdm.builders import build_data_generator
@@ -37,7 +41,7 @@ def train(
         task_name,
         from_pretrained=False,
         checkpoint_every=None,
-        plot=True,
+        plot_losses=True,
         save_model=True,
         save_losses=True,
 ):
@@ -45,20 +49,27 @@ def train(
     Train a model to approximate a family of arbitrary shapes with mechanically-feasible geometries.
 
     Parameters
-    ___________
+    ----------
     model_name: `str`
         The model name.
         Supported models are formfinder, autoencoder, and piggy.
     task_name: `str`
         The name of the YAML config file with the task hyperparameters.
-    from_pretrained: `bool`
-        If `True`, train the model starting from a pretrained version of it.
-    checkpoint_every: `int`
+    from_pretrained: `bool`, optional
+        If `True`, train the model starting from a pretrained version.
+        Default: `False`.
+    checkpoint_every: `int` or `None`, optional
         If not None, save a model every checkpoint steps.
-    plot: `bool`
+        Default: `None`.
+    plot_losses: `bool`, optional
         If `True`, plot the loss curves.
-    save: `bool`
-        If `True`, save the trained model and the loss histories.
+        Default: `True`.
+    save_model: `bool`, optional
+        If `True`, save the trained model.
+        Default: `True`.
+    save_losses: `bool`, optional
+        If `True`, save the loss histories as text files.
+        Default: `True`.
     """
     # load yaml file with hyperparameters
     with open(f"{task_name}.yml") as file:
@@ -87,17 +98,10 @@ def train(
         from_pretrained,
         callback=callback
     )
-
-    # define loss labels
-
-    # plot loss curves
-    if plot:
-        print("\nPlotting")
-        plot_losses(loss_history, labels=["loss"])
-        # plot_gradient_norm(loss_history)
-        # plot_latent_norm(loss_history)
-        # plot_latent_mean_std(loss_history)
-        # plot_stiffness_condition_num(loss_history)
+    
+    if plot_losses:
+        print("\nPlotting loss curves")
+        plot_loss_curves(loss_history, labels=["loss"])
 
     if save_model:
         print("\nSaving model")
@@ -107,8 +111,7 @@ def train(
         save_model_fn(filepath, trained_model)
         print(f"Saved model to {filepath}")
 
-    if save_losses:
-        # save loss history
+    if save_losses:        
         labels = loss_history[0].keys()
         for label in labels:
             _label = "_".join(label.split())
@@ -132,7 +135,7 @@ def train_model_from_config(model_name, config, pretrained=False, callback=None)
     Train a model to approximate a family of arbitrary shapes with mechanically-feasible geometries.
 
     Parameters
-    ___________
+    ----------
     model_name: `str`
         The model name.
         Supported models are formfinder, autoencoder, and piggy.
@@ -220,7 +223,22 @@ def checkpoint_model(
         filename
 ):
     """
-    Checkpoint a model as callback.
+    Checkpoint a model. Function to be used as a callback in the training loop.
+
+    Parameters
+    ----------
+    model: `eqx.Module`
+        The model to checkpoint.
+    opt_state: `eqx.Module`
+        The optimizer state.
+    loss_vals: `dict`
+        The loss values.
+    step: `int`
+        The current training step.
+    checkpoint_step: `int`
+        The step interval at which to checkpoint the model.
+    filename: `str`
+        The filename to save the model to.
     """
     if step > 0 and step % checkpoint_step == 0:
         filepath = os.path.join(DATA, f"{filename}_{step}.eqx")
@@ -230,6 +248,16 @@ def checkpoint_model(
 def count_model_params(model):
     """
     Count the number of trainable model parameters.
+
+    Parameters
+    ----------
+    model: `eqx.Module`
+        The model to count the parameters of.
+
+    Returns
+    -------
+    count: `int`
+        The number of trainable model parameters.
     """
     spec = eqx.is_inexact_array
 

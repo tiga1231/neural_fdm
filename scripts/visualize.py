@@ -1,5 +1,5 @@
 """
-Predict the force densities and shapes of a batch of target shapes with a pretrained model.
+Visualize the predictions of a model on a target shape.
 """
 import os
 from math import fabs
@@ -181,45 +181,64 @@ def visualize(
         reactionscale=0.5,
         plot_prediction=False,
         plot_target=True,
-        plot_metric=None,  # None, residual, delta
+        plot_metric=None,
 ):
     """
     Visualize model predictions for one target shape.
 
     Parameters
-    ___________
+    ----------
     model_names: `str`
-        The model name.
+        A list with the model names whose predictions you want to visualize.
         Supported models are formfinder, autoencoder, and piggy.
         Append the suffix `_pinn` to load model versions that were trained with a PINN loss.
     task_name: `str`
-        The filepath (without extension) of the YAML file with the task hyperparameters.
-    shape_name: `str`
-        The name of the shape to show.
-    seed: `int`
+        The name of the YAML config file with the task hyperparameters.
+    shape_name: `str` or `None`, optional
+        The name of the shape to optimize.
+        Supported shapes are pillow, dome, saddle, hypar, pringle, and cannon.
+        If a name is provided, the optimization is performed on this shape, ignoring the batch.
+        Default: `None`.
+    shape_index: `int`, optional
+        The index of the shape to visualize in the batch.
+        Default: `0`.
+    seed: `int` or `None`, optional
         The random seed to generate a batch of target shapes.
         If `None`, it defaults to the input hyperparameters file.
-    batch_size: `int` or `None`
+    batch_size: `int` or `None`, optional
         The size of the batch of target shapes.
         If `None`, it defaults to the input hyperparameters file.
-    time_batch_inference: `bool`
-        If `True`, report the inference time over a data batch, averaged over 10 jitted runs.
-    predict_in_sequence: `bool`
-        If `True`, predict every shape in the prescribed slice of the data batch.
-    slice: `tuple`
-        The start of the slice of the batch for saving and viewing.
-    view: `bool`
+        Default: `None`.
+    view: `bool`, optional
         If `True`, view the predicted shapes.
-    plot: `bool`
+        Default: `True`.
+    plot: `bool`, optional
         If `True`, plot the predicted shapes.
-    save: `bool`
+        Default: `False`.
+    save: `bool`, optional
         If `True`, save the plots.
-    edgecolor: `str`
+        Default: `False`.
+    edgewidth: `tuple`, optional
+        The width range of the edges.
+        Default: `(0.01, 0.25)`.
+    edgecolor: `str`, optional
         The color palette for the edges.
-        Supported color palettes are "fd" to display force densities, and "force" to show forces.
-    plot_metric: `str`
+        Supported color palettes are fd to display force densities, and force to show forces.
+    show_reactions: `bool`, optional
+        If `True`, show the reactions.
+        Default: `False`.
+    reactionscale: `float`, optional
+        The scale of the reactions.
+        Default: `0.5`.
+    plot_prediction: `bool`, optional
+        If `True`, plot the predicted shape.
+        Default: `False`.
+    plot_target: `bool`, optional
+        If `True`, plot the target shape.
+        Default: `True`.
+    plot_metric: `str`, optional
         The name of the metric to plot.
-        Supported metrics are forces, residuals, and deltas.
+        Supported metrics are forces, residuals, and deltas.        
     """
     PLOT_MODE = plot_metric
     EDGEWIDTH = edgewidth

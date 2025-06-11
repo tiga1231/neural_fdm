@@ -1,5 +1,5 @@
 """
-Predict the force densities and shapes of a batch of target shapes with a pretrained model.
+Optimize the force densities and shapes of a batch of target shapes starting from a pretrained model predictions (no vectorization).
 """
 import os
 from math import fabs
@@ -55,6 +55,7 @@ def predict_optimize_batch(
         blow=0.0,
         bup=20.0,
         maxiter=5000,
+        tol=1e-6,
         seed=None,
         batch_size=None,
         verbose=True,
@@ -64,43 +65,59 @@ def predict_optimize_batch(
         edgecolor="force"
 ):
     """
-    Solve the prediction task on a batch target shapes with direct optimization with box constraints.
+    Solve the prediction task on a batch target shapes with gradient-based optimization
+    and box constraints, using a neural model to warmstart the optimization.
     The box constraints help generating compression-only or tension-only solutions.
 
     Parameters
-    ___________
+    ----------
     model_name: `str`
         The model name.
         Supported models are formfinder, autoencoder, and piggy.
         Append the suffix `_pinn` to load model versions that were trained with a PINN loss.
     optimizer: `str`
         The name gradient-based optimizer used to solve this task.
-        Supported methods are "slsqp" and "lbfgsb".
+        Supported methods are slsqp and lbfgsb.
     task_name: `str`
-        The filepath (without extension) of the YAML file with the task hyperparameters.
-    b_low: `float`
+        The name of the YAML config file with the task hyperparameters.
+    b_low: `float`, optional
         The lower bound of the box constraints on the model parameters.
-    b_up: `float`
+        The bounds respect the force density signs of a task (compression or tension, currently hardcoded).
+        Default: `0.0`.
+    b_up: `float`, optional
         The lower bound of the box constraints on the model parameters.
-    maxiter: `int`
+        The bounds respect the force density signs of a task (compression or tension, currently hardcoded).
+        Default: `20.0`.
+    maxiter: `int`, optional
         The maximum number of optimization iterations.
-    seed: `int`
+        Default: `5000`.
+    tol: `float`, optional
+        The tolerance for the optimization.
+        Default: `1e-6`.
+    seed: `int` or `None`, optional
         The random seed to generate a batch of target shapes.
         If `None`, it defaults to the input hyperparameters file.
-    batch_size: `int` or `None`
+        Default: `None`.
+    batch_size: `int` or `None`, optional
         The size of the batch of target shapes.
         If `None`, it defaults to the input hyperparameters file.
-    verbose: `bool`
+        Default: `None`.
+    verbose: `bool`, optional
         If `True`, print to stdout intermediary results.
-    save: `bool`
+        Default: `True`.
+    save: `bool`, optional
         If `True`, save the predicted shapes as JSON files.
-    view: `bool`
+        Default: `False`.
+    view: `bool`, optional
         If `True`, view the predicted shapes.
-    slice: `tuple`
-        The start of the slice of the batch for saving and viewing.
-    edgecolor: `str`
+        Default: `False`.
+    slice: `tuple`, optional
+        The start and stop indices of the slice of the batch for saving and viewing.
+        Default: `(0, -1)`, which means all shapes in the batch.
+    edgecolor: `str`, optional
         The color palette for the edges.
-        Supported color palettes are "fd" to display force densities, and "force" to show forces.
+        Supported color palettes are fd to display force densities, and force to show forces.
+        Default: `"force"`.
     """
     START, STOP = slice
     EDGECOLOR = edgecolor  # force, fd
@@ -182,7 +199,7 @@ def predict_optimize_batch(
         fun=compute_loss_diffable,
         method=optimizer_name,
         jit=True,
-        tol=1e-6,
+        tol=tol,
         maxiter=maxiter,
         options={"disp": False},
         value_and_grad=True,
@@ -380,13 +397,33 @@ def predict_optimize_batch(
             errors.append(error)
         print(f"Shape + height error over {num_opts} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
 
+
 # ===============================================================================
 # Helper functions
 # ===============================================================================
 
-
 def calculate_params_init(mesh, param_init, key, minval, maxval):
     """
+    Calculate the initial force densities for the optimization.
+
+    Parameters
+    ----------
+    mesh: `compas.datastructures.Mesh`
+        The mesh to optimize.
+    param_init: `float` or `None`
+        If specified, it determines the starting value of all the model parameters.
+        If `None`, then it samples parameters between `b_low` and `b_up` from a uniform distribution.        
+    key: `jax.random.PRNGKey`
+        The random seed for the uniform distribution.
+    minval: `float`
+        The minimum value for the uniform distribution.
+    maxval: `float`
+        The maximum value for the uniform distribution.
+
+    Returns
+    -------
+    q0: `jax.numpy.ndarray`
+        The initial force densities.
     """
     num_edges = mesh.number_of_edges()
 
@@ -410,6 +447,25 @@ def calculate_params_init(mesh, param_init, key, minval, maxval):
 
 def calculate_params_bounds(mesh, q0, minval, maxval):
     """
+    Calculate the box constraints for the optimization.
+
+    Parameters
+    ----------
+    mesh: `compas.datastructures.Mesh`
+        The mesh to optimize.
+    q0: `jax.numpy.ndarray`
+        The initial force densities.
+    minval: `float`
+        The value of the lower bound.
+    maxval: `float`
+        The value of the upper bound.
+
+    Returns
+    -------
+    bound_low: `jax.numpy.ndarray`
+        The lower box constraint.
+    bound_up: `jax.numpy.ndarray`
+        The upper box constraint.
     """
     bound_low = []
     bound_up = []

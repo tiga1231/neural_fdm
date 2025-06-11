@@ -64,34 +64,43 @@ def predict_batch(
     Predict a batch of target shapes with a pretrained model.
 
     Parameters
-    ___________
+    ----------
     model_name: `str`
         The model name.
         Supported models are formfinder, autoencoder, and piggy.
         Append the suffix `_pinn` to load model versions that were trained with a PINN loss.
     task_name: `str`
         The name of the YAML config file with the task hyperparameters.
-    seed: `int`
+    seed: `int` or `None`, optional
         The random seed to generate a batch of target shapes.
-        If `None`, it defaults to the input hyperparameters file.
-    batch_size: `int` or `None`
+        If `None`, it defaults to the task hyperparameters file.
+        Default: `None`.
+    batch_size: `int` or `None`, optional
         The size of the batch of target shapes.
-        If `None`, it defaults to the input hyperparameters file.
-    time_batch_inference: `bool`
-        If `True`, report the inference time over a data batch, averaged over 10 jitted runs.
-    predict_in_sequence: `bool`
-        If `True`, predict every shape in the prescribed slice of the data batch.
-    slice: `tuple`
-        The start of the slice of the batch for saving and viewing.
-    view: `bool`
+        If `None`, it defaults to the task hyperparameters file.
+        Default: `None`.
+    time_batch_inference: `bool`, optional
+        If `True`, report the inference time over a data batch.
+        Default: `False`.
+    predict_in_sequence: `bool`, optional
+        If `True`, predict every shape in the prescribed slice of the data batch, one at a time.
+        Default: `True`.
+    slice: `tuple`, optional
+        The start and stop indices of the slice of the batch for saving and viewing.
+        Default: `(0, -1)`, which means all shapes in the batch.
+    view: `bool`, optional
         If `True`, view the predicted shapes.
-    save: `bool`
+        Default: `False`.
+    save: `bool`, optional
         If `True`, saves the predicted shapes as JSON files.
-    save_metrics: `bool`
+        Default: `False`.
+    save_metrics: `bool`, optional
         If `True`, saves the calculated batch metrics in text files.
-    edgecolor: `str`
+        Default: `False`.
+    edgecolor: `str`, optional
         The color palette for the edges.
         Supported color palettes are "fd" to display force densities, and "force" to show forces.
+        Default: `"force"`.
     """
     START, STOP = slice
     EDGECOLOR = edgecolor  # force, fd
@@ -221,8 +230,6 @@ def predict_batch(
         loss_terms_batch.append(loss_terms)
         print_loss_summary(loss_terms, prefix=f"Shape {i}\t")
 
-        # loss_terms["q"] = jnp.mean(fd_params_hat.q)
-        # loss_terms["q"] = fd_params_hat.q
         qs.extend([_q.item() for _q in fd_params_hat.q])
 
         if view or save:

@@ -1,9 +1,12 @@
-# -----------------------------------------------------------------------------
-#
-#  FreeType high-level python API - Copyright 2011 Nicolas P. Rougier
-#  Distributed under the terms of the new BSD license.
-#
-# -----------------------------------------------------------------------------
+"""
+Convert text to a mesh to label the bricks of a masonry shell.
+
+This script uses the FreeType library to convert text to a mesh.
+
+FreeType high-level python API - Copyright 2011 Nicolas P. Rougier.
+Distributed under the terms of the new BSD license.
+"""
+
 import numpy as np
 from matplotlib.path import Path
 
@@ -17,8 +20,23 @@ from compas.datastructures import meshes_join
 
 from compas_cgal.triangulation import constrained_delaunay_triangulation
 
+
 def char_2_mesh(char, filepath="Vera.ttf"):
     """
+    Convert a single character to a mesh.
+
+    Parameters
+    ----------
+    char: `str`
+        The character to convert.
+    filepath: `str`, optional
+        The path to the font file.
+        Default: `"Vera.ttf"`.
+
+    Returns
+    -------
+    mesh: `compas.datastructures.Mesh`
+        The mesh representing the character.
     """
     face = Face(filepath)
     face.set_char_size(48*64)
@@ -85,6 +103,20 @@ def char_2_mesh(char, filepath="Vera.ttf"):
 
 def text_2_mesh(text, filepath="Vera.ttf"):
     """
+    Convert a text to a mesh.
+
+    Parameters
+    ----------
+    text: `str`
+        The text to convert.
+    filepath: `str`, optional
+        The path to the font file.
+        Default: `"Vera.ttf"`.
+
+    Returns
+    -------
+    mesh: `compas.datastructures.Mesh`
+        The joined mesh of all characters in the text.
     """
     meshes = []
     xsize = 0.0
@@ -103,10 +135,9 @@ def text_2_mesh(text, filepath="Vera.ttf"):
 
 
 if __name__ == '__main__':
+
     from jax_fdm.visualization import Viewer
 
-    # mesh = char_2_mesh("9")
-    # meshes = text_2_mesh("100")
     mesh = text_2_mesh("100")
 
     viewer = Viewer(
@@ -115,8 +146,7 @@ if __name__ == '__main__':
         show_grid=True,
         viewmode="ghosted"
     )
-
-    # for mesh in meshes:
+    
     viewer.add(mesh)
 
     viewer.show()

@@ -1,5 +1,5 @@
 """
-Predict the force densities and shapes of a batch of target shapes with a pretrained model.
+Optimize the force densities of a batch of target shapes with gradient-based optimization, one shape at a time (no vectorization).
 """
 import os
 from math import fabs
@@ -152,46 +152,90 @@ def optimize_batch(
         save_metrics=False,
 ):
     """
-    Solve the prediction task on a batch target shapes with direct optimization with box constraints.
+    Solve the prediction task on a batch target shapes with gradient-based optimization and box constraints.
     The box constraints help generating compression-only or tension-only solutions.
 
     Parameters
-    ___________
+    ----------
     optimizer: `str`
         The name gradient-based optimizer used to solve this task.
-        Supported methods are "slsqp" and "lbfgsb".
+        Supported methods are slsqp and lbfgsb.
     task_name: `str`
-        The filepath (without extension) of the YAML file with the task hyperparameters.
-    shape_name: `str`
-        The name of the shape to show.
-    param_init: `float`
+        The name of the YAML config file with the task hyperparameters.
+    shape_name: `str` or `None`, optional
+        The name of the shape to optimize.
+        Supported shapes are pillow, dome, saddle, hypar, pringle, and cannon.
+        If a name is provided, the optimization is performed on this shape, ignoring the batch.
+        Default: `None`.
+    param_init: `float` or `None`, optional
         If specified, it determines the starting value of all the model parameters.
-        If not, then it samples parameters between b_low and b_up from a uniform distribution.
-    b_low: `float`
+        If `None`, then it samples parameters between `b_low` and `b_up` from a uniform distribution.
+        The sampling respects the force density signs of a task (compression or tension, currently hardcoded).
+        Default: `None`.
+    b_low: `float`, optional
         The lower bound of the box constraints on the model parameters.
-    b_up: `float`
+        The bounds respect the force density signs of a task (compression or tension, currently hardcoded).
+        Default: `0.0`.
+    b_up: `float`, optional
         The lower bound of the box constraints on the model parameters.
-    maxiter: `int`
+        The bounds respect the force density signs of a task (compression or tension, currently hardcoded).
+        Default: `20.0`.
+    maxiter: `int`, optional
         The maximum number of optimization iterations.
-    seed: `int`
+        Default: `5000`.
+    tol: `float`, optional
+        The tolerance for the optimization.
+        Default: `1e-6`.
+    seed: `int` or `None`, optional
         The random seed to generate a batch of target shapes.
-        If `None`, it defaults to the input hyperparameters file.
-    batch_size: `int` or `None`
+        If `None`, it defaults to the task hyperparameters file.
+    batch_size: `int` or `None`, optional
         The size of the batch of target shapes.
-        If `None`, it defaults to the input hyperparameters file.
-    verbose: `bool`
-        If `True`, print to stdout intermediary results.
-    save: `bool`
+        If `None`, it defaults to the task hyperparameters file.
+        Default: `None`.
+    slice: `tuple`, optional
+        The start and stop indices of the slice of the batch for saving and viewing.
+        Default: `(0, -1)`, which means all shapes in the batch.
+    save: `bool`, optional
         If `True`, save the predicted shapes as JSON files.
-    view: `bool`
+        Default: `False`.
+    view: `bool`, optional
         If `True`, view the predicted shapes.
-    slice: `tuple`
-        The start of the slice of the batch for saving and viewing.
-    edgecolor: `str`
+        Default: `False`.
+    show_reactions: `bool`, optional
+        If `True`, show the reactions on the predicted shapes upon display.
+        Default: `False`.
+    edgewidth: `tuple`, optional
+        The minimum and maximum width of the edges for visualization.
+        Default: `(0.01, 0.25)`.
+    fmax: `float` or `None`, optional
+        The maximum force for the visualization.
+        Default: `None`.
+    fmax_tens: `float` or `None`, optional
+        The maximum tensile force for the visualization.
+        Default: `None`.
+    fmax_comp: `float` or `None`, optional
+        The maximum compressive force for the visualization.
+        Default: `None`.
+    qmin: `float` or `None`, optional
+        The minimum force density for the visualization.
+        Default: `None`.
+    qmax: `float` or `None`, optional
+        The maximum force density for the visualization.
+        Default: `None`.
+    verbose: `bool`, optional
+        If `True`, print to stdout intermediary results.
+        Default: `True`.
+    record: `bool`, optional
+        If `True`, record the loss history.
+        Default: `False`.
+    edgecolor: `str`, optional
         The color palette for the edges.
-        Supported color palettes are "fd" to display force densities, and "force" to show forces.
-    save_metrics: `bool`
+        Supported color palettes are fd to display force densities, and force to show forces.
+        Default: `"force"`.
+    save_metrics: `bool`, optional
         If `True`, saves the calcualted batch metrics in text files.
+        Default: `False`.
     """
     START, STOP = slice
     EDGECOLOR = edgecolor  # force, fd
@@ -523,35 +567,6 @@ def optimize_batch(
                     color=Color.black().lightened()
                     )
 
-            if task_name == "bezier":
-                # target mesh
-                viewer.add(
-                    FDNetwork.from_mesh(mesh_target),
-                    as_wireframe=True,
-                    show_points=False,
-                    linewidth=4.0,
-                    color=Color.black().lightened()
-                )
-
-                # approximated mesh
-                viewer.add(
-                    mesh_hat,
-                    show_points=False,
-                    show_edges=False,
-                    opacity=0.2
-                )
-
-            elif task_name == "tower":
-                rings = jnp.reshape(xyz, generator.shape_tube)[generator.levels_rings_comp, :, :]
-                for ring in rings:
-                    ring = ring.tolist()
-                    polygon = Polygon(ring)
-                    viewer.add(polygon, opacity=0.5)
-                    viewer.add(
-                        Polyline(ring + ring[:1]),
-                        linewidth=4.0,
-                        color=Color.black().lightened()
-                    )
             # show le crème
             viewer.show()
 
@@ -605,6 +620,26 @@ def optimize_batch(
 
 def calculate_params_init(mesh, param_init, key, minval, maxval):
     """
+    Calculate the initial force densities for the optimization.
+
+    Parameters
+    ----------
+    mesh: `compas.datastructures.Mesh`
+        The mesh to optimize.
+    param_init: `float` or `None`
+        If specified, it determines the starting value of all the model parameters.
+        If `None`, then it samples parameters between `b_low` and `b_up` from a uniform distribution.        
+    key: `jax.random.PRNGKey`
+        The random seed for the uniform distribution.
+    minval: `float`
+        The minimum value for the uniform distribution.
+    maxval: `float`
+        The maximum value for the uniform distribution.
+
+    Returns
+    -------
+    q0: `jax.numpy.ndarray`
+        The initial force densities.
     """
     num_edges = mesh.number_of_edges()
 
@@ -612,6 +647,7 @@ def calculate_params_init(mesh, param_init, key, minval, maxval):
     for edge in mesh.edges():
         sign = -1.0  # compression by default
         # for tower task
+        # FIXME: this method of checking is hand-wavy!
         if mesh.edge_attribute(edge, "tag") == "cable":
             sign = 1.0
         signs.append(sign)
@@ -628,6 +664,25 @@ def calculate_params_init(mesh, param_init, key, minval, maxval):
 
 def calculate_params_bounds(mesh, q0, minval, maxval):
     """
+    Calculate the box constraints for the optimization.
+
+    Parameters
+    ----------
+    mesh: `compas.datastructures.Mesh`
+        The mesh to optimize.
+    q0: `jax.numpy.ndarray`
+        The initial force densities.
+    minval: `float`
+        The value of the lower bound.
+    maxval: `float`
+        The value of the upper bound.
+
+    Returns
+    -------
+    bound_low: `jax.numpy.ndarray`
+        The lower box constraint.
+    bound_up: `jax.numpy.ndarray`
+        The upper box constraint.
     """
     bound_low = []
     bound_up = []
