@@ -4,7 +4,24 @@ Code base for the [paper](https://arxiv.org/abs/2409.02606) published at ICLR 20
 
 ![Our trained model, deployed in Rhino3D](masonry_vault_cad_design.gif)
 
-## 0. Overview
+## Table of Contents
+
+- [Repository structure](#repository-structure)
+- [Installation](#installation)
+- [Configuration](#configuration)
+  - [Data generation](#data-generation)
+  - [Building a model](#building-a-model)
+  - [Loss and optimizer](#loss-and-optimizer)
+- [Training](#training)
+- [Testing](#testing)
+- [Visualization](#visualization)
+- [Direct optimization](#direct-optimization)
+- [Predict then optimize](#predict-then-optimize)
+- [Citation](#citation)
+- [Contact](#contact)
+
+
+## Repository structure
 
 This repository contains two folders with the meat of our work: `src` and `scripts`.
 
@@ -13,7 +30,7 @@ The second one, `scripts`, groups a list of routines to execute the code in `src
 
 With the scripts, you can even tesselate and 3D print your own masonry vault from one of our model predictions if you fancy!
 
-## 1. Installation
+## Installation
 
 >We only support installation on a CPU. Our paper does not use any GPUs. Crazy, right?
 
@@ -49,11 +66,11 @@ Installing this repo from source will take care of installing the few additional
 Now, go ahead and play. Rock and roll 🎸! 
 
 
-## 2. Configuration files
+## Configuration
 
 Our work focuses on two structural design tasks: compression-only shells and cablenet towers.
-We thus create a `.yml` file with all the configuration hyperparameters per task.
 
+We thus create a `.yml` file with all the configuration hyperparameters per task.
 The files are stored in the `scripts` folder as:
 - `bezier.yml`, and
 - `tower.yml` 
@@ -63,7 +80,7 @@ The hyperparameters exposed in the configuration files range from choosing a dat
 We'll be mingling with them to steer the wheel while we run experiments.
 
 
-### 2.1 Data generation
+### Data generation
 
 An advantage of our work is that we only need to define target shapes alone, without a vector of force densities to be paired as ground-truth labels.
 That would be the case in a fully supervised setting, which is not the case here.
@@ -92,7 +109,7 @@ The tower rings are deformed and rotated depending on the generator `name` and `
 - `num_levels`: The number of circles to create along the tower's height. Equidistantly spaced.
 - `num_rings`: The number of circles to be morphed during training. Must be `>2` since two of these rings are, by default, the top and bottom of the tower.
 
-### 2.2 Building a model
+### Building a model
 
 We specify the architecture of a model in the configuration file, which for the most part, ressembles an autoencoder.
 The configuration scheme is the same for any task.
@@ -119,7 +136,7 @@ For the simulator, the force density method (FDM), we only have `load` as a hype
 
 If this value is nonzero, then the model will convert the area load into point loads to be compatible with our physics simulator.
 
-### 2.3 Living and learning
+### Loss and Optimizer
 
 The training setup is also defined in the configuration file of the task, including the `loss` function to optimize for, the `optimizer` that updates the model parameters, and the `training` schedule that pretty much allocates the compute budget.
 
@@ -227,7 +244,7 @@ The towers task is too more nuanced because we explore three different initializ
 
 The third initialization type relies on the predictions of a pre-trained model and, to use it, we need to invoke a different script.
 
-## Predict, then optimize
+## Predict then optimize
 
 There is enormous potential in combining neural networks with traditional optimization techniques to expedite mechanical design.
 An opportunity in this space is to leverage the prediction made by one of our models and refine that prediction with direct optimization to unlock the best-performing designs.
