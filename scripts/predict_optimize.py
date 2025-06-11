@@ -43,28 +43,12 @@ from neural_fdm.losses import print_loss_summary
 
 from neural_fdm.serialization import load_model
 
+from camera import CAMERA_CONFIG_BEZIER
+from camera import CAMERA_CONFIG_TOWER
+
 from optimize import calculate_params_init
 from optimize import calculate_params_bounds
 
-
-# ===============================================================================
-# Globals -- Don't do this at home!
-# ===============================================================================
-
-CAMERA_CONFIG_BEZIER = {
-    "color": (1.0, 1.0, 1.0, 1.0),
-    "position": (30.34, 30.28, 42.94),
-    "target": (0.956, 0.727, 1.287),
-    "distance": 20.0,
-}
-
-CAMERA_CONFIG_TOWER = {
-    "color": (1.0, 1.0, 1.0, 1.0),
-    "position": (10.718, 10.883, 14.159),
-    "target": (-0.902, -0.873, 3.846),
-    "distance": 19.482960680274577,
-    "rotation": (1.013, 0.000, 2.362),
-}
 
 # ===============================================================================
 # Script function
@@ -90,6 +74,8 @@ def predict_optimize_batch(
     Solve the prediction task on a batch target shapes with gradient-based optimization
     and box constraints, using a neural model to warmstart the optimization.
     The box constraints help generating compression-only or tension-only solutions.
+
+    This script optimizes and visualizes. This is probably not the best idea, but oh well.
 
     Parameters
     ----------

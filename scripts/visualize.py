@@ -46,119 +46,12 @@ from neural_fdm.losses import print_loss_summary
 
 from neural_fdm.serialization import load_model
 
+from camera import CAMERA_CONFIG_BEZIER
+from camera import CAMERA_CONFIG_BEZIER_TOP
+from camera import CAMERA_CONFIG_TOWER
 
-# ===============================================================================
-# Globals -- Don't do this at home!
-# ===============================================================================
-
-# pillow
-BEZIER_PILLOW = [
-    [0.0, 0.0, 10.0],
-    [0.0, 0.0, 0.0],
-    [0.0, 0.0, 0.0],
-    [0.0, 0.0, 0.0]
-]
-
-# circular dome
-BEZIER_DOME = [
-    [0.0, 0.0, 10.0],
-    [2.75, 0.0, 0.0],
-    [0.0, 2.75, 0.0],
-    [0.0, 0.0, 0.0]
-]
-
-# cute saddle
-BEZIER_SADDLE = [
-    [0.0, 0.0, 1.5],
-    [-1.25, 0.0, 5.0],
-    [0.0, -2.5, 0.0],
-    [0.0, 0.0, 0.0]
-]
-
-# cute hypar
-BEZIER_HYPAR = [
-    [0.0, 0.0, 1.5],
-    [-1.25, 0.0, 7.5],
-    [0.0, 1.25, 0.0],
-    [0.0, 0.0, 0.0]
-]
-
-# cute pringle
-BEZIER_PRINGLE = [
-    [0.0, 0.0, 1.5],
-    [1.25, 1.25, 0.0],
-    [-1.25, 0.0, 7.5],
-    [0.0, 0.0, 0.0]
-]
-
-# cannon vault
-BEZIER_CANNON = [
-    [0.0, 0.0, 6.0],
-    [0.0, 0.0, 6.0],
-    [0.0, 0.0, 0.0],
-    [0.0, 0.0, 0.0]
-]
-
-beziers = {
-    "pillow": BEZIER_PILLOW,
-    "dome": BEZIER_DOME,
-    "saddle": BEZIER_SADDLE,
-    "hypar": BEZIER_HYPAR,
-    "pringle": BEZIER_PRINGLE,
-    "cannon": BEZIER_CANNON,
-}
-
-tower_angles = [0.0, 0.0, 0.0]
-tower_radii_fixed = [0.75, 0.75]
-tower_radii = [tower_radii_fixed, [0.75, 0.75], tower_radii_fixed]  # 1.0, 1.5
-towers = {
-    -30: [tower_radii, [0.0, -30.0, 0.0]],
-    -22: [tower_radii, [0.0, -22.0, 0.0]],
-    -15: [tower_radii, [0.0, -15.0, 0.0]],
-    -7: [tower_radii, [0.0, -7, 0.0]],
-    0: [tower_radii, [0.0, 0.0, 0.0]],
-    7: [tower_radii, [0.0, 7.0, 0.0]],
-    15: [tower_radii, [0.0, 15.0, 0.0]],
-    22: [tower_radii, [0.0, 22.0, 0.0]],
-    30: [tower_radii, [0.0, 30.0, 0.0]],
-    #
-    0.5: [[tower_radii_fixed, [0.5, 0.5], tower_radii_fixed], tower_angles],
-    0.75: [[tower_radii_fixed, [0.75, 0.75], tower_radii_fixed], tower_angles],
-    1.0: [[tower_radii_fixed, [1.0, 1.0], tower_radii_fixed], tower_angles],
-    1.25: [[tower_radii_fixed, [1.25, 1.25], tower_radii_fixed], tower_angles],
-    1.5: [[tower_radii_fixed, [1.5, 1.5], tower_radii_fixed], tower_angles],
-
-}
-
-
-CAMERA_CONFIG_BEZIER = {
-    "color": (1.0, 1.0, 1.0, 1.0),
-    "position": (30.34, 30.28, 42.94),
-    "target": (0.956, 0.727, 1.287),
-    "distance": 20.0,
-}
-
-CAMERA_CONFIG_BEZIER_TOP = {
-    "color": (1.0, 1.0, 1.0, 1.0),
-    "position": (0.3, 0.85, 7.5),
-    "target": (0.3, 0.85, 0.000),
-    "distance": 7.5,
-    "rotation": (0.000, 0.000, 0.000),
-    "use_top_view": True
-}
-
-
-CAMERA_CONFIG_TOWER = {
-    "color": (1.0, 1.0, 1.0, 1.0),
-    "position": (10.718, 10.883, 14.159),
-    "target": (-0.902, -0.873, 3.846),
-    "distance": 19.482960680274577,
-    "rotation": (1.013, 0.000, 2.362),
-}
-
-USE_CONFIG_BEZIER_TOP = False
-if USE_CONFIG_BEZIER_TOP:
-    CAMERA_CONFIG_BEZIER = CAMERA_CONFIG_BEZIER_TOP
+from shapes import BEZIERS
+from shapes import TOWERS
 
 
 # ===============================================================================
@@ -173,6 +66,7 @@ def visualize(
         seed=None,
         batch_size=None,
         view=True,
+        use_camera_top=False,
         plot=False,
         save=False,
         edgewidth=(0.01, 0.25),
@@ -212,6 +106,9 @@ def visualize(
     view: `bool`, optional
         If `True`, view the predicted shapes.
         Default: `True`.
+    use_camera_top: `bool`, optional
+        If `True`, use the top view camera configuration.
+        Default: `False`.
     plot: `bool`, optional
         If `True`, plot the predicted shapes.
         Default: `False`.
@@ -276,12 +173,11 @@ def visualize(
 
     # sample target points
     if shape_name is not None and "bezier" in task_name:
-        transform = beziers[shape_name]
+        transform = BEZIERS[shape_name]
         transform = jnp.array(transform)
         xyz = generator.evaluate_points(transform)
-
     elif shape_name is not None and "tower" in task_name and bounds_name == "twisted":
-        transforms = towers[shape_name]
+        transforms = TOWERS[shape_name]
         transform = [jnp.array(T) for T in transforms]
         xyz = generator.evaluate_points(transform)
     # sample target points at random if no shape name
@@ -434,11 +330,13 @@ def visualize(
     if view:
         # pick camera configuration for task
         if task_name == "bezier":
-            CAMERA_CONFIG = CAMERA_CONFIG_BEZIER
             _width = 900
+            CAMERA_CONFIG = CAMERA_CONFIG_BEZIER
+            if use_camera_top:
+                CAMERA_CONFIG = CAMERA_CONFIG_BEZIER_TOP
         elif task_name == "tower":
-            CAMERA_CONFIG = CAMERA_CONFIG_TOWER
             _width = 450
+            CAMERA_CONFIG = CAMERA_CONFIG_TOWER
 
         MESH_TARGET_OPACITY = 0.7
         MESH_TARGET_COLOR = Color.grey().lightened(100)
@@ -453,7 +351,7 @@ def visualize(
             )
 
             # modify view
-            if CAMERA_CONFIG.get("use_top_view"):
+            if use_camera_top:
                 viewer.view.camera.view.current = viewer.view.camera.view.TOP
 
             viewer.view.camera.position = CAMERA_CONFIG["position"]
@@ -468,7 +366,7 @@ def visualize(
             print("\nViewing target...")
             MESH_TARGET_COLOR = Color.grey().lightened(100)
             MESH_TARGET_OPACITY = 0.7
-            if USE_CONFIG_BEZIER_TOP:
+            if use_camera_top:
                 MESH_TARGET_OPACITY = 0.4
             viewer.add(
                  mesh_target,
@@ -478,7 +376,7 @@ def visualize(
                  color=MESH_TARGET_COLOR,
             )
 
-            if not USE_CONFIG_BEZIER_TOP:
+            if not use_camera_top:
                 viewer.add(
                     FDNetwork.from_mesh(mesh_target),
                     as_wireframe=True,
@@ -654,23 +552,6 @@ def visualize(
                     color=Color.black().lightened()
                     )
 
-            # if task_name == "bezier":
-                # approximated mesh
-                # viewer.add(
-                #     FDNetwork.from_mesh(mesh_target),
-                #     as_wireframe=True,
-                #     show_points=False,
-                #     linewidth=4.0,
-                #     color=Color.black().lightened()
-                #    )
-
-                # viewer.add(
-                #         mesh_hat,
-                #         show_points=False,
-                #         show_edges=False,
-                #         opacity=0.2
-                #     )
-
             if task_name == "tower":
                 rings = jnp.reshape(xyz, generator.shape_tube)[generator.levels_rings_comp, :, :]
                 for ring in rings:
@@ -684,7 +565,7 @@ def visualize(
                         color=Color.black().lightened()
                     )
 
-            # show le crème
+            # show la crème
             viewer.show()
 
 # ===============================================================================
@@ -783,8 +664,7 @@ def visualize(
             nodecolor = Color.white()
             if PLOT_MODE == "fd":
 
-                edgecolor = PLOT_MODE
-                # nodes_to_plot = [node for node in mesh.vertices() if not mesh.is_vertex_on_boundary(node)]
+                edgecolor = PLOT_MODE                
                 edges_to_plot = list(mesh.edges())
                 edgewidth = (1.0, 9.0)
 

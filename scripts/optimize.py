@@ -43,82 +43,10 @@ from neural_fdm.builders import build_loss_function
 
 from neural_fdm.losses import print_loss_summary
 
+from camera import CAMERA_CONFIG_BEZIER
+from camera import CAMERA_CONFIG_TOWER
 
-# ===============================================================================
-# Globals -- Don't do this at home!
-# ===============================================================================
-
-# pillow
-BEZIER_PILLOW = [
-    [0.0, 0.0, 10.0],
-    [0.0, 0.0, 0.0],
-    [0.0, 0.0, 0.0],
-    [0.0, 0.0, 0.0]
-]
-
-# circular dome
-BEZIER_DOME = [
-    [0.0, 0.0, 10.0],
-    [2.75, 0.0, 0.0],
-    [0.0, 2.75, 0.0],
-    [0.0, 0.0, 0.0]
-]
-
-# cute saddle
-BEZIER_SADDLE = [
-    [0.0, 0.0, 1.5],
-    [-1.25, 0.0, 5.0],
-    [0.0, -2.5, 0.0],
-    [0.0, 0.0, 0.0]
-]
-
-# cute hypar
-BEZIER_HYPAR = [
-    [0.0, 0.0, 1.5],
-    [-1.25, 0.0, 7.5],
-    [0.0, 1.25, 0.0],
-    [0.0, 0.0, 0.0]
-]
-
-# cute pringle
-BEZIER_PRINGLE = [
-    [0.0, 0.0, 1.5],
-    [1.25, 1.25, 0.0],
-    [-1.25, 0.0, 7.5],
-    [0.0, 0.0, 0.0]
-]
-
-# cannon vault
-BEZIER_CANNON = [
-    [0.0, 0.0, 6.0],
-    [0.0, 0.0, 6.0],
-    [0.0, 0.0, 0.0],
-    [0.0, 0.0, 0.0]
-]
-
-beziers = {
-    "pillow": BEZIER_PILLOW,
-    "dome": BEZIER_DOME,
-    "saddle": BEZIER_SADDLE,
-    "hypar": BEZIER_HYPAR,
-    "pringle": BEZIER_PRINGLE,
-    "cannon": BEZIER_CANNON,
-}
-
-CAMERA_CONFIG_BEZIER = {
-    "color": (1.0, 1.0, 1.0, 1.0),
-    "position": (30.34, 30.28, 42.94),
-    "target": (0.956, 0.727, 1.287),
-    "distance": 20.0,
-}
-
-CAMERA_CONFIG_TOWER = {
-    "color": (1.0, 1.0, 1.0, 1.0),
-    "position": (10.718, 10.883, 14.159),
-    "target": (-0.902, -0.873, 3.846),
-    "distance": 19.482960680274577,
-    "rotation": (1.013, 0.000, 2.362),
-}
+from shapes import BEZIERS
 
 
 # ===============================================================================
@@ -154,6 +82,8 @@ def optimize_batch(
     """
     Solve the prediction task on a batch target shapes with gradient-based optimization and box constraints.
     The box constraints help generating compression-only or tension-only solutions.
+
+    This script optimizes and visualizes. This is probably not the best idea, but oh well.
 
     Parameters
     ----------
@@ -348,7 +278,7 @@ def optimize_batch(
 
     # sample target points from prescribed shape name
     if shape_name is not None and "bezier" in task_name:
-        transform = beziers[shape_name]
+        transform = BEZIERS[shape_name]
         transform = jnp.array(transform)
         xyz = generator.evaluate_points(transform)
         xyz_slice = xyz[None, :]

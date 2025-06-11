@@ -20,18 +20,7 @@ from neural_fdm.builders import build_data_generator
 
 from neural_fdm.generators import points_on_ellipse
 
-
-# ===============================================================================
-# Globals -- Don't do this at home!
-# ===============================================================================
-
-CAMERA_CONFIG_TOWER = {
-    "color": (1.0, 1.0, 1.0, 1.0),
-    "position": (10.718, 10.883, 14.159),
-    "target": (-0.902, -0.873, 3.846),
-    "distance": 19.482960680274577,
-    "rotation": (1.013, 0.000, 2.362),
-}
+from camera import CAMERA_CONFIG_TOWER as CAMERA_CONFIG
 
 
 # ===============================================================================
@@ -55,8 +44,7 @@ def view_tower_task(seed=None, batch_size=None, shape_index=0):
         Default: `0`.
     """
     # pick camera configuration for task
-    task_name = "tower"
-    CAMERA_CONFIG = CAMERA_CONFIG_TOWER
+    task_name = "tower"    
     _width = 450
 
     # load yaml file with hyperparameters
