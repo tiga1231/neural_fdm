@@ -4,15 +4,18 @@ _Code base for the [paper](https://arxiv.org/abs/2409.02606) published at ICLR 2
 
 ![Our trained model, deployed in Rhino3D](masonry_vault_cad_design.gif)
 
-Designing mechanically efficient geometry for architectural structures like shells, towers, and bridges, is an expensive iterative process. Existing techniques for solving such inverse problems rely on traditional optimization methods, which are slow and computationally expensive, limiting iteration speed and design exploration. Neural networks would seem to offer a solution via data-driven amortized optimization, but they often require extensive fine-tuning and cannot ensure that important design criteria, such as mechanical integrity, are met.
+## 0. Overview
 
-In this work, we combine neural networks with a differentiable mechanics simulator to develop a model that accelerates the solution of shape approximation problems for architectural structures represented as bar systems. This model explicitly guarantees compliance with mechanical constraints while generating designs that closely match target geometries. We validate our approach in two tasks, the design of masonry shells and cable-net towers. Our model achieves better accuracy and generalization than fully neural alternatives, and comparable accuracy to direct optimization but in real time, enabling fast and reliable design exploration. We further demonstrate its advantages by integrating it into 3D modeling software and fabricating a physical prototype.
+This repository contains two folders with the meat of our work: `src` and `scripts`.
 
-Our work opens up new opportunities for accelerated mechanical design enhanced by neural networks for the built environment.
+The first folder, `src`, defines all the code infrastructure we need to build, train, serialize, and visualize our model and the baselines.
+The second one, `scripts`, groups a list of routines to execute the code in `src`, and more importantly, to reproduce our experiments at inference time.
 
-## Installation
+With the scripts, you can even tesselate and 3D print your own masonry vault from one of our model predictions if you fancy!
 
-_We only support installation on a CPU. Our paper does not use any GPUs. Crazy, right?_
+## 1. Installation
+
+>We only support installation on a CPU. Our paper does not use any GPUs. Crazy, right?
 
 Create a new [Anaconda](https://www.anaconda.com/) environment and then activate it:
 
@@ -42,26 +45,25 @@ git clone https://github.com/arpastrana/neural_fdm.git
 cd neural_fdm
 pip install -e .
 ```
+Installing this repo from source will take care of installing the few additional dependencies listed in `requirements.txt`.
 Now, go ahead and play. Rock and roll 🎸! 
 
 
-## Play
-
-This repository contains two folders with the meat of our work: `src` and `scripts`.
-The first folder, `src`, defines all the code infrastructure we need to build, train, serialize, and visualize our model and the baselines.
-The second one, `scripts`, groups a list of routines to execute the code in `src`, and more importantly, to reproduce our experiments at inference time.
-With the scripts, you can even tesselate and 3D print your own masonry vault from one of our model predictions if you fancy!
-
-### Configuration files
+## 2. Configuration files
 
 Our work focuses on two structural design tasks: compression-only shells and cablenet towers.
 We thus create a `.yml` file with all the configuration hyperparameters per task.
-The files are stored in the `scripts` folder as `bezier.yml` and `tower.yml` for the first and the second task, respectively.
+
+The files are stored in the `scripts` folder as:
+- `bezier.yml`, and
+- `tower.yml` 
+
+for the first and the second task, respectively.
 The hyperparameters exposed in the configuration files range from choosing a data generator, prescribing the model architecture, and the optimization scheme.
 We'll be mingling with them to steer the wheel while we run experiments.
 
 
-### Data generation
+### 2.1 Data generation
 
 An advantage of our work is that we only need to define target shapes alone, without a vector of force densities to be paired as ground-truth labels.
 That would be the case in a fully supervised setting, which is not the case here.
@@ -88,9 +90,9 @@ The tower rings are deformed and rotated depending on the generator `name` and `
 - `radius`: The start radius of the all the generated circles.
 - `num_sides`: The number of segments to discretize each circle with.
 - `num_levels`: The number of circles to create along the tower's height. Equidistantly spaced.
-- `num_rings`: The number of circles to be morphed during training. Must be `>2` since two of these rings are by defult the top and bottom circles of the tower.
+- `num_rings`: The number of circles to be morphed during training. Must be `>2` since two of these rings are, by default, the top and bottom of the tower.
 
-### Building a model
+### 2.2 Building a model
 
 We specify the architecture of a model in the configuration file, which for the most part, ressembles an autoencoder.
 The configuration scheme is the same for any task.
@@ -104,32 +106,111 @@ This sets a baseline from which we can build upon with beefier architectures lik
 
 The encoder hyperparameters are:
 - `shift`: The lower bound shift in output of the last layer of the encoder. This is precisely what we call `tau` in the paper.
-- `hidden_layer_size`: The width of every fully-connected hidden layer. 
+- `hidden_layer_size`: The width of every fully-connected hidden layer. We restrict the size to `256` in all the experiments.
 - `hidden_layer_num`: The number of hidden layers, output layer inclusive.
-- `activation_fn_name`: The name of the activation function after each hidden layer.
+- `activation_fn_name`: The name of the activation function after each hidden layer. We typically resort to `elu`.
 - `final_activation_fn_name`: The activation function name after the output layer. We use `softplus` to ensure a strictly positive output, as needed by the simulator decoder.
 
 The neural decoder's setup mirrors the encoder's, except for the `include_params_xl` flag. If set to `True`, then the decoder expects the latents and boundary conditions as inputs. Otherwise, it only decodes the latents. We fix this hyperparameter to `True` in the paper.
 
 #### Simulator
 
-For the simulator, the force density method (FDM), we only have `load` as a hyperparameter, which sets the magnitude of a vertical **area** load applied to the structures.
-If this is nonzero, then the model will convert the area load into point loads to be compatible with our physics simulator.
+For the simulator, the force density method (FDM), we only have `load` as a hyperparameter, which sets the magnitude of a vertical **area** load applied to the structures in the direction of gravity (hello Isaac Newton! 🍎).
 
-### Training
+If this value is nonzero, then the model will convert the area load into point loads to be compatible with our physics simulator.
 
-We train our model and the baselines.
-The training configuration 
+### 2.3 Living and learning
 
-### Testing
+The training setup is also defined in the configuration file of the task, including the `loss` function to optimize for, the `optimizer` that updates the model parameters, and the `training` schedule that pretty much allocates the compute budget.
+
+The `loss` function is the sum of multiple terms, that for the most part are a shape loss and a physics loss, as we explain in the paper.
+We allow for more refined control on the scaling of each loss term in the file:
+- `include`: Whether or not to include the loss term during training. If set to `False`, then the value of the loss term is not calculated, saving some computation resources. By default, `include=True`.
+- `weight`: The scalar weight of the loss term used for callibrating model performance, called `kappa` in the paper. It is particularly useful to tune the scale of the physics loss whent raining the PINN baseline. The weight is `weight=1.0` by default unless otherwise stated.
+- `scale`: An additional scalar used for normalization of the loss function values w.r.t. the bounding box of the design space, or the magnitude of the applied loads. We end up not using this hyperparameter (i.e., we set to to `1.0`).
+
+The `optimizer` hyperparameters are:
+- `name`: the name of the gradient-based optimizer. We currently support `adam` and `sgd` from the `optax` library, but only use `adam` in the paper.
+- `learning_rate`: The constant learning rate. The rate is fixed, we ommit schedulers - it is more elegant.
+- `clip_norm`: The global norm for gradient clipping. If set to `0.0`, then gradient clipping is ignored.
+
+And for the `training` routine:
+- `steps`: The number of optimization steps to train a model for (i.e., the number of times the model parameters are updated). We mostly train the models for `10000` steps.
+- `batch_size`: The batch size of the input data.
+
+
+## Training
+
+After setting up the config files, now it's time to make that CPU go brrrrr.
+Execute the `train.py` script from your terminal:
+
+```bash
+python train.py <model_name> <task_name>
+```
+
+Where `task_name` is either `bezier` for the shells task or `tower` for the towers task.
+
+The `model_name` is where things get interesting. 
+In summary:
+
+- Ours: `formfinder`
+- NN baseline: `autoencoder`
+- PINN baseline: `autoencoder_pinn` 
+
+Our model is called `formfinder`, and the fully neural baseline is called `autoencoder`.
+Input the name of the model you wish to train. If `autoencoder` is trained with the `residual` (i.e., the physics loss is included and active), this model will become a PINN baseline and will internally be renamed as `autoencoder_pinn` (sorry, naming is hard).
+
+We invite you to check the docstring of the `train.py` script to see all the input options. 
+They would allow you to warmstart the training from an existing pretrained model, checkpoint every so often, as well as plot and export the loss history for your inspection.
+
+Task-specific configuration details come up next.
+
+### Shells
+
+- Randomness: `seed=91` for our model and the neural baselines.
+- Data generator: `bezier_symmetric_double` with `saddle` bounds, `num_uv=10`, `size=10`, and `num_points=4`.
+- Model: `load=-0.5`, `shift=1.0`, `hidden_layer_num=5`
+- Physics loss: The `weight` of the `residual` loss term varies with the model:
+  - Ours: `weight=1.0`
+  - NN: `weight=0.0`
+  - PINN: `weight=10.0`
+- Learning rate:
+  - Ours: `learning_rate=3.0e-5`
+  - NN and PINN baselines: `learning_rate=5.0e-5`
+- `clip_norm=0.0`
+- `batch_size=64`
+
+### Towers
+
+- Randomness: 
+  - Ours: `seed=91`
+  - NN and PINN baselines: `seed=90`
+- Data generator: `tower_ellipse` with `twisted` bounds, `height=10`, `radius=2.0`, `num_sides=16`, `num_levels=21`, and `num_rings=3`.
+- Model: `load=0.0`, `shift=1.0`, `hidden_layer_size=256`, `hidden_layer_num=3`
+- Physics loss:
+  - Ours and PINN: `weight=1.0`
+  - NN: `weight=0.0`  
+- Regularization loss: `weight=10`
+- Learning rate:
+    - Ours: `learning_rate=0.001` with `steps=5000` and then `learning_rate=0.0001` for another `steps=5000`.
+    - NN and PINN: `0.001` for `steps=10000`.
+- `clip_norm=0.01`
+- `batch_size=16`
+
+> A note on hyperparameter tuning. We utilized WandB to run hyperparameter sweeps. The sweeps are in turn handled by the `sweep.py` script in tandem with `sweep_bezier.yml` or `sweep_tower.yml` files, depending on the task. The structure of these sweep files mimics that of the configuration files described herein. We trust you'll be able to find your way around them if you really want to fiddle with them. 
+
+## Testing
 
 Blob.
+
+## Visualization
+
+View.
 
 ### Direct optimization
 
 Another baseline.
 
-### Visualization
 
 Blah.
 

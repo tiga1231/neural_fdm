@@ -29,11 +29,11 @@ decoder:
 loss:
   shape:
     include: True  # will use shape loss if term is active, otherwise PINN term
-    weight: 1.0  # weight of the smoothness energy term in the loss function
+    weight: 1.0  # weight of the shape term in the loss function
     scale: 1.0  # 30.0, bbox length (used for normalization)
   height:
     include: True  # will use shape loss if term is active, otherwise PINN term
-    weight: 1.0  # weight of the smoothness energy term in the loss function
+    weight: 1.0  # weight of the height term in the loss function
     scale: 1.0  # 30.0, bbox length (used for normalization)
   energy:
     include: False
@@ -43,7 +43,7 @@ loss:
     include: True
     weight: 1.0  # weight of the residual error term in the loss function
     scale: 1.0  # 0.5, fdm load scale (used for normalization)
-  regularization:  # regularize predicted force densities
+  regularization:  # regularize force densities
     include: True
     weight: 10.0  # weight of the regularization term in the loss function
 # optimization
