@@ -1,5 +1,5 @@
 """
-Optimize the force densities of a batch of target shapes with gradient-based optimization, one shape at a time (no vectorization).
+Optimize force densities to match a batch of target shapes with gradient-based optimization, one shape at a time (no vectorization).
 """
 import os
 from math import fabs
@@ -25,7 +25,6 @@ from jaxopt import ScipyBoundedMinimize
 
 from compas.colors import Color
 from compas.colors import ColorMap
-from compas.geometry import Polygon
 from compas.geometry import Polyline
 from compas.utilities import remap_values
 
@@ -99,14 +98,14 @@ def optimize_batch(
         Default: `None`.
     param_init: `float` or `None`, optional
         If specified, it determines the starting value of all the model parameters.
-        If `None`, then it samples parameters between `b_low` and `b_up` from a uniform distribution.
+        If `None`, then it samples parameters between `blow` and `bup` from a uniform distribution.
         The sampling respects the force density signs of a task (compression or tension, currently hardcoded).
         Default: `None`.
-    b_low: `float`, optional
+    blow: `float`, optional
         The lower bound of the box constraints on the model parameters.
         The bounds respect the force density signs of a task (compression or tension, currently hardcoded).
         Default: `0.0`.
-    b_up: `float`, optional
+    bup: `float`, optional
         The lower bound of the box constraints on the model parameters.
         The bounds respect the force density signs of a task (compression or tension, currently hardcoded).
         Default: `20.0`.

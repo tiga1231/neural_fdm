@@ -1,6 +1,6 @@
 # Real-time design of architectural simulations with differentiable mechanics and neural networks
 
-_Code base for the [paper](https://arxiv.org/abs/2409.02606) published at ICLR 2025_
+Code base for the [paper](https://arxiv.org/abs/2409.02606) published at ICLR 2025.
 
 ![Our trained model, deployed in Rhino3D](masonry_vault_cad_design.gif)
 
@@ -149,18 +149,15 @@ python train.py <model_name> <task_name>
 ```
 
 Where `task_name` is either `bezier` for the shells task or `tower` for the towers task.
+Task-specific configuration details are given in the paper.
 
 The `model_name` is where things get interesting. 
 In summary:
 
 - Ours: `formfinder`
-- NN baseline: `autoencoder`
-- PINN baseline: `autoencoder_pinn` 
+- NN and PINN baseline: `autoencoder`
 
-Our model is called `formfinder`, and the fully neural baseline is called `autoencoder`.
-Input the name of the model you wish to train. If `autoencoder` is trained with the `residual` (i.e., the physics loss is included and active), this model will become a PINN baseline and will internally be renamed as `autoencoder_pinn` (sorry, naming is hard).
-
-Task-specific configuration details are given in the paper.
+If `autoencoder` is trained with the `residual` (i.e., the physics loss is included and active), this model will become a PINN baseline and will internally be renamed as `autoencoder_pinn` (sorry, naming is hard).
 
 We invite you to check the docstring of the `train.py` script to see all the input options. 
 They would allow you to warmstart the training from an existing pretrained model, checkpoint every so often, as well as plot and export the loss history for your inspection.
@@ -169,18 +166,66 @@ They would allow you to warmstart the training from an existing pretrained model
 
 ## Testing
 
-Blob.
+To evaluate the trained models at inference time on a test batch, run:
+
+```bash
+python predict.py <model_name> <task_name> --batch_size=<batch_size> --seed=<test_seed>
+```
+where we set to `--batch_size=100` during inference to match what we do in the paper.
+The test set is created by a generator that follows the same configuration as the train set, except for the random seed. 
+We set `test_seed` to `90` in the `bezier` task and `test_seed` to `92` in the `tower` task.
+Feel free to specify other seed values to test the model on different test datasets.
 
 ## Visualization
 
-View.
+An image is worth more than a thousand words, or in this case, more than a thousand numbers in a JAX array.
 
-### Direct optimization
+You can visualize the prediction a model makes, either ours or the baselines, with a dedicated script that lets you take control over the styling of the rendered prediction:
 
-Another baseline.
+```bash
+python visualize.py <model_names> <task_name> --shape_index=<shape_index> --seed=<test_seed>
+```
 
+Unlike the other scripts, the visualization script lets you input a list of model names to render the predication each of the models makes on a single target shape.
+This allows us to display the shapes with the same color map range, as we do in the paper.
+The target shape is selected by inputting its index relative to the batch size with the `<shape_index>` argument.
 
-Blah.
+Check out the docstring of `visualize.py` for the nitty-gritty details of how to control color palettes, linewidths, and arrow scales to make pretty pictures.
+
+## Direct optimization
+
+So far we've only discussed how to create neural models for shape-matching tasks.
+Direct gradient-based optimization is another baseline that merits its own section as it is the ground-truth in traditional design optimization in structural engineering.
+Take an optimizer for a ride via:
+
+```
+python optimize.py <optimizer_name> <task_name> --batch_size=<batch_size> --seed=<test_seed> --blow=<blow> --blup=<bup> --param_init=<param_init> --maxiter=<maxiter> --tol=<tol>
+```
+
+We support two constrained gradient-based algorithms as implemented in `jaxopt` (they effectively are `scipy` wrappers).
+Select one of them through their `optimizer_name`: 
+- `slsqp`: The sequential least squares quadratic programming algorithm.
+- `lbfgsb`: The limited-memory Broyden–Fletcher–Goldfarb–Shanno algorithm.
+
+The algorithms support box constraints on the simulation parameters.
+We take advantage of this feature to constrain their value to a specific sign and to range of reasonable values, depending on the task.
+The lower box constraint is equivalent to the effect that `tau` has on the decoder's output in the paper, by prescribing a minimum output value.
+Both optimizers run for `maxiter=5000` iterations at most and stop early if they hit the convergence tolerance of `tol=1e-6`.
+
+We're in the business of local optimization, so the inialization affects convergence. 
+You can pick between two initialization schemes with `param_init` that respect the force density signs of a task (compression or tension):
+
+-  If specified as a scalar, it determines the starting constant value of all the simulation parameters.
+- If set to `None`, the initialization samples starting parameters between `blow` and `bup` from a uniform distribution.
+    
+In the shells task, we apply `slsqp`, set `blow=0.0` and `bup=20.0`, and `param_init=None`.
+
+In contrast, the towers task uses `lbfgsb` and `blow=1.0` to match the value of `tau` we used in this task in the paper.
+The towers task is too more nuanced because we explore three different initialization schemes:
+- Randomized: `param_init=None`
+- Expert: `param_init=1.0`
+
+The third initialization type relies on the predictions of a pre-trained model and deserves its own section.
 
 ## Citation
 
