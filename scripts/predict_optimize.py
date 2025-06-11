@@ -43,6 +43,28 @@ from neural_fdm.losses import print_loss_summary
 
 from neural_fdm.serialization import load_model
 
+from optimize import calculate_params_init
+from optimize import calculate_params_bounds
+
+
+# ===============================================================================
+# Globals -- Don't do this at home!
+# ===============================================================================
+
+CAMERA_CONFIG_BEZIER = {
+    "color": (1.0, 1.0, 1.0, 1.0),
+    "position": (30.34, 30.28, 42.94),
+    "target": (0.956, 0.727, 1.287),
+    "distance": 20.0,
+}
+
+CAMERA_CONFIG_TOWER = {
+    "color": (1.0, 1.0, 1.0, 1.0),
+    "position": (10.718, 10.883, 14.159),
+    "target": (-0.902, -0.873, 3.846),
+    "distance": 19.482960680274577,
+    "rotation": (1.013, 0.000, 2.362),
+}
 
 # ===============================================================================
 # Script function
@@ -125,11 +147,13 @@ def predict_optimize_batch(
     QMIN = blow
     QMAX = bup
 
-    CAMERA_CONFIG = {
-        "position": (30.34, 30.28, 42.94),
-        "target": (0.956, 0.727, 1.287),
-        "distance": 20.0,
-    }
+    # pick camera configuration for task
+    if task_name == "bezier":
+        CAMERA_CONFIG = CAMERA_CONFIG_BEZIER
+        _width = 900
+    elif task_name == "tower":
+        CAMERA_CONFIG = CAMERA_CONFIG_TOWER
+        _width = 450
 
     # pick optimizer name
     optimizer_names = {"lbfgsb": "L-BFGS-B", "slsqp": "SLSQP"}
@@ -294,7 +318,7 @@ def predict_optimize_batch(
                 mesh_target.vertex_attributes(key, "xyz", _xyz[idx])
 
             viewer = Viewer(
-                width=900,
+                width=_width,
                 height=900,
                 show_grid=False,
                 viewmode="lighted"
@@ -304,6 +328,9 @@ def predict_optimize_batch(
             viewer.view.camera.position = CAMERA_CONFIG["position"]
             viewer.view.camera.target = CAMERA_CONFIG["target"]
             viewer.view.camera.distance = CAMERA_CONFIG["distance"]
+            _rotation = CAMERA_CONFIG.get("rotation")
+            if _rotation:
+                viewer.view.camera.rotation = _rotation
 
             # edge colors
             if EDGECOLOR == "force":
@@ -396,95 +423,6 @@ def predict_optimize_batch(
             error += terms["height error"].item()
             errors.append(error)
         print(f"Shape + height error over {num_opts} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
-
-
-# ===============================================================================
-# Helper functions
-# ===============================================================================
-
-def calculate_params_init(mesh, param_init, key, minval, maxval):
-    """
-    Calculate the initial force densities for the optimization.
-
-    Parameters
-    ----------
-    mesh: `compas.datastructures.Mesh`
-        The mesh to optimize.
-    param_init: `float` or `None`
-        If specified, it determines the starting value of all the model parameters.
-        If `None`, then it samples parameters between `b_low` and `b_up` from a uniform distribution.        
-    key: `jax.random.PRNGKey`
-        The random seed for the uniform distribution.
-    minval: `float`
-        The minimum value for the uniform distribution.
-    maxval: `float`
-        The maximum value for the uniform distribution.
-
-    Returns
-    -------
-    q0: `jax.numpy.ndarray`
-        The initial force densities.
-    """
-    num_edges = mesh.number_of_edges()
-
-    signs = []
-    for edge in mesh.edges():
-        sign = -1.0  # compression by default
-        # for tower task
-        if mesh.edge_attribute(edge, "tag") == "cable":
-            sign = 1.0
-        signs.append(sign)
-
-    signs = jnp.array(signs)
-
-    if param_init is not None:
-        q0 = jnp.ones(num_edges) * param_init
-    else:
-        q0 = jrn.uniform(key, shape=(num_edges, ), minval=minval, maxval=maxval)
-
-    return q0 * signs
-
-
-def calculate_params_bounds(mesh, q0, minval, maxval):
-    """
-    Calculate the box constraints for the optimization.
-
-    Parameters
-    ----------
-    mesh: `compas.datastructures.Mesh`
-        The mesh to optimize.
-    q0: `jax.numpy.ndarray`
-        The initial force densities.
-    minval: `float`
-        The value of the lower bound.
-    maxval: `float`
-        The value of the upper bound.
-
-    Returns
-    -------
-    bound_low: `jax.numpy.ndarray`
-        The lower box constraint.
-    bound_up: `jax.numpy.ndarray`
-        The upper box constraint.
-    """
-    bound_low = []
-    bound_up = []
-    for edge in mesh.edges():
-        # compression by default
-        b_low = maxval * -1.0
-        b_up = minval * -1.0
-        # for tower task
-        if mesh.edge_attribute(edge, "tag") == "cable":
-            b_low = minval
-            b_up = maxval
-
-        bound_low.append(b_low)
-        bound_up.append(b_up)
-
-    bound_low = jnp.array(bound_low)
-    bound_up = jnp.array(bound_up)
-
-    return bound_low, bound_up
 
 
 # ===============================================================================
