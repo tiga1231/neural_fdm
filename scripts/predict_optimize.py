@@ -56,7 +56,7 @@ from optimize import calculate_params_bounds
 
 def predict_optimize_batch(
         model_name,
-        optimizer,
+        optimizer_name,
         task_name,
         blow=0.0,
         bup=20.0,
@@ -83,16 +83,16 @@ def predict_optimize_batch(
         The model name.
         Supported models are formfinder, autoencoder, and piggy.
         Append the suffix `_pinn` to load model versions that were trained with a PINN loss.
-    optimizer: `str`
+    optimizer_name: `str`
         The name gradient-based optimizer used to solve this task.
         Supported methods are slsqp and lbfgsb.
     task_name: `str`
         The name of the YAML config file with the task hyperparameters.
-    b_low: `float`, optional
+    blow: `float`, optional
         The lower bound of the box constraints on the model parameters.
         The bounds respect the force density signs of a task (compression or tension, currently hardcoded).
         Default: `0.0`.
-    b_up: `float`, optional
+    bup: `float`, optional
         The lower bound of the box constraints on the model parameters.
         The bounds respect the force density signs of a task (compression or tension, currently hardcoded).
         Default: `20.0`.
@@ -143,7 +143,7 @@ def predict_optimize_batch(
 
     # pick optimizer name
     optimizer_names = {"lbfgsb": "L-BFGS-B", "slsqp": "SLSQP"}
-    optimizer_name = optimizer_names[optimizer]
+    optimizer_name = optimizer_names[optimizer_name]
 
     # load yaml file with hyperparameters
     with open(f"{task_name}.yml") as file:

@@ -225,7 +225,22 @@ The towers task is too more nuanced because we explore three different initializ
 - Randomized: `param_init=None`
 - Expert: `param_init=1.0`
 
-The third initialization type relies on the predictions of a pre-trained model and deserves its own section.
+The third initialization type relies on the predictions of a pre-trained model and, to use it, we need to invoke a different script.
+
+## Predict, then optimize
+
+There is enormous potential in combining neural networks with traditional optimization techniques to expedite mechanical design.
+An opportunity in this space is to leverage the prediction made by one of our models and refine that prediction with direct optimization to unlock the best-performing designs.
+
+Our key to open a tiny (very tiny) door into this space is the `predict_optimize.py` script:
+
+```
+python predict_optimize.py <model_name> <optimizer_name> <task_name> --batch_size=<batch_size> --seed=<test_seed> --blow=<blow> --blup=<bup> --maxiter=<maxiter> --tol=<tol>
+```
+
+What is different from the `optimize.py` script is that, now, you will have to specify the name of a trained model via `model_name`.
+The predictions will warmstart the optimization, replacing any of the `param_init` schemes described earlier.
+The rest of the inputs proceed the same way, in peace and tranquility.
 
 ## Citation
 
