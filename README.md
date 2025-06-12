@@ -224,13 +224,10 @@ An image is worth more than a thousand words, or in this case, more than a thous
 You can visualize the prediction a model makes, either ours or the baselines, with a dedicated script that lets you take control over the styling of the rendered prediction:
 
 ```bash
-python visualize.py <model_names> <task_name> --shape_index=<shape_index> --seed=<test_seed>
+python visualize.py <model_name> <task_name> --shape_index=<shape_index> --seed=<test_seed>
 ```
 
-Unlike the other scripts, the visualization script lets you input a list of model names to render the predication each of the models makes on a single target shape.
-This allows us to display the shapes with the same color map range, as we do in the [paper](https://arxiv.org/abs/2409.02606).
-The target shape is selected by inputting its index relative to the batch size with the `<shape_index>` argument.
-
+The shape to display is selected by inputting its index relative to the batch size with the `<shape_index>` argument.
 Check out the docstring of `visualize.py` for the nitty-gritty details of how to control color palettes, linewidths, and arrow scales to make pretty pictures.
 
 [Table of contents](#table-of-contents) ⬆️
@@ -242,7 +239,7 @@ Direct gradient-based optimization is another baseline that merits its own secti
 Take an optimizer for a ride via:
 
 ```
-python optimize.py <optimizer_name> <task_name> --batch_size=<batch_size> --seed=<test_seed> --blow=<blow> --blup=<bup> --param_init=<param_init> --maxiter=<maxiter> --tol=<tol>
+python optimize.py <optimizer_name> <task_name> --batch_size=<batch_size> --seed=<test_seed> --blow=<blow> --bup=<bup> --param_init=<param_init> --maxiter=<maxiter> --tol=<tol>
 ```
 
 We support two constrained gradient-based algorithms as implemented in `jaxopt` (they effectively are `scipy` wrappers).
@@ -280,7 +277,7 @@ An opportunity in this space is to leverage the prediction made by one of our mo
 Our key to open a tiny (very tiny) door into this space is the `predict_optimize.py` script:
 
 ```
-python predict_optimize.py <model_name> <optimizer_name> <task_name> --batch_size=<batch_size> --seed=<test_seed> --blow=<blow> --blup=<bup> --maxiter=<maxiter> --tol=<tol>
+python predict_optimize.py <model_name> <optimizer_name> <task_name> --batch_size=<batch_size> --seed=<test_seed> --blow=<blow> --bup=<bup> --maxiter=<maxiter> --tol=<tol>
 ```
 
 What is different from the `optimize.py` script is that, now, you will have to specify the name of a trained model via `model_name`.
