@@ -68,7 +68,7 @@ def predict_optimize_batch(
         save=False,
         view=False,
         slice=(0, -1),  # (50, 53) for bezier
-        edgecolor="force"
+        edgecolor=None,
 ):
     """
     Solve the prediction task on a batch target shapes with gradient-based optimization
@@ -113,12 +113,20 @@ def predict_optimize_batch(
     slice: `tuple`, optional
         The start and stop indices of the slice of the batch for saving and viewing.
         Defaults to all the shapes in the batch.        
-    edgecolor: `str`, optional
+    edgecolor: `str` or `None`, optional
         The color palette for the edges.
-        Supported color palettes are fd to display force densities, and force to show forces.        
+        Supported color palettes are fd to display force densities, and force to show forces.
+        If `None`, the edges are colored by the force density in the shells tasks, and by the force in the tower tasks.
     """
+    if edgecolor is None:
+        if task_name == "bezier":
+            EDGECOLOR = "fd"
+        elif task_name == "tower":
+            EDGECOLOR = "force"
+    else:
+        EDGECOLOR = edgecolor
+
     START, STOP = slice
-    EDGECOLOR = edgecolor  # force, fd
     SAVE = save
     QMIN = blow
     QMAX = bup

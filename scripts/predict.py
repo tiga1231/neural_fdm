@@ -41,6 +41,9 @@ from neural_fdm.losses import print_loss_summary
 
 from neural_fdm.serialization import load_model
 
+from camera import CAMERA_CONFIG_BEZIER
+from camera import CAMERA_CONFIG_TOWER
+
 from train import count_model_params
 
 
@@ -59,7 +62,8 @@ def predict_batch(
         view=False,
         save=False,
         save_metrics=False,
-        edgecolor="force"):
+        edgecolor=None,
+):
     """
     Predict a batch of target shapes with a pretrained model.
 
@@ -90,18 +94,20 @@ def predict_batch(
         If `True`, saves the predicted shapes as JSON files.
     save_metrics: `bool`, optional
         If `True`, saves the calculated batch metrics in text files.
-    edgecolor: `str`, optional
+    edgecolor: `str` or `None`, optional
         The color palette for the edges.
-        Supported color palettes are "fd" to display force densities, and "force" to show forces.        
+        Supported color palettes are fd to display force densities, and force to show forces.
+        If `None`, the edges are colored by the force density in the shells tasks, and by the force in the tower tasks.
     """
-    START, STOP = slice
-    EDGECOLOR = edgecolor  # force, fd
+    if edgecolor is None:
+        if task_name == "bezier":
+            EDGECOLOR = "fd"
+        elif task_name == "tower":
+            EDGECOLOR = "force"
+    else:
+        EDGECOLOR = edgecolor
 
-    CAMERA_CONFIG = {
-        "position": (30.34, 30.28, 42.94),
-        "target": (0.956, 0.727, 1.287),
-        "distance": 20.0,
-    }
+    START, STOP = slice
 
     # load yaml file with hyperparameters
     with open(f"{task_name}.yml") as file:
@@ -242,8 +248,16 @@ def predict_batch(
 
         # visualization
         if view:
+            # pick camera configuration for task
+            if task_name == "bezier":
+                _width = 900
+                CAMERA_CONFIG = CAMERA_CONFIG_BEZIER
+            elif task_name == "tower":
+                _width = 450
+                CAMERA_CONFIG = CAMERA_CONFIG_TOWER
+
             viewer = Viewer(
-                width=900,
+                width=_width,
                 height=900,
                 show_grid=False,
                 viewmode="lighted"
