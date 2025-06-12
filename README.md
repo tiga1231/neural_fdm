@@ -77,7 +77,7 @@ If you need additional development tools (testing, formatting, etc.), are intere
 
 1. Install the necessary and additional Conda dependencies:
 ```bash
-conda install -c conda-forge compas==1.17.10 compas_view2==0.7.0 compas_cgal==0.6.0
+conda install -c conda-forge compas==1.17.10 compas_view2==0.7.0 compas_cgal==0.5.0
 ```
 
 2. Install the package with development dependencies:

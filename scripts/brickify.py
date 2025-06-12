@@ -33,8 +33,8 @@ from compas.geometry import subtract_vectors
 from compas.utilities import pairwise
 from compas.utilities import geometric_key
 
-from compas_cgal.booleans import boolean_difference_mesh_mesh
-from compas_cgal.meshing import mesh_remesh
+from compas_cgal.booleans import boolean_difference as boolean_difference_mesh_mesh
+from compas_cgal.meshing import remesh as mesh_remesh
 
 from jax_fdm.datastructures import FDMesh
 from jax_fdm.visualization import Viewer
