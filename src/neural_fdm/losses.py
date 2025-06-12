@@ -25,8 +25,8 @@ def compute_loss(
     ----------
     model: `eqx.Module`
         The model.
-    structure: `eqx.Module`
-        The connectivity graph of the structure.
+    structure: `jax_fdm.EquilibriumStructure`
+        A structure with the discretization of the shape.
     x: `jax.Array`
         The target shape.
     loss_fn: `Callable`
@@ -90,8 +90,8 @@ def _compute_loss(
         The predicted shape.
     params_hat: tuple of `jax.Array`
         The predicted force densities, loads, and fixed positions.
-    structure: `eqx.Module`
-        The connectivity graph of the structure.
+    structure: `jax_fdm.EquilibriumStructure`
+        A structure with the discretization of the shape.
     aux_data: `bool`
         If true, returns auxiliary data.
     piggy_mode: `bool`
@@ -130,8 +130,8 @@ def _compute_loss_piggy(
         The predicted shape and the predicted parameters.
     y_data_hat: `tuple`
         The predicted shape and the predicted parameters.
-    structure: `eqx.Module`
-        The connectivity graph of the structure.
+    structure: `jax_fdm.EquilibriumStructure`
+        A structure with the discretization of the shape.
     aux_data: `bool`
         If true, returns auxiliary data.
     piggy_mode: `bool`
@@ -177,8 +177,8 @@ def compute_loss_shell(
         The predicted shape.
     params_hat: tuple of `jax.Array`
         The predicted force densities, loads, and fixed positions.
-    structure: `eqx.Module`
-        The connectivity graph of the structure.
+    structure: `jax_fdm.EquilibriumStructure`
+        A structure with the discretization of the shape.
     loss_params: `dict`
         The scaling parameters to combine the loss' error terms.
     aux_data: `bool`
@@ -238,8 +238,8 @@ def compute_loss_tower(
         The predicted shape.
     params_hat: tuple of `jax.Array`
         The predicted force densities, loads, and fixed positions.
-    structure: `eqx.Module`
-        The connectivity graph of the structure.
+    structure: `jax_fdm.EquilibriumStructure`
+        A structure with the discretization of the shape.
     loss_params: `dict`
         The scaling parameters to combine the loss' error terms.
     aux_data: `bool`
@@ -386,8 +386,8 @@ def compute_error_residual(x_hat, params_hat, structure, indices):
         The predicted shape.
     params_hat: tuple of `jax.Array`
         The predicted force densities, loads, and fixed positions.
-    structure: `eqx.Module`
-        The structure with the graph connectivity.
+    structure: `jax_fdm.EquilibriumStructure`
+        A structure with the discretization of the shape.
     indices: `jax.Array`
         The indices of the free vertices to calculate the residual at.
 

@@ -19,7 +19,7 @@ def calculate_area_loads(x, structure, load):
     x: `jax.Array`
         The 3D coordinates of the vertices.
     structure: `jax_fdm.EquilibriumStructure`
-        The structure.
+        A structure with the discretization of the shape.
     load: `float`
         The vertical load per unit area in the `z` direction.
 
@@ -55,7 +55,7 @@ def calculate_constant_loads(x, structure, load):
     x: `jax.Array`
         The 3D coordinates of the vertices.
     structure: `jax_fdm.EquilibriumStructure`
-        The structure.
+        A structure with the discretization of the shape.
     load: `float`
         The vertical load per vertex in the `z` direction.
 
@@ -169,7 +169,7 @@ def vertices_residuals_from_xyz(q, loads, xyz, structure):
     xyz: `jax.Array`
         The 3D coordinates of the vertices.
     structure: `jax_fdm.EquilibriumStructure`
-        The structure.
+        A structure with the discretization of the shape.
 
     Returns
     -------
@@ -197,7 +197,7 @@ def calculate_equilibrium_state(q, xyz, loads_nodes, structure):
     loads_nodes: `jax.Array`
         The loads on the vertices.
     structure: `jax_fdm.EquilibriumStructure`
-        The structure.
+        A structure with the discretization of the shape.
 
     Returns
     -------
