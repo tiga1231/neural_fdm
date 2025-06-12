@@ -213,15 +213,12 @@ def predict_batch(
         eqstate_hat, fd_params_hat = model.predict_states(xyz, structure)
         mesh_hat = datastructure_updated(mesh, eqstate_hat, fd_params_hat)
 
-        # extract additional statistics
-        loss_terms["force max"] = jnp.max(jnp.abs(eqstate_hat.forces))
-        loss_terms["area"] = jnp.array(mesh_hat.area())
-        loss_terms["loadpath"] = jnp.array(mesh_hat.loadpath())
-        loss_terms["time"] = jnp.array([end_time])
-
+        # print loss statistics
         loss_terms_batch.append(loss_terms)
-        print_loss_summary(loss_terms, prefix=f"Shape {i}\t")
+        loss_terms["time"] = jnp.array([end_time])
+        print_loss_summary(loss_terms, prefix=f"Shape {i} \t")
 
+        # extract additional statistics
         qs.extend([_q.item() for _q in fd_params_hat.q])
 
         if view or save:
@@ -369,39 +366,7 @@ def predict_batch(
         errors = [terms[label].item() for terms in loss_terms_batch]
         print(f"{label.capitalize()} over {num_predictions} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
 
-    errors = []
-    for terms in loss_terms_batch:
-        if task_name == "bezier":
-            factor = terms["area"].item() * 0.5
-        elif task_name == "tower":
-            factor = terms["force max"].item()
-        error = terms["residual error"].item() / factor
-        errors.append(error)
-    print(f"Normalized residual error over {num_predictions} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
-
-    if task_name == "tower":
-        errors = []
-        for terms in loss_terms_batch:
-            error = 0.0
-            error += terms["shape error"].item()
-            error += terms["height error"].item()
-            errors.append(error)
-        print(f"Shape + height error over {num_predictions} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
-
     if save_metrics:
-        metric_names = ["loadpath"]
-        for name in metric_names:
-
-            metrics = [f"{terms[name].item()}\n" for terms in loss_terms_batch]
-
-            filename = f"{model_name}_{task_name}_{'_'.join(name.split())}_eval.txt"
-            filepath = os.path.join(DATA, filename)
-
-            with open(filepath, 'w') as output:
-                output.writelines(metrics)
-
-            print(f"Saved batch {name} metric to {filepath}")
-
         # Export force densities
         filename = f"{model_name}_{task_name}_q_eval.txt"
         filepath = os.path.join(DATA, filename)
@@ -410,7 +375,7 @@ def predict_batch(
         with open(filepath, 'w') as output:
             output.writelines(metrics)
 
-        print(f"Saved batch {name} metric to {filepath}")
+        print(f"Saved batch qs to {filepath}")
 
 
 # ===============================================================================

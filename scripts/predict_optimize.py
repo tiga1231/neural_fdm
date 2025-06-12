@@ -391,15 +391,6 @@ def predict_optimize_batch(
         errors = [terms[label].item() for terms in loss_terms_batch]
         print(f"{label.capitalize()} over {num_opts} optimizations: {mean(errors):.4f} (+-{stdev(errors):.4f})")
 
-    if task_name == "tower":
-        errors = []
-        for terms in loss_terms_batch:
-            error = 0.0
-            error += terms["shape error"].item()
-            error += terms["height error"].item()
-            errors.append(error)
-        print(f"Shape + height error over {num_opts} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
-
 
 # ===============================================================================
 # Main

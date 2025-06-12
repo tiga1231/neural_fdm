@@ -52,12 +52,12 @@ def compute_loss(
         _loss_fn = _compute_loss_piggy
 
     loss = _loss_fn(
-        loss_fn, 
-        loss_params, 
-        x, 
-        x_hat, 
-        data_hat, 
-        structure, 
+        loss_fn,
+        loss_params,
+        x,
+        x_hat,
+        data_hat,
+        structure,
         aux_data,
         piggy_mode
     )
@@ -313,8 +313,8 @@ def compute_loss_tower(
 
     loss_terms = {
         "loss": loss,
-        "shape error": loss_shape,        
-        "residual error": loss_residual,        
+        "shape error": loss_shape,
+        "residual error": loss_residual,
         "regularization": regularization
     }
 
@@ -397,7 +397,7 @@ def compute_error_residual(x_hat, params_hat, structure, indices):
         The residual error.
     """
     def calculate_residuals(_x_hat, _params_hat):
-        # NOTE: Not using jnp.linalg.norm because we hitted NaNs.        
+        # NOTE: Not using jnp.linalg.norm because we hitted NaNs.
         q_hat, xyz_fixed, loads = _params_hat
         residual_vectors = vertices_residuals_from_xyz(q_hat, loads, _x_hat, structure)
         residual_vectors_free = jnp.ravel(residual_vectors[indices, :])
@@ -454,7 +454,7 @@ def print_loss_summary(loss_terms, prefix=None):
     loss_terms: `dict`
         The loss terms.
     prefix: `str` or `None`, optional
-        The prefix to add to the loss terms printed to the console.        
+        The prefix to add to the loss terms printed to the console.
     """
     msg_parts = []
     if prefix:
