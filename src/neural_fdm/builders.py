@@ -41,10 +41,19 @@ from neural_fdm.models import MLPDecoderXL
 
 def ellipse_minmax_values():
     """
-    The boundary values for an ellipse.
-    """
-    # radius 1, radius 2, rotation
-    # radii are scale factors relative to the base radius of a tower
+    The boundary values (radius 1, radius 2, rotation) for a family of ellipses.
+
+    Returns
+    -------
+    minval: `list` of `float`
+        The minimum values for the ellipse.
+    maxval: `list` of `float`
+        The maximum values for the ellipse.
+
+    Notes
+    -----
+    The radii are scale factors relative to the reference radius of a tower.
+    """    
     minval = [0.5, 0.5, 0.0]
     maxval = [1.5, 1.5, 0.0]
 
@@ -53,10 +62,19 @@ def ellipse_minmax_values():
 
 def ellipse_rotated_minmax_values():
     """
-    The boundary values for rotated ellipse.
-    """
-    # radius 1, radius 2, rotation
-    # radii are scale factors relative to the base radius of a tower
+    The boundary values (radius 1, radius 2, rotation) for a family of rotating ellipses.
+
+    Returns
+    -------
+    minval: `list` of `float`
+        The minimum values for the ellipse.
+    maxval: `list` of `float`
+        The maximum values for the ellipse.
+
+    Notes
+    -----
+    The radii are scale factors relative to the reference radius of a tower.
+    """    
     minval = [0.5, 0.5, -15.0]
     maxval = [1.5, 1.5, 15.0]
 
@@ -65,6 +83,21 @@ def ellipse_rotated_minmax_values():
 
 def get_tower_generator_minmax_values(name, bounds):
     """
+    Get the minimum and maximum radii and rotation values for a tower generator.
+
+    Parameters
+    ----------
+    name: `str`
+        The name of the tower generator.
+    bounds: `str`
+        The name of the bounds to use.
+
+    Returns
+    -------
+    minval: `jax.Array`
+        The minimum values for the generator.
+    maxval: `jax.Array` 
+        The maximum values for the generator.
     """
     experiments = {
         "straight": ellipse_minmax_values,
@@ -91,7 +124,14 @@ def get_tower_generator_minmax_values(name, bounds):
 
 def pillow_minmax_values():
     """
-    The boundary XYZ values for the pillow tile.
+    The boundary 3D coordinates for a family of pillow shapes.
+
+    Returns
+    -------
+    minval: `list` of `list` of `float`
+        The minimum values for the pillow on a quarter tile.
+    maxval: `list` of `list` of `float`
+        The maximum values for the pillow on a quarter tile.
     """
     minval = [
         [0.0, 0.0, 1.0],
@@ -112,7 +152,14 @@ def pillow_minmax_values():
 
 def dome_minmax_values():
     """
-    The boundary XYZ values for the dome tile.
+    The boundary 3D coordinates for a family of dome shapes.
+
+    Returns
+    -------
+    minval: `list` of `list` of `float`
+        The minimum values for the dome on a quarter tile.
+    maxval: `list` of `list` of `float`
+        The maximum values for the dome on a quarter tile.
     """
     minval = [
         [0.0, 0.0, 1.0],
@@ -133,7 +180,14 @@ def dome_minmax_values():
 
 def saddle_minmax_values():
     """
-    The boundary XYZ values for the dome tile.
+    The boundary 3D coordinates for a family of saddle shapes.
+
+    Returns
+    -------
+    minval: `list` of `list` of `float`
+        The minimum values for the saddle on a quarter tile.
+    maxval: `list` of `list` of `float`
+        The maximum values for the saddle on a quarter tile.
     """
     minval = [
         [0.0, 0.0, 1.0],
@@ -154,7 +208,21 @@ def saddle_minmax_values():
 
 def get_bezier_generator_minmax_values(name, bounds):
     """
-    Calculate XYZ bounds for a given Bezier data generator.
+    The boundary 3D coordinates for a family of Bezier shapes.
+
+    Parameters
+    ----------
+    name: `str`
+        The name of the Bezier generator.
+    bounds: `str`
+        The name of the bounds to use.
+
+    Returns
+    -------
+    minval: `jax.Array`
+        The minimum values for the generator.
+    maxval: `jax.Array` 
+        The maximum values for the generator.
     """
     experiments = {
         "pillow": pillow_minmax_values,
@@ -222,6 +290,17 @@ def _get_bezier_generator_minmax_values_blend(minval, maxval):
 
 def build_tube_point_generator(generator_params):
     """
+    Build a generator that samples random points on a tube.
+
+    Parameters
+    ----------
+    generator_params: `dict`
+        The parameters for the generator.
+
+    Returns
+    -------
+    generator: `TubePointGenerator`
+        The generator.
     """
     # unpack parameters
     name = generator_params["name"]
@@ -252,6 +331,17 @@ def build_tube_point_generator(generator_params):
 
 def build_bezier_point_generator(generator_params):
     """
+    Build a generator that samples random points on a Bezier surface.
+
+    Parameters
+    ----------
+    generator_params: `dict`
+        The parameters for the generator.
+
+    Returns
+    -------
+    generator: `BezierSurfacePointGenerator`
+        The generator.
     """
     # unpack parameters
     name = generator_params["name"]
@@ -286,7 +376,17 @@ def build_bezier_point_generator(generator_params):
 
 def build_data_generator(config):
     """
-    TODO: Pick generator based on task name
+    Build a generator that samples random points on a target shape.
+
+    Parameters
+    ----------
+    config: `dict`
+        The configuration for the generator.
+
+    Returns
+    -------
+    generator: `PointGenerator`
+        The generator.
     """
     # unpack parameters
     generator_params = config["generator"]
@@ -314,6 +414,18 @@ def build_data_generator(config):
 def build_mesh_from_generator(config, generator):
     """
     Generate a JAX FDM mesh according to the generator type.
+
+    Parameters
+    ----------
+    config: `dict`
+        The configuration for the generator.
+    generator: `PointGenerator`
+        The generator.
+
+    Returns
+    -------
+    mesh: `jax_fdm.FDMesh`
+        The mesh.
     """
     if isinstance(generator, BezierSurfacePointGenerator):
         mesh_builder = create_mesh_from_bezier_generator
@@ -331,6 +443,19 @@ def build_mesh_from_generator(config, generator):
 
 def build_connectivity_structure_from_generator(config, generator):
     """
+    Build a structure from a generator.
+
+    Parameters
+    ----------
+    config: `dict`
+        The configuration for the generator.
+    generator: `PointGenerator`
+        The generator.
+
+    Returns
+    -------
+    structure: `jax_fdm.EquilibriumStructure`
+        The structure.
     """
     # generate base FD mesh
     mesh = build_mesh_from_generator(config, generator)
@@ -344,6 +469,17 @@ def build_connectivity_structure_from_generator(config, generator):
 
 def get_activation_fn(name):
     """
+    Fetch the activation function.
+
+    Parameters
+    ----------
+    name: `str`
+        The name of the activation function.
+
+    Returns
+    -------
+    activation_fn: `Callable`
+        The activation function.
     """
     functions = {
         "elu": jax.nn.elu,
@@ -365,6 +501,16 @@ def get_activation_fn(name):
 def get_optimizer_fn(name):
     """
     Fetch the optimizer function.
+
+    Parameters
+    ----------
+    name: `str`
+        The name of the optimizer.
+
+    Returns
+    -------
+    optimizer_fn: `Callable`
+        The optimizer function.
     """
     optimizers = {
         "adam": optax.adam,
@@ -381,6 +527,16 @@ def get_optimizer_fn(name):
 def build_optimizer(config):
     """
     Construct an optimizer.
+
+    Parameters
+    ----------
+    config: `dict`
+        The configuration for the optimizer.
+
+    Returns
+    -------
+    optimizer: `optax.GradientTransformation`
+        The optimizer.
     """
     params = config["optimizer"]
 
@@ -411,6 +567,18 @@ def build_optimizer(config):
 def build_loss_function(config, generator):
     """
     Build a loss function.
+
+    Parameters
+    ----------
+    config: `dict`
+        The configuration for the loss function.
+    generator: `PointGenerator`
+        The generator.
+
+    Returns
+    -------
+    loss_fn: `Callable`
+        The loss function.
     """
     task_name = config["generator"]["name"]
     loss_params = config["loss"]
@@ -441,7 +609,16 @@ def build_loss_function(config, generator):
 
 def build_fd_model():
     """
-    Dense, because batching rule is undefined to vmap a sparse model.
+    Build a force density model.
+
+    Returns
+    -------
+    fd_model: `jax_fdm.EquilibriumModel`
+        The force density model.
+
+    Notes
+    -----
+    This is a dense model, because batching rule is undefined to vectorize a sparse one.
     """
     fd_model = EquilibriumModel(
         tmax=1,
@@ -457,7 +634,17 @@ def build_fd_model():
 
 def calculate_edges_mask(mesh):
     """
-    Mask out to indicate what mesh edges are fully supported.
+    A mask to indicate what mesh edges are fully supported.
+
+    Parameters
+    ----------
+    mesh: `jax_fdm.FDMesh`
+        The mesh.
+
+    Returns
+    -------
+    mask_edges: `jax.Array`
+        The mask array with 1s for supported edges and 0s for unsupported edges.
     """
     mask_edges = []
     for edge in mesh.edges():
@@ -475,7 +662,17 @@ def calculate_edges_mask(mesh):
 
 def calculate_edges_stress_signs(mesh):
     """
-    Integer array to indicate what mesh edges are in compression and in tension
+    Calculate an integer array to indicate what mesh edges are in compression and in tension.
+
+    Parameters
+    ----------
+    mesh: `jax_fdm.FDMesh`
+        The mesh.
+
+    Returns
+    -------
+    signs: `jax.Array`
+        The array with -1s for compression and 1s for tension.
     """
     signs = []
     for edge in mesh.edges():
@@ -494,6 +691,21 @@ def calculate_edges_stress_signs(mesh):
 
 def build_fd_decoder_parametrized(q0, mesh, params):
     """
+    Build a force density decoder for direct optimization.
+
+    Parameters
+    ----------
+    q0: `jax.Array`
+        The initial force densities.
+    mesh: `jax_fdm.FDMesh`
+        The mesh.
+    params: `dict`
+        The parameters for the decoder.
+
+    Returns
+    -------
+    decoder: `jax_fdm.FDDecoder`
+        The force density decoder.
     """
     # unpack hyperparams
     load = params["load"]
@@ -517,6 +729,19 @@ def build_fd_decoder_parametrized(q0, mesh, params):
 
 def build_fd_decoder(mesh, params):
     """
+    Build a force density decoder to connect with a neural encoder.
+
+    Parameters
+    ----------
+    mesh: `jax_fdm.FDMesh`
+        The mesh.
+    params: `dict`
+        The parameters for the decoder.
+
+    Returns
+    -------
+    decoder: `Decoder`
+        The force density decoder.
     """
     # unpack hyperparams
     load = params["load"]
@@ -539,6 +764,21 @@ def build_fd_decoder(mesh, params):
 
 def build_neural_decoder(mesh, key, params):
     """
+    Build an MLP decoder.
+
+    Parameters
+    ----------
+    mesh: `jax_fdm.FDMesh`
+        The mesh.
+    key: `jax.random.PRNGKey`
+        The random key.
+    params: `dict`
+        The parameters for the decoder.
+
+    Returns
+    -------
+    decoder: `Decoder`
+        The decoder.
     """
     # unpack hyperparameters
     nn_params, fd_params = params
@@ -591,6 +831,23 @@ def build_neural_decoder(mesh, key, params):
 
 def build_neural_encoder(mesh, key, params, generator):
     """
+    Build an MLP encoder.
+
+    Parameters
+    ----------
+    mesh: `jax_fdm.FDMesh`
+        The mesh.
+    key: `jax.random.PRNGKey`
+        The random key.
+    params: `dict`
+        The parameters for the decoder.
+    generator: `PointGenerator`
+        The generator.
+
+    Returns
+    -------
+    encoder: `Encoder`
+        The encoder.
     """
     # unpack hyperparameters
     nn_params, generator_params = params
@@ -648,6 +905,23 @@ def build_neural_encoder(mesh, key, params, generator):
 
 def build_neural_formfinder(mesh, key, params, generator):
     """
+    Instantiate an autoencoder model with a neural encoder and a mechanical decoder.
+
+    Parameters
+    ----------
+    mesh: `jax_fdm.FDMesh`
+        The mesh.
+    key: `jax.random.PRNGKey`
+        The random key.
+    params: `dict`
+        The hyperparameters for the model.
+    generator: `PointGenerator`
+        The generator.
+
+    Returns
+    -------
+    model: `AutoEncoder`
+        The autoencoder model.
     """
     # Unpack hyperparams
     nn_params, fd_params = params
@@ -666,6 +940,23 @@ def build_neural_formfinder(mesh, key, params, generator):
 
 def build_neural_autoencoder(mesh, key, params, generator):
     """
+    Instantiate a fully neural autoencoder model.
+
+    Parameters
+    ----------
+    mesh: `jax_fdm.FDMesh`
+        The mesh.
+    key: `jax.random.PRNGKey`
+        The random key.
+    params: `dict`
+        The hyperparameters for the model.
+    generator: `PointGenerator`
+        The generator.
+
+    Returns
+    -------
+    model: `AutoEncoder`
+        The autoencoder model.
     """
     # Unpack hyperparams
     enc_params, dec_params = params
@@ -684,6 +975,23 @@ def build_neural_autoencoder(mesh, key, params, generator):
 
 def build_neural_autoencoder_piggy(mesh, key, params, generator):
     """
+    Instantiate an autoencoder model with a piggybacking neural decoder.
+
+    Parameters
+    ----------
+    mesh: `jax_fdm.FDMesh`
+        The mesh.
+    key: `jax.random.PRNGKey`
+        The random key.
+    params: `dict`
+        The hyperparameters for the model.
+    generator: `PointGenerator`
+        The generator.
+
+    Returns
+    -------
+    model: `AutoEncoder`
+        The autoencoder model.
     """
     # Unpack hyperparams
 
@@ -706,6 +1014,23 @@ def build_neural_autoencoder_piggy(mesh, key, params, generator):
 
 def build_neural_model(name, config, generator, model_key):
     """
+    Build a neural model.
+
+    Parameters
+    ----------
+    name: `str`
+        The name of the model.
+    config: `dict`
+        The configuration for the model.
+    generator: `PointGenerator`
+        The generator.
+    model_key: `jax.random.PRNGKey`
+        The random key.
+
+    Returns
+    -------
+    model: `AutoEncoder`
+        The autoencoder model.
     """
     # generate base FD mesh
     mesh = build_mesh_from_generator(config, generator)
