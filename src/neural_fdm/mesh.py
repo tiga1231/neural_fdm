@@ -13,6 +13,18 @@ from neural_fdm.generators import evaluate_bezier_surface
 def create_mesh_from_tube_generator(generator, config, *args, **kwargs):
     """
     Boundary-supported mesh on a tube. The mesh has group tags.
+
+    Parameters
+    ----------
+    generator: `TubePointGenerator`
+        The tube generator.
+    config: `dict`
+        The configuration dictionary.
+
+    Returns
+    -------
+    mesh: `jax_fdm.FDMesh`
+        The mesh.
     """
     # shorthands
     tube = generator
@@ -63,6 +75,16 @@ def create_mesh_from_tube_generator(generator, config, *args, **kwargs):
 def create_mesh_from_bezier_generator(generator, *args, **kwargs):
     """
     Boundary-supported mesh on bezier surface.
+
+    Parameters
+    ----------
+    generator: `BezierSurfacePointGenerator`
+        The bezier surface generator.
+
+    Returns
+    -------
+    mesh: `jax_fdm.FDMesh`
+        The mesh.
     """
     # unpack parameters
     bezier = generator.surface
@@ -86,7 +108,21 @@ def create_mesh_from_bezier_generator(generator, *args, **kwargs):
 
 def create_mesh_from_grid(grid, u, v):
     """
-    Boundary-supported mesh on bezier surface.
+    Boundary-supported mesh on a grid of Bezier control points.
+
+    Parameters
+    ----------
+    grid: `PointGrid`
+        The grid of control points.
+    u: `jax.Array`
+        The parameter values along the `u` direction in the range [0, 1].
+    v: `jax.Array`
+        The parameter values along the `v` direction in the range [0, 1].
+
+    Returns
+    -------
+    mesh: `jax_fdm.FDMesh`
+        The mesh.
     """
     # generate base FD Mesh
     srf_points = calculate_bezier_surface_points_from_grid(grid, u, v)
@@ -105,6 +141,18 @@ def create_mesh_from_grid(grid, u, v):
 def calculate_mesh_grid_faces(nx, ny):
     """
     Generate the indices of the mesh faces of the grid.
+
+    Parameters
+    ----------
+    nx: `int`
+        The number of points along the `x` direction.
+    ny: `int`
+        The number of points along the `y` direction.
+
+    Returns
+    -------
+    faces: `list` of `list` of `int`
+        The indices of the mesh faces.
     """
     faces = []
     for i, j in product(range(nx), range(ny)):
@@ -121,7 +169,19 @@ def calculate_mesh_grid_faces(nx, ny):
 
 def calculate_mesh_tube_faces(nx, ny):
     """
-    Generate the indices of the mesh faces of a closed grid.
+    Generate the indices of the mesh faces of a tube.
+
+    Parameters
+    ----------
+    nx: `int`
+        The number of points along the `x` direction.
+    ny: `int`
+        The number of points along the `y` direction.
+
+    Returns
+    -------
+    faces: `list` of `list` of `int`
+        The indices of the mesh faces.
     """
     faces = calculate_mesh_grid_faces(nx, ny)
 
@@ -138,6 +198,21 @@ def calculate_mesh_tube_faces(nx, ny):
 
 def calculate_bezier_surface_points_from_grid(grid, u, v):
     """
+    Evaluate points on a Bezier surface from a grid of control points.
+
+    Parameters
+    ----------
+    grid: `PointGrid`
+        The grid of control points.
+    u: `jax.Array`
+        The parameter values along the `u` direction in the range [0, 1].
+    v: `jax.Array`
+        The parameter values along the `v` direction in the range [0, 1].
+
+    Returns
+    -------
+    points: `jax.Array`
+        The points on the surface.
     """
     # generate control points grid
     control_points = grid.points()
