@@ -13,7 +13,35 @@ from neural_fdm.models import AutoEncoderPiggy
 
 def train_step_piggy(model, structure, optimizer, generator, opt_state, *, loss_fn, batch_size, key):
     """
-    One step to train a piggy model.
+    Update the parameters of an autoencoder piggy model on a batch of data for one step.
+
+    Parameters
+    ----------
+    model: `eqx.Module`
+        The model to train.
+    structure: `jax_fdm.EquilibriumStructure`
+        A structure with the discretization of the shape.
+    optimizer: `optax.GradientTransformation`
+        The optimizer to use for training.
+    generator: `PointGenerator`
+        The data generator.
+    opt_state: `optax.GradientTransformationExtraArgs`
+        The current optimizer state.
+    loss_fn: `Callable`
+        The loss function.
+    batch_size: `int`
+        The number of samples to generate in each batch.
+    key: `jax.random.PRNGKey`
+        The random key.
+
+    Returns
+    -------
+    loss_vals: `dict` of `float`
+        The values of the loss terms.
+    model: `eqx.Module`
+        The updated model.
+    opt_state: `optax.GradientTransformationExtraArgs`
+        The updated optimizer state.
     """
     # sample fresh data
     keys = jrn.split(key, batch_size)
@@ -51,7 +79,35 @@ def train_step_piggy(model, structure, optimizer, generator, opt_state, *, loss_
 
 def train_step(model, structure, optimizer, generator, opt_state, *, loss_fn, batch_size, key):
     """
-    One step to train a model.
+    Update the parameters of an autoencoder model on a batch of data for one step.
+
+    Parameters
+    ----------
+    model: `eqx.Module`
+        The model to train.
+    structure: `jax_fdm.EquilibriumStructure`
+        A structure with the discretization of the shape.
+    optimizer: `optax.GradientTransformation`
+        The optimizer to use for training.
+    generator: `PointGenerator`
+        The data generator.
+    opt_state: `optax.GradientTransformationExtraArgs`
+        The current optimizer state.
+    loss_fn: `Callable`
+        The loss function.
+    batch_size: `int`
+        The number of samples to generate in each batch.
+    key: `jax.random.PRNGKey`
+        The random key.
+
+    Returns
+    -------
+    loss_vals: `dict` of `float`
+        The values of the loss terms.
+    model: `eqx.Module`
+        The updated model.
+    opt_state: `optax.GradientTransformationExtraArgs`
+        The updated optimizer state.    
     """
     # sample fresh data
     keys = jrn.split(key, batch_size)
@@ -65,12 +121,38 @@ def train_step(model, structure, optimizer, generator, opt_state, *, loss_fn, ba
     updates, opt_state = optimizer.update(grads, opt_state)
     model = eqx.apply_updates(model, updates)
 
-    return loss_vals, model, opt_state, grads
+    return loss_vals, model, opt_state
 
 
 def train_model(model, structure, optimizer, generator, *, loss_fn, num_steps, batch_size, key, callback=None):
     """
     Train a model over a number of steps.
+
+    Parameters
+    ----------
+    model: `eqx.Module`
+        The model to train.
+    structure: `jax_fdm.EquilibriumStructure`
+        A structure with the discretization of the shape.
+    optimizer: `optax.GradientTransformation`
+        The optimizer to use for training.
+    generator: `PointGenerator`
+        The data generator.
+    loss_fn: `Callable`
+        The loss function.
+    num_steps: `int`
+        The number of steps to train for (number of parameter updates).
+    batch_size: `int`
+        The number of samples to generate per batch.
+    key: `jax.random.PRNGKey`
+        The random key.
+    callback: `Callable`, optional
+        A callback function to call after each step.
+        The callback function should take the following arguments:
+        - model: `eqx.Module`
+        - opt_state: `optax.GradientTransformationExtraArgs`
+        - loss_vals: `dict` of `float`
+        - step: `int`
     """
     # initial optimization step
     opt_state = optimizer.init(eqx.filter(model, eqx.is_array))
@@ -91,7 +173,7 @@ def train_model(model, structure, optimizer, generator, *, loss_fn, num_steps, b
         key, _ = jrn.split(key)
 
         # train step
-        loss_vals, model, opt_state, grads = train_step_fn(
+        loss_vals, model, opt_state = train_step_fn(
             model,
             structure,
             optimizer,
