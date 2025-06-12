@@ -93,8 +93,11 @@ def optimize_batch(
         The name of the YAML config file with the task hyperparameters.
     shape_name: `str` or `None`, optional
         The name of the shape to optimize.
-        Supported shapes are pillow, dome, saddle, hypar, pringle, and cannon.
-        If a name is provided, the optimization is performed on this shape, ignoring the batch.
+        Supported shell shapes are pillow, dome, saddle, hypar, pringle, and cannon;
+        and require of a `bezier_symmetric_double` generator.
+        Supported tower shapes are either named by an integer or a float scalar.
+        If the name is an integer, the generator should be `tower_ellipse`, and `tower_circle` if the name is a float.
+        In general, if a name is provided, the optimization is performed on this shape, ignoring the batch.
     param_init: `float` or `None`, optional
         If specified, it determines the starting value of all the model parameters.
         If `None`, then it samples parameters between `blow` and `bup` from a uniform distribution.
@@ -117,7 +120,7 @@ def optimize_batch(
         If `None`, it defaults to the task hyperparameters file.
     slice: `tuple`, optional
         The start and stop indices of the slice of the batch for saving and viewing.
-        Defaults to all the shapes in the batch.        
+        Defaults to all the shapes in the batch.
     save: `bool`, optional
         If `True`, save the predicted shapes as JSON files.
     view: `bool`, optional
@@ -297,9 +300,6 @@ def optimize_batch(
         # evaluate loss function at optimum point
         _, loss_terms = compute_loss(model_opt, structure, xyz, aux_data=True)
 
-        # extract additional statistics
-        loss_terms["loadpath"] = jnp.array(mesh_hat.loadpath())
-
         if verbose:
             print_loss_summary(loss_terms, prefix="\tEnd")
             print(f"\tOpt success?: {opt_res.success}")
@@ -435,17 +435,20 @@ def optimize_batch(
 
                     force = mesh_hat.edge_force(edge)
 
-                    if force <= 0.0:
-                        _cmap = cmap_comp
-                        _fmin = fmin_comp
-                        _fmax = fmax_comp
+                    if force == 0.0:
+                        edgecolor[edge] = color_start
                     else:
-                        _cmap = cmap_tens
-                        _fmin = fmin_tens
-                        _fmax = fmax_tens
+                        if force < 0.0:
+                            _cmap = cmap_comp
+                            _fmin = fmin_comp
+                            _fmax = fmax_comp
+                        else:
+                            _cmap = cmap_tens
+                            _fmin = fmin_tens
+                            _fmax = fmax_tens
 
-                    value = (fabs(force) - _fmin) / (_fmax - _fmin)
-                    edgecolor[edge] = _cmap(value)
+                        value = (fabs(force) - _fmin) / (_fmax - _fmin)
+                        edgecolor[edge] = _cmap(value)
 
             viewer.add(
                 network_hat,
@@ -488,15 +491,6 @@ def optimize_batch(
         for label in labels:
             errors = [terms[label].item() for terms in loss_terms_batch]
             print(f"{label.capitalize()} over {num_opts} optimizations: {mean(errors):.4f} (+-{stdev(errors):.4f})")
-
-        if task_name == "tower":
-            errors = []
-            for terms in loss_terms_batch:
-                error = 0.0
-                error += terms["shape error"].item()
-                error += terms["height error"].item()
-                errors.append(error)
-            print(f"Shape + height error over {num_opts} samples: {mean(errors):.4f} (+-{stdev(errors):.4f})")
 
     if save_metrics:
         metric_names = ["loadpath"]

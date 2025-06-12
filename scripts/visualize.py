@@ -89,9 +89,12 @@ def visualize(
     task_name: `str`
         The name of the YAML config file with the task hyperparameters.
     shape_name: `str` or `None`, optional
-        The name of the shape to optimize.
-        Supported shapes are pillow, dome, saddle, hypar, pringle, and cannon.
-        If a name is provided, the optimization is performed on this shape, ignoring the batch.
+        The name of the shape to visualize.
+        Supported shell shapes are pillow, dome, saddle, hypar, pringle, and cannon;
+        and require of a `bezier_symmetric_double` generator.
+        Supported tower shapes are either named by an integer or a float scalar.
+        If the name is an integer, the generator should be `tower_ellipse`, and `tower_circle` if the name is a float.
+        In general, if a name is provided, the optimization is performed on this shape, ignoring the batch.
     shape_index: `int`, optional
         The index of the shape to visualize in the batch.
     seed: `int` or `None`, optional
@@ -231,8 +234,6 @@ def visualize(
 # Predictions
 # ===============================================================================
 
-    print("\nCalculating statistics")
-
     deltas_all = []
     residuals_all = []
     forces_all = []
@@ -250,7 +251,6 @@ def visualize(
 
         area = mesh.area()
         areas_all.append(area)
-        print(f"{area=}")
 
         for vkey in mesh.vertices():
             _xyz_target = mesh_target.vertex_coordinates(vkey)
@@ -280,35 +280,24 @@ def visualize(
 
     delta_min = 0.0
     delta_max = max(deltas_all)
-    print(f"{delta_min=} {delta_max=:.4f}")
 
     residual_min = 0.0
     residual_max = max(residuals_all)
-    print(f"{residual_min=} {residual_max=:.4f}")
 
-    fmin = 0.0  # min(forces_all)
+    fmin = 0.0
     fmax = max(forces_all)
-    print(f"{fmin=:.4f} {fmax=:.4f}")
 
-    fmin_comp = 0.0  # min(forces_comp_all)
+    fmin_comp = 0.0
     fmax_comp = max(forces_comp_all)
-    print(f"{fmin_comp=:.4f} {fmax_comp=:.4f}")
 
-    fmin_tens = 0.0  # min(forces_tens_all)
+    fmin_tens = 0.0
     fmax_tens = max(forces_tens_all)
-    print(f"{fmin_tens=:.4f} {fmax_tens=:.4f}")
 
     qmin = min(qs_all)
     qmax = max(qs_all)
-    print(f"{qmin=:.4f} {qmax=:.4f}")
 
     qmin_log = min(qs_log_all)
     qmax_log = max(qs_log_all)
-    print(f"{qmin_log=:.4f} {qmax_log=:.4f}")
-
-    area_min = min(areas_all)
-    area_max = max(areas_all)
-    print(f"{area_min=:.4f} {area_max=:.4f}")
 
 # ===============================================================================
 # Viewing
@@ -407,7 +396,6 @@ def visualize(
             if EDGECOLOR in ("fd", "fds", "fd_log") and task_name == "bezier":
                 vertices_2_view = [vkey for vkey in vertices_2_view if not mesh.is_vertex_on_boundary(vkey)]
             elif EDGECOLOR == "force" and task_name == "tower":
-                print("Omitting boundary vertices")
                 vertices_2_view = [vkey for vkey in vertices_2_view if not mesh.is_vertex_on_boundary(vkey)]
 
             # edges to view
@@ -462,17 +450,20 @@ def visualize(
 
                     force = mesh_hat.edge_force(edge)
 
-                    if force < 0.0:
-                        _cmap = cmap_comp
-                        _fmin = fmin_comp
-                        _fmax = fmax_comp
+                    if force == 0.0:
+                        edgecolor[edge] = color_start
                     else:
-                        _cmap = cmap_tens
-                        _fmin = fmin_tens
-                        _fmax = fmax_tens
+                        if force < 0.0:
+                            _cmap = cmap_comp
+                            _fmin = fmin_comp
+                            _fmax = fmax_comp
+                        else:
+                            _cmap = cmap_tens
+                            _fmin = fmin_tens
+                            _fmax = fmax_tens
 
-                    value = (fabs(force) - _fmin) / (_fmax - _fmin)
-                    edgecolor[edge] = _cmap(value)
+                        value = (fabs(force) - _fmin) / (_fmax - _fmin)
+                        edgecolor[edge] = _cmap(value)
 
             # reaction view
             _reactionscale = reactionscale
@@ -510,7 +501,6 @@ def visualize(
                 reactioncolor = _reactioncolor
 
             # display stylized network
-            print(f"Reaction scale: {_reactionscale}")
             viewer.add(
                 network_hat,
                 edgewidth=edgewidth,

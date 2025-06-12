@@ -1,9 +1,9 @@
 """
-Prescribed shapes for the bezier and tower tasks.
+Prescribed shapes for the shell and tower tasks.
 """
 
 # ===============================================================================
-# Bezier task
+# Shell task - These shapes need of a `bezier_symmetric_double` generator.
 # ===============================================================================
 
 # pillow
