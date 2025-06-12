@@ -34,7 +34,7 @@ Wan't to skip training? We got you 💪🏽
 Our trained model weights are publicly available at this [link](https://drive.google.com/drive/folders/1BL_g5ikNh1s0fxsNp4PzKl84fQFUpm0L?usp=share_link).
 Once downloaded, you can [test](#testing) the models at inference time and [display](#visualization) their predictions.
 
-Go back to the [Table of contents](#table-of-contents) ⬆️.
+[Table of contents](#table-of-contents) ⬆️
 
 ## Repository structure
 
@@ -45,16 +45,16 @@ The second one, `scripts`, groups a list of routines to execute the code in `src
 
 With the scripts, you can even tesselate and 3D print your own masonry vault from one of our model predictions if you fancy!
 
-Go back to the [Table of contents](#table-of-contents) ⬆️.
+[Table of contents](#table-of-contents) ⬆️
 
 ## Installation
 
 >We only support installation on a CPU. Our paper does not use any GPUs. Crazy, right? 🪄
 
-Create a new [Anaconda](https://www.anaconda.com/) environment and then activate it:
+Create a new [Anaconda](https://www.anaconda.com/) environment with Python 3.0 and then activate it:
 
 ```bash
-conda create -n neural
+conda create -n neural python=3.9
 conda activate neural
 ```
 
@@ -84,7 +84,7 @@ conda install -c conda-forge compas==1.17.10 compas_view2==0.7.0 compas_cgal==0.
 ```bash
 pip install -e ".[dev]"
 ```
-Go back to the [Table of contents](#table-of-contents) ⬆️.
+[Table of contents](#table-of-contents) ⬆️
 
 ## Configuration
 
@@ -174,7 +174,7 @@ And for the `training` routine:
 - `steps`: The number of optimization steps to train a model for (i.e., the number of times the model parameters are updated). We mostly train the models for `10000` steps.
 - `batch_size`: The batch size of the input data.
 
-Go back to the [Table of contents](#table-of-contents) ⬆️.
+[Table of contents](#table-of-contents) ⬆️
 
 ## Training
 
@@ -201,7 +201,7 @@ They would allow you to warmstart the training from an existing pretrained model
 
 > A note on hyperparameter tuning. We utilized WandB to run hyperparameter sweeps. The sweeps are in turn handled by the `sweep.py` script in tandem with `sweep_bezier.yml` or `sweep_tower.yml` files, depending on the task. The structure of these sweep files mimics that of the configuration files described herein. We trust you'll be able to find your way around them if you really want to fiddle with them.
 
-Go back to the [Table of contents](#table-of-contents) ⬆️.
+[Table of contents](#table-of-contents) ⬆️
 
 ## Testing
 
@@ -215,7 +215,7 @@ The test set is created by a generator that follows the same configuration as th
 We set `test_seed` to `90` in the `bezier` task and `test_seed` to `92` in the `tower` task.
 Feel free to specify other seed values to test the model on different test datasets.
 
-Go back to the [Table of contents](#table-of-contents) ⬆️.
+[Table of contents](#table-of-contents) ⬆️
 
 ## Visualization
 
@@ -233,7 +233,7 @@ The target shape is selected by inputting its index relative to the batch size w
 
 Check out the docstring of `visualize.py` for the nitty-gritty details of how to control color palettes, linewidths, and arrow scales to make pretty pictures.
 
-Go back to the [Table of contents](#table-of-contents) ⬆️.
+[Table of contents](#table-of-contents) ⬆️
 
 ## Direct optimization
 
@@ -270,7 +270,7 @@ The towers task is too more nuanced because we explore three different initializ
 
 The third initialization type relies on the predictions of a pre-trained model and, to use it, we need to invoke a different script.
 
-Go back to the [Table of contents](#table-of-contents) ⬆️.
+[Table of contents](#table-of-contents) ⬆️
 
 ## Predict then optimize
 
@@ -287,7 +287,7 @@ What is different from the `optimize.py` script is that, now, you will have to s
 The predictions will warmstart the optimization, replacing any of the `param_init` schemes described earlier.
 The rest of the inputs work the same way as in `optimize.py`.
 
-Go back to the [Table of contents](#table-of-contents) ⬆️.
+[Table of contents](#table-of-contents) ⬆️
 
 ## Citation
 
@@ -305,10 +305,10 @@ Don't worry, it's free.
 }
 ```
 
-Go back to the [Table of contents](#table-of-contents) ⬆️.
+[Table of contents](#table-of-contents) ⬆️
 
 ## Contact
 
 Reach out! If you have questions or find bugs in our code, please open an issue on Github or email the authors at arpastrana@princeton.edu.
 
-Go back to the [Table of contents](#table-of-contents) ⬆️.
+[Table of contents](#table-of-contents) ⬆️
