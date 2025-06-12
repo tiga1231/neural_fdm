@@ -3,7 +3,6 @@ Visualize the predictions of a model on a target shape.
 """
 import os
 from math import fabs
-from math import log
 import yaml
 
 import matplotlib.cm as cm
@@ -70,7 +69,7 @@ def visualize(
         plot=False,
         save=False,
         edgewidth=(0.01, 0.25),
-        edgecolor="fd",
+        edgecolor=None,
         show_reactions=False,
         reactionscale=0.5,
         plot_prediction=False,
@@ -113,9 +112,10 @@ def visualize(
         If `True`, save the plots.
     edgewidth: `tuple`, optional
         The width range of the edges.
-    edgecolor: `str`, optional
+    edgecolor: `str` or `None`, optional
         The color palette for the edges.
         Supported color palettes are fd to display force densities, and force to show forces.
+        If `None`, the edges are colored by the force density in the shells tasks, and by the force in the tower tasks.
     show_reactions: `bool`, optional
         If `True`, show the reactions.
     reactionscale: `float`, optional
@@ -128,9 +128,16 @@ def visualize(
         The name of the metric to plot.
         Supported metrics are forces, residuals, and deltas.        
     """
+    if edgecolor is None:
+        if task_name == "bezier":
+            EDGECOLOR = "fd"
+        elif task_name == "tower":
+            EDGECOLOR = "force"
+    else:
+        EDGECOLOR = edgecolor
+
     PLOT_MODE = plot_metric
     EDGEWIDTH = edgewidth
-    EDGECOLOR = edgecolor  # force, fd
 
     # load yaml file with hyperparameters
     with open(f"{task_name}.yml") as file:
@@ -239,10 +246,7 @@ def visualize(
     forces_all = []
     forces_comp_all = []
     forces_tens_all = []
-    qs_all = []
-    qs_log_all = []
     areas_all = []
-    log_tol = 1.0
 
     for _, data in models_data.items():
 
@@ -274,10 +278,6 @@ def visualize(
             else:
                 forces_tens_all.append(force_abs)
 
-            if mesh_hat.edge_attribute(edge, "tag") != "ring":
-                qs_all.append(fabs(network.edge_forcedensity(edge)))
-                qs_log_all.append(log(fabs(network.edge_forcedensity(edge) + log_tol)))
-
     delta_min = 0.0
     delta_max = max(deltas_all)
 
@@ -292,12 +292,6 @@ def visualize(
 
     fmin_tens = 0.0
     fmax_tens = max(forces_tens_all)
-
-    qmin = min(qs_all)
-    qmax = max(qs_all)
-
-    qmin_log = min(qs_log_all)
-    qmax_log = max(qs_log_all)
 
 # ===============================================================================
 # Viewing
@@ -321,7 +315,7 @@ def visualize(
         # view target mesh alone
         if task_name == "bezier":
             viewer = Viewer(
-                width=900,
+                width=_width,
                 height=900,
                 show_grid=False,
                 viewmode="lighted"
@@ -376,7 +370,7 @@ def visualize(
             )
 
             # modify view
-            if CAMERA_CONFIG.get("use_top_view"):
+            if use_camera_top:
                 viewer.view.camera.view.current = viewer.view.camera.view.TOP
 
             viewer.view.camera.position = CAMERA_CONFIG["position"]
@@ -393,7 +387,7 @@ def visualize(
 
             # vertices to view
             vertices_2_view = list(mesh.vertices())
-            if EDGECOLOR in ("fd", "fds", "fd_log") and task_name == "bezier":
+            if EDGECOLOR == "fd" and task_name == "bezier":
                 vertices_2_view = [vkey for vkey in vertices_2_view if not mesh.is_vertex_on_boundary(vkey)]
             elif EDGECOLOR == "force" and task_name == "tower":
                 vertices_2_view = [vkey for vkey in vertices_2_view if not mesh.is_vertex_on_boundary(vkey)]
@@ -411,33 +405,7 @@ def visualize(
 
             # edge colors
             edgecolor = EDGECOLOR
-            if edgecolor == "fds":
-                edgecolor = {}
-
-                cmap = ColorMap.from_mpl("viridis")
-                _edges = [edge for edge in mesh_hat.edges() if mesh_hat.edge_attribute(edge, "tag") != "ring"]
-                values = [fabs(mesh_hat.edge_forcedensity(edge)) for edge in _edges]
-                ratios = remap_values(values, original_min=qmin, original_max=qmax)
-                edgecolor = {edge: cmap(ratio) for edge, ratio in zip(_edges, ratios)}
-
-                for edge in mesh_hat.edges():
-                    if mesh_hat.edge_attribute(edge, "tag") == "ring":
-                        edgecolor[edge] = Color.grey()  # .darkened()
-
-            if edgecolor == "fd_log":
-                edgecolor = {}
-
-                cmap = ColorMap.from_mpl("viridis")
-                _edges = [edge for edge in mesh_hat.edges() if mesh_hat.edge_attribute(edge, "tag") != "ring"]
-                values = [log(fabs(mesh_hat.edge_forcedensity(edge)) + log_tol) for edge in _edges]
-                ratios = remap_values(values, original_min=qmin_log, original_max=qmax_log)
-                edgecolor = {edge: cmap(ratio) for edge, ratio in zip(_edges, ratios)}
-
-                for edge in mesh_hat.edges():
-                    if mesh_hat.edge_attribute(edge, "tag") == "ring":
-                        edgecolor[edge] = Color.grey()  # .darkened()
-
-            elif edgecolor == "force":
+            if edgecolor == "force":
                 edgecolor = {}
 
                 color_start = Color.white()
