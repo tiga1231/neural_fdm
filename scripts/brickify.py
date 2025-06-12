@@ -508,8 +508,8 @@ def brickify(
         thickness,
         scale=1.0,
         dual=True,
-        do_bricks=False,
-        do_label=False,
+        do_bricks=True,
+        do_label=True,
         do_scaffold=False,
         do_support=False,
         save=False

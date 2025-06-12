@@ -1,6 +1,8 @@
 # Real-time design of architectural simulations with differentiable mechanics and neural networks
 
-> Code base for the [paper](https://arxiv.org/abs/2409.02606) published at ICLR 2025.
+[![arXiv](https://img.shields.io/badge/arXiv-2409.02606-b31b1b.svg)](https://arxiv.org/abs/2409.02606)
+
+> Code for the [paper](https://arxiv.org/abs/2409.02606) published at ICLR 2025.
 
 ![Our trained model, deployed in Rhino3D](masonry_vault_cad_design.gif)
 
@@ -11,6 +13,7 @@ In this work, we combine neural networks with a differentiable mechanics simulat
 
 ## Table of Contents
 
+- [Pretrained models](#pretrained-models)
 - [Repository structure](#repository-structure)
 - [Installation](#installation)
 - [Configuration](#configuration)
@@ -25,6 +28,13 @@ In this work, we combine neural networks with a differentiable mechanics simulat
 - [Citation](#citation)
 - [Contact](#contact)
 
+## Pretrained models
+
+Wan't to skip training? We got you 💪🏽
+Our trained model weights are publicly available at this [link](https://drive.google.com/drive/folders/1BL_g5ikNh1s0fxsNp4PzKl84fQFUpm0L?usp=share_link).
+Once downloaded, you can [test](#testing) the models at inference time and [display](#visualization) their predictions.
+
+Go back to the [Table of contents](#table-of-contents) ⬆️.
 
 ## Repository structure
 
@@ -35,9 +45,11 @@ The second one, `scripts`, groups a list of routines to execute the code in `src
 
 With the scripts, you can even tesselate and 3D print your own masonry vault from one of our model predictions if you fancy!
 
+Go back to the [Table of contents](#table-of-contents) ⬆️.
+
 ## Installation
 
->We only support installation on a CPU. Our paper does not use any GPUs. Crazy, right?
+>We only support installation on a CPU. Our paper does not use any GPUs. Crazy, right? 🪄
 
 Create a new [Anaconda](https://www.anaconda.com/) environment and then activate it:
 
@@ -46,30 +58,33 @@ conda create -n neural
 conda activate neural
 ```
 
-Install some dependencies from `pip`-land:
+### Basic Installation
 
+1. Install the required Conda dependencies:
 ```bash
-pip install --upgrade jax==0.4.23
-pip install optax==0.1.5 equinox==0.11.3
-pip install seaborn
+conda install -c conda-forge compas==1.17.10 compas_view2==0.7.0
 ```
 
-Next, install COMPAS and COMPAS VIEW2 via `conda`. Please mind the version of these dependencies:
-
+2. Install the package and its pip dependencies:
 ```bash
-conda install -c conda-forge compas<2.0 compas_view2==0.7.0 
-```
-
-Finally, clone and install this repository from source:
-
-```bash
-git clone https://github.com/arpastrana/neural_fdm.git
-cd neural_fdm
 pip install -e .
 ```
-Installing this repo from source will take care of installing the few additional dependencies listed in `requirements.txt`.
-Now, go ahead and play. Rock and roll 🎸! 
+The `-e .` flag installs the package in "editable" mode, which means changes to the source code take effect immediately without reinstalling.
 
+### Advanced Installation
+
+If you need additional development tools (testing, formatting, etc.), are interested in making data plots, or want to generate bricks for a shell, follow these steps:
+
+1. Install the necessary and additional Conda dependencies:
+```bash
+conda install -c conda-forge compas==1.17.10 compas_view2==0.7.0 compas_cgal==0.6.0
+```
+
+2. Install the package with development dependencies:
+```bash
+pip install -e ".[dev]"
+```
+Go back to the [Table of contents](#table-of-contents) ⬆️.
 
 ## Configuration
 
@@ -159,6 +174,7 @@ And for the `training` routine:
 - `steps`: The number of optimization steps to train a model for (i.e., the number of times the model parameters are updated). We mostly train the models for `10000` steps.
 - `batch_size`: The batch size of the input data.
 
+Go back to the [Table of contents](#table-of-contents) ⬆️.
 
 ## Training
 
@@ -183,7 +199,9 @@ If `autoencoder` is trained with the `residual` (i.e., the physics loss is inclu
 We invite you to check the docstring of the `train.py` script to see all the input options. 
 They would allow you to warmstart the training from an existing pretrained model, checkpoint every so often, as well as plot and export the loss history for your inspection.
 
-> A note on hyperparameter tuning. We utilized WandB to run hyperparameter sweeps. The sweeps are in turn handled by the `sweep.py` script in tandem with `sweep_bezier.yml` or `sweep_tower.yml` files, depending on the task. The structure of these sweep files mimics that of the configuration files described herein. We trust you'll be able to find your way around them if you really want to fiddle with them. 
+> A note on hyperparameter tuning. We utilized WandB to run hyperparameter sweeps. The sweeps are in turn handled by the `sweep.py` script in tandem with `sweep_bezier.yml` or `sweep_tower.yml` files, depending on the task. The structure of these sweep files mimics that of the configuration files described herein. We trust you'll be able to find your way around them if you really want to fiddle with them.
+
+Go back to the [Table of contents](#table-of-contents) ⬆️.
 
 ## Testing
 
@@ -196,6 +214,8 @@ where we set to `--batch_size=100` during inference to match what we do in the [
 The test set is created by a generator that follows the same configuration as the train set, except for the random seed. 
 We set `test_seed` to `90` in the `bezier` task and `test_seed` to `92` in the `tower` task.
 Feel free to specify other seed values to test the model on different test datasets.
+
+Go back to the [Table of contents](#table-of-contents) ⬆️.
 
 ## Visualization
 
@@ -213,6 +233,8 @@ The target shape is selected by inputting its index relative to the batch size w
 
 Check out the docstring of `visualize.py` for the nitty-gritty details of how to control color palettes, linewidths, and arrow scales to make pretty pictures.
 
+Go back to the [Table of contents](#table-of-contents) ⬆️.
+
 ## Direct optimization
 
 So far we've only discussed how to create neural models for shape-matching tasks.
@@ -229,7 +251,7 @@ Select one of them through their `optimizer_name`:
 - `lbfgsb`: The limited-memory Broyden–Fletcher–Goldfarb–Shanno algorithm.
 
 The algorithms support box constraints on the simulation parameters.
-We take advantage of this feature to constrain their value to a specific sign and to range of reasonable values, depending on the task.
+We take advantage of this feature to constrain their value to a specific sign and to a range of reasonable values, depending on the task.
 The lower box constraint is equivalent to the effect that `tau` has on the decoder's output in the [paper](https://arxiv.org/abs/2409.02606), by prescribing a minimum output value.
 Both optimizers run for `maxiter=5000` iterations at most and stop early if they hit the convergence tolerance of `tol=1e-6`.
 
@@ -248,6 +270,8 @@ The towers task is too more nuanced because we explore three different initializ
 
 The third initialization type relies on the predictions of a pre-trained model and, to use it, we need to invoke a different script.
 
+Go back to the [Table of contents](#table-of-contents) ⬆️.
+
 ## Predict then optimize
 
 There is enormous potential in combining neural networks with traditional optimization techniques to expedite mechanical design.
@@ -261,7 +285,9 @@ python predict_optimize.py <model_name> <optimizer_name> <task_name> --batch_siz
 
 What is different from the `optimize.py` script is that, now, you will have to specify the name of a trained model via `model_name`.
 The predictions will warmstart the optimization, replacing any of the `param_init` schemes described earlier.
-The rest of the inputs proceed the same way, in peace and tranquility.
+The rest of the inputs work the same way as in `optimize.py`.
+
+Go back to the [Table of contents](#table-of-contents) ⬆️.
 
 ## Citation
 
@@ -279,6 +305,10 @@ Don't worry, it's free.
 }
 ```
 
+Go back to the [Table of contents](#table-of-contents) ⬆️.
+
 ## Contact
 
-Reach out! If you have questions or find bugs in our code, please open an issue on Github or email the authors at arpastrana@princeton.edu. 
+Reach out! If you have questions or find bugs in our code, please open an issue on Github or email the authors at arpastrana@princeton.edu.
+
+Go back to the [Table of contents](#table-of-contents) ⬆️.
