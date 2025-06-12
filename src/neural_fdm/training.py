@@ -65,9 +65,6 @@ def train_step(model, structure, optimizer, generator, opt_state, *, loss_fn, ba
     updates, opt_state = optimizer.update(grads, opt_state)
     model = eqx.apply_updates(model, updates)
 
-    # NOTE: return latent space
-    # q = vmap(model.encode)(x)
-
     return loss_vals, model, opt_state, grads
 
 
@@ -86,12 +83,6 @@ def train_model(model, structure, optimizer, generator, *, loss_fn, num_steps, b
     train_step_fn = partial(train_step_fn, loss_fn=loss_fn)
     train_step_fn = eqx.filter_jit(train_step_fn)
 
-    # def get_cond_num(q):
-    #     A = model.decoder.model.stiffness_matrix(q, structure)
-    #     return jnp.linalg.cond(A)
-
-    # cond_num_fn = jit(vmap(get_cond_num))
-
     # train
     loss_history = []
     for step in tqdm(range(num_steps)):
@@ -109,20 +100,6 @@ def train_model(model, structure, optimizer, generator, *, loss_fn, num_steps, b
             batch_size=batch_size,
             key=key,
             )
-
-        # log gradient name
-        # grads_flat = jtu.tree_flatten(grads)[0]
-        # grads_flat = jtu.tree_map(lambda x: x.ravel(), grads_flat)
-        # grads_flat = jnp.concatenate(grads_flat)
-        # grad_norm = jnp.linalg.norm(jnp.array(grads_flat), axis=-1)
-        # loss_vals["gradients"] = grad_norm
-
-        # log latent space norm
-        # loss_vals["q"] = jnp.ravel(qs)
-
-        # log latent space condition number
-        # cond_nums = cond_num_fn(qs)
-        # loss_vals.append(cond_nums[None, :])
 
         # store loss values
         loss_history.append(loss_vals)

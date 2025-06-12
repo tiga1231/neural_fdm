@@ -454,8 +454,7 @@ def print_loss_summary(loss_terms, prefix=None):
     loss_terms: `dict`
         The loss terms.
     prefix: `str` or `None`, optional
-        The prefix to add to the loss terms printed to the console.
-        Default: `None`.
+        The prefix to add to the loss terms printed to the console.        
     """
     msg_parts = []
     if prefix:
