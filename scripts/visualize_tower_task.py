@@ -40,8 +40,7 @@ def view_tower_task(seed=None, batch_size=None, shape_index=0):
         The size of the batch of target shapes.
         If `None`, it defaults to the task hyperparameters file.
     shape_index: `int`
-        The index of the shape to view.
-        Default: `0`.
+        The index of the shape to view.        
     """
     # pick camera configuration for task
     task_name = "tower"    

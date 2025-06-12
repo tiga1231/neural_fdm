@@ -57,19 +57,14 @@ def train(
         The name of the YAML config file with the task hyperparameters.
     from_pretrained: `bool`, optional
         If `True`, train the model starting from a pretrained version.
-        Default: `False`.
     checkpoint_every: `int` or `None`, optional
         If not None, save a model every checkpoint steps.
-        Default: `None`.
     plot_losses: `bool`, optional
         If `True`, plot the loss curves.
-        Default: `True`.
     save_model: `bool`, optional
         If `True`, save the trained model.
-        Default: `True`.
     save_losses: `bool`, optional
         If `True`, save the loss histories as text files.
-        Default: `True`.
     """
     # load yaml file with hyperparameters
     with open(f"{task_name}.yml") as file:

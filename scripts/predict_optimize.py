@@ -90,42 +90,32 @@ def predict_optimize_batch(
         The name of the YAML config file with the task hyperparameters.
     blow: `float`, optional
         The lower bound of the box constraints on the model parameters.
-        The bounds respect the force density signs of a task (compression or tension, currently hardcoded).
-        Default: `0.0`.
+        The bounds respect the force density signs of a task (compression or tension, currently hardcoded).        
     bup: `float`, optional
         The lower bound of the box constraints on the model parameters.
         The bounds respect the force density signs of a task (compression or tension, currently hardcoded).
-        Default: `20.0`.
     maxiter: `int`, optional
         The maximum number of optimization iterations.
-        Default: `5000`.
     tol: `float`, optional
         The tolerance for the optimization.
-        Default: `1e-6`.
     seed: `int` or `None`, optional
         The random seed to generate a batch of target shapes.
         If `None`, it defaults to the input hyperparameters file.
-        Default: `None`.
     batch_size: `int` or `None`, optional
         The size of the batch of target shapes.
         If `None`, it defaults to the input hyperparameters file.
-        Default: `None`.
     verbose: `bool`, optional
         If `True`, print to stdout intermediary results.
-        Default: `True`.
     save: `bool`, optional
         If `True`, save the predicted shapes as JSON files.
-        Default: `False`.
     view: `bool`, optional
         If `True`, view the predicted shapes.
-        Default: `False`.
     slice: `tuple`, optional
         The start and stop indices of the slice of the batch for saving and viewing.
-        Default: `(0, -1)`, which means all shapes in the batch.
+        Defaults to all the shapes in the batch.        
     edgecolor: `str`, optional
         The color palette for the edges.
-        Supported color palettes are fd to display force densities, and force to show forces.
-        Default: `"force"`.
+        Supported color palettes are fd to display force densities, and force to show forces.        
     """
     START, STOP = slice
     EDGECOLOR = edgecolor  # force, fd

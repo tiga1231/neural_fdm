@@ -31,7 +31,6 @@ def char_2_mesh(char, filepath="Vera.ttf"):
         The character to convert.
     filepath: `str`, optional
         The path to the font file.
-        Default: `"Vera.ttf"`.
 
     Returns
     -------
@@ -111,7 +110,6 @@ def text_2_mesh(text, filepath="Vera.ttf"):
         The text to convert.
     filepath: `str`, optional
         The path to the font file.
-        Default: `"Vera.ttf"`.
 
     Returns
     -------

@@ -95,76 +95,56 @@ def optimize_batch(
         The name of the shape to optimize.
         Supported shapes are pillow, dome, saddle, hypar, pringle, and cannon.
         If a name is provided, the optimization is performed on this shape, ignoring the batch.
-        Default: `None`.
     param_init: `float` or `None`, optional
         If specified, it determines the starting value of all the model parameters.
         If `None`, then it samples parameters between `blow` and `bup` from a uniform distribution.
         The sampling respects the force density signs of a task (compression or tension, currently hardcoded).
-        Default: `None`.
     blow: `float`, optional
         The lower bound of the box constraints on the model parameters.
         The bounds respect the force density signs of a task (compression or tension, currently hardcoded).
-        Default: `0.0`.
     bup: `float`, optional
         The lower bound of the box constraints on the model parameters.
         The bounds respect the force density signs of a task (compression or tension, currently hardcoded).
-        Default: `20.0`.
     maxiter: `int`, optional
         The maximum number of optimization iterations.
-        Default: `5000`.
     tol: `float`, optional
         The tolerance for the optimization.
-        Default: `1e-6`.
     seed: `int` or `None`, optional
         The random seed to generate a batch of target shapes.
         If `None`, it defaults to the task hyperparameters file.
     batch_size: `int` or `None`, optional
         The size of the batch of target shapes.
         If `None`, it defaults to the task hyperparameters file.
-        Default: `None`.
     slice: `tuple`, optional
         The start and stop indices of the slice of the batch for saving and viewing.
-        Default: `(0, -1)`, which means all shapes in the batch.
+        Defaults to all the shapes in the batch.        
     save: `bool`, optional
         If `True`, save the predicted shapes as JSON files.
-        Default: `False`.
     view: `bool`, optional
         If `True`, view the predicted shapes.
-        Default: `False`.
     show_reactions: `bool`, optional
         If `True`, show the reactions on the predicted shapes upon display.
-        Default: `False`.
     edgewidth: `tuple`, optional
         The minimum and maximum width of the edges for visualization.
-        Default: `(0.01, 0.25)`.
     fmax: `float` or `None`, optional
         The maximum force for the visualization.
-        Default: `None`.
     fmax_tens: `float` or `None`, optional
         The maximum tensile force for the visualization.
-        Default: `None`.
     fmax_comp: `float` or `None`, optional
         The maximum compressive force for the visualization.
-        Default: `None`.
     qmin: `float` or `None`, optional
         The minimum force density for the visualization.
-        Default: `None`.
     qmax: `float` or `None`, optional
         The maximum force density for the visualization.
-        Default: `None`.
     verbose: `bool`, optional
         If `True`, print to stdout intermediary results.
-        Default: `True`.
     record: `bool`, optional
         If `True`, record the loss history.
-        Default: `False`.
     edgecolor: `str`, optional
         The color palette for the edges.
         Supported color palettes are fd to display force densities, and force to show forces.
-        Default: `"force"`.
     save_metrics: `bool`, optional
         If `True`, saves the calcualted batch metrics in text files.
-        Default: `False`.
     """
     START, STOP = slice
     EDGECOLOR = edgecolor  # force, fd

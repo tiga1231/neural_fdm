@@ -92,47 +92,35 @@ def visualize(
         The name of the shape to optimize.
         Supported shapes are pillow, dome, saddle, hypar, pringle, and cannon.
         If a name is provided, the optimization is performed on this shape, ignoring the batch.
-        Default: `None`.
     shape_index: `int`, optional
         The index of the shape to visualize in the batch.
-        Default: `0`.
     seed: `int` or `None`, optional
         The random seed to generate a batch of target shapes.
         If `None`, it defaults to the input hyperparameters file.
     batch_size: `int` or `None`, optional
         The size of the batch of target shapes.
         If `None`, it defaults to the input hyperparameters file.
-        Default: `None`.
     view: `bool`, optional
         If `True`, view the predicted shapes.
-        Default: `True`.
     use_camera_top: `bool`, optional
         If `True`, use the top view camera configuration.
-        Default: `False`.
     plot: `bool`, optional
         If `True`, plot the predicted shapes.
-        Default: `False`.
     save: `bool`, optional
         If `True`, save the plots.
-        Default: `False`.
     edgewidth: `tuple`, optional
         The width range of the edges.
-        Default: `(0.01, 0.25)`.
     edgecolor: `str`, optional
         The color palette for the edges.
         Supported color palettes are fd to display force densities, and force to show forces.
     show_reactions: `bool`, optional
         If `True`, show the reactions.
-        Default: `False`.
     reactionscale: `float`, optional
         The scale of the reactions.
-        Default: `0.5`.
     plot_prediction: `bool`, optional
         If `True`, plot the predicted shape.
-        Default: `False`.
     plot_target: `bool`, optional
         If `True`, plot the target shape.
-        Default: `True`.
     plot_metric: `str`, optional
         The name of the metric to plot.
         Supported metrics are forces, residuals, and deltas.        

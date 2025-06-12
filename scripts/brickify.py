@@ -58,7 +58,6 @@ def triangulate_face_quad(face, reverse=False):
         The face vertices.
     reverse: `bool`, optional
         If `True`, the face is reversed.
-        Default: `False`.
 
     Returns
     _______
@@ -119,7 +118,6 @@ def triangulate_face(face, vertices, reverse=False):
         The xyz coordinates of the face vertices.
     reverse: `bool`, optional
         If `True`, the face is reversed.
-        Default: `False`.
 
     Returns
     _______
@@ -256,7 +254,6 @@ def add_text_engraving(fkey, bricks, mesh_bottom, text, depth=1):
         The text to engrave.
     depth: `float`, optional
         The depth of the engraving.
-        Default: `1.0`.
 
     Returns
     _______
@@ -528,25 +525,18 @@ def brickify(
         The brick thickness.
     scale: `float`, optional
         The mesh scale, whether to scale it down or up to fit in a printer's bed.
-        Default: `1.0`.
     dual: `bool`, optional
         If `True`, the script will work on the dual of the input mesh.
-        Default: `True`.
     do_bricks: `bool`, optional
         If `True`, generate the bricks as closed, watertight meshes.
-        Default: `False`.
     do_label: `bool`, optional
         If `True`, engrave the bricks with labels via mesh boolean differences.
-        Default: `False`.
     do_scaffold: `bool`, optional
         If `True`, generate scaffolding platform.
-        Default: `False`.
     do_support: `bool`, optional
         If `True`, create the perimetral support for the bricks.
-        Default: `False`.
     save: `bool`, optional
         If `True`, save all generated data as both JSON and OBJ files.
-        Default: `False`.
     """
     CAMERA_CONFIG = {
         "position": (30.34, 30.28, 42.94),

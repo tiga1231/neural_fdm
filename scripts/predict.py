@@ -74,33 +74,25 @@ def predict_batch(
     seed: `int` or `None`, optional
         The random seed to generate a batch of target shapes.
         If `None`, it defaults to the task hyperparameters file.
-        Default: `None`.
     batch_size: `int` or `None`, optional
         The size of the batch of target shapes.
         If `None`, it defaults to the task hyperparameters file.
-        Default: `None`.
     time_batch_inference: `bool`, optional
         If `True`, report the inference time over a data batch.
-        Default: `False`.
     predict_in_sequence: `bool`, optional
         If `True`, predict every shape in the prescribed slice of the data batch, one at a time.
-        Default: `True`.
     slice: `tuple`, optional
         The start and stop indices of the slice of the batch for saving and viewing.
-        Default: `(0, -1)`, which means all shapes in the batch.
+        Defaults to all the shapes in the batch.        
     view: `bool`, optional
         If `True`, view the predicted shapes.
-        Default: `False`.
     save: `bool`, optional
         If `True`, saves the predicted shapes as JSON files.
-        Default: `False`.
     save_metrics: `bool`, optional
         If `True`, saves the calculated batch metrics in text files.
-        Default: `False`.
     edgecolor: `str`, optional
         The color palette for the edges.
-        Supported color palettes are "fd" to display force densities, and "force" to show forces.
-        Default: `"force"`.
+        Supported color palettes are "fd" to display force densities, and "force" to show forces.        
     """
     START, STOP = slice
     EDGECOLOR = edgecolor  # force, fd
