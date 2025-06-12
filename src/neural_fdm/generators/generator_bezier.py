@@ -1,6 +1,8 @@
 import jax.random as jrn
 import jax.numpy as jnp
 
+from neural_fdm.generators.generator import PointGenerator
+
 from neural_fdm.generators.bezier import evaluate_bezier_surface
 from neural_fdm.generators.bezier import BezierSurfaceAsymmetric
 from neural_fdm.generators.bezier import BezierSurfaceSymmetric
@@ -11,9 +13,22 @@ from neural_fdm.generators.bezier import BezierSurfaceSymmetricDouble
 # Generators
 # ===============================================================================
 
-class BezierSurfacePointGenerator:
+class BezierSurfacePointGenerator(PointGenerator):
     """
     A generator that outputs point evaluated on a wiggled bezier surface.
+
+    Parameters
+    ----------
+    surface: `BezierSurface`
+        The surface to sample points from.
+    u: `jax.Array`
+        The parameter values along the `u` direction in the range [0, 1].
+    v: `jax.Array`
+        The parameter values along the `v` direction in the range [0, 1].
+    minval: `jax.Array`
+        The minimum values of the space of random translations.
+    maxval: `jax.Array`
+        The maximum values of the space of random translations.
     """
     def __init__(self, surface, u, v, minval, maxval):
         self._check_array_shapes(surface, minval, maxval)
@@ -27,6 +42,15 @@ class BezierSurfacePointGenerator:
     def _check_array_shapes(self, surface, minval, maxval):
         """
         Verify that input shapes are consistent.
+
+        Parameters
+        ----------
+        surface: `BezierSurface`
+            The surface to sample points from.
+        minval: `jax.Array`
+            The minimum values of the space of random translations.
+        maxval: `jax.Array`
+            The maximum values of the space of random translations.
         """
         tile_shape = surface.grid.tile.shape
         minval_shape = minval.shape
@@ -38,6 +62,16 @@ class BezierSurfacePointGenerator:
     def wiggle(self, key):
         """
         Sample a translation vector from a uniform distribution.
+
+        Parameters
+        ----------
+        key: `jax.random.PRNGKey`
+            The random key.
+
+        Returns
+        -------
+        transform: `jax.Array`
+            The translation vector.
         """
         shape = self.surface.grid.tile.shape
         return jrn.uniform(key, shape=shape, minval=self.minval, maxval=self.maxval)
@@ -45,6 +79,16 @@ class BezierSurfacePointGenerator:
     def evaluate_points(self, transform):
         """
         Generate transformed points.
+
+        Parameters
+        ----------
+        transform: `jax.Array`
+            The translation vector.
+
+        Returns
+        -------
+        points: `jax.Array`
+            The transformed points.
         """
         points = self.surface.evaluate_points(self.u, self.v, transform)
 
@@ -53,6 +97,18 @@ class BezierSurfacePointGenerator:
     def __call__(self, key, wiggle=True):
         """
         Generate (wiggled) points.
+
+        Parameters
+        ----------
+        key: `jax.random.PRNGKey`
+            The random key.
+        wiggle: `bool`, optional
+            Whether to wiggle the points at random.
+
+        Returns
+        -------
+        points: `jax.Array`
+            The points on the surface.
         """
         if wiggle:
             transform = self.wiggle(key)
@@ -63,6 +119,21 @@ class BezierSurfacePointGenerator:
 class BezierSurfaceSymmetricDoublePointGenerator(BezierSurfacePointGenerator):
     """
     A generator that outputs point evaluated on a wiggled, doubly-symmetric bezier surface.
+
+    Parameters
+    ----------
+    size: `int`
+        The size of the grid.
+    num_pts: `int`
+        The number of points along one side of the grid.
+    u: `jax.Array`
+        The parameter values along the `u` direction in the range [0, 1].
+    v: `jax.Array`
+        The parameter values along the `v` direction in the range [0, 1].
+    minval: `jax.Array`
+        The minimum values of the space of random translations.
+    maxval: `jax.Array`
+        The maximum values of the space of random translations.
     """
     def __init__(self, size, num_pts, u, v, minval, maxval, *args, **kwargs):
         surface = BezierSurfaceSymmetricDouble(size, num_pts)
@@ -72,6 +143,21 @@ class BezierSurfaceSymmetricDoublePointGenerator(BezierSurfacePointGenerator):
 class BezierSurfaceSymmetricPointGenerator(BezierSurfacePointGenerator):
     """
     A generator that outputs point evaluated on a wiggled, symmetric bezier surface.
+
+    Parameters
+    ----------
+    size: `int`
+        The size of the grid.
+    num_pts: `int`
+        The number of points along one side of the grid.
+    u: `jax.Array`
+        The parameter values along the `u` direction in the range [0, 1].
+    v: `jax.Array`
+        The parameter values along the `v` direction in the range [0, 1].
+    minval: `jax.Array`
+        The minimum values of the space of random translations.
+    maxval: `jax.Array`
+        The maximum values of the space of random translations.
     """
     def __init__(self, size, num_pts, u, v, minval, maxval, *args, **kwargs):
         surface = BezierSurfaceSymmetric(size, num_pts)
@@ -81,6 +167,21 @@ class BezierSurfaceSymmetricPointGenerator(BezierSurfacePointGenerator):
 class BezierSurfaceAsymmetricPointGenerator(BezierSurfacePointGenerator):
     """
     A generator that outputs point evaluated on a wiggled bezier surface.
+
+    Parameters
+    ----------
+    size: `int`
+        The size of the grid.
+    num_pts: `int`
+        The number of points along one side of the grid.
+    u: `jax.Array`
+        The parameter values along the `u` direction in the range [0, 1].
+    v: `jax.Array`
+        The parameter values along the `v` direction in the range [0, 1].
+    minval: `jax.Array`
+        The minimum values of the space of random translations.
+    maxval: `jax.Array`
+        The maximum values of the space of random translations.
     """
     def __init__(self, size, num_pts, u, v, minval, maxval, *args, **kwargs):
         surface = BezierSurfaceAsymmetric(size, num_pts)
@@ -90,6 +191,23 @@ class BezierSurfaceAsymmetricPointGenerator(BezierSurfacePointGenerator):
 class BezierSurfaceLerpPointGenerator(BezierSurfacePointGenerator):
     """
     A generator that outputs points interpolated between two wiggled bezier surfaces.
+
+    Parameters
+    ----------
+    size: `int`
+        The size of the grid.
+    num_pts: `int`
+        The number of points along one side of the grid.
+    u: `jax.Array`
+        The parameter values along the `u` direction in the range [0, 1].
+    v: `jax.Array`
+        The parameter values along the `v` direction in the range [0, 1].
+    minval: `jax.Array`
+        The minimum values of the space of random translations.
+    maxval: `jax.Array`
+        The maximum values of the space of random translations.
+    alpha: `float`
+        The interpolation value.
 
     Notes
     -----
@@ -101,12 +219,30 @@ class BezierSurfaceLerpPointGenerator(BezierSurfacePointGenerator):
 
         surface = BezierSurfaceSymmetricDouble(size, num_pts)
         super().__init__(surface, u, v, minval_a, maxval_a)
-        self.generator_other = BezierSurfaceAsymmetricPointGenerator(size, num_pts, u, v, minval_b, maxval_b)
+        self.generator_other = BezierSurfaceAsymmetricPointGenerator(
+            size,
+            num_pts,
+            u,
+            v,
+            minval_b,
+            maxval_b)
         self.alpha = alpha
 
     def __call__(self, key, wiggle=True):
         """
         Generate (wiggled) points.
+
+        Parameters
+        ----------
+        key: `jax.random.PRNGKey`
+            The random key.
+        wiggle: `bool`, optional
+            Whether to wiggle the points at random.
+
+        Returns
+        -------
+        points: `jax.Array`
+            The points on the surface.
         """
         if wiggle:
             transform_this = self.wiggle(key)

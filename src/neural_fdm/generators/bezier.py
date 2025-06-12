@@ -17,6 +17,16 @@ from neural_fdm.generators.grids import PointGridSymmetricDouble
 def factorial(n):
     """
     Calculate the factorial of a number.
+
+    Parameters
+    ----------
+    n: `int`
+        The number to calculate the factorial of.
+
+    Returns
+    ------- 
+    factorial: `float`
+        The factorial of the number.
     """
     return jnp.where(n < 0, 0, lax.exp(lax.lgamma(n + 1)))
 
@@ -24,13 +34,37 @@ def factorial(n):
 def binomial_coefficient(n, i):
     """
     Compute the binomial coefficient.
+
+    Parameters
+    ----------
+    n: `int`
+        The number to calculate the binomial coefficient of.
+    i: `int`
+        The index of the binomial coefficient.
+
+    Returns
+    -------
+    coefficient: `float`
+        The binomial coefficient of the number.
     """
     return factorial(n) / (factorial(i) * factorial(n - i))
 
 
 def bernstein_poly(n, t):
     """
-    Compute all Bernstein polynomials of degree n at t using vectorized operations.
+    Compute all Bernstein polynomials of degree `n` at `t` using vectorized operations.
+
+    Parameters
+    ----------
+    n: `int`
+        The degree of the Bernstein polynomial.
+    t: `jax.Array`
+        The parameter values.
+
+    Returns
+    -------
+    bernstein_poly: `jax.Array`
+        The Bernstein polynomials of the degree `n` at the parameters `t`.
     """
     i = jnp.arange(n + 1)
     binomial_coeff = binomial_coefficient(n, i)
@@ -40,7 +74,17 @@ def bernstein_poly(n, t):
 
 def degree_u(control_points):
     """
-    Get the degree along the U direction of the Bezier surface.
+    Get the degree along the `u` direction of the Bezier surface.
+
+    Parameters
+    ----------
+    control_points: `jax.Array`
+        The control points of the Bezier surface.
+
+    Returns
+    -------
+    degree: `int`
+        The degree along the `u` direction of the Bezier surface.
     """
     n, m, _ = control_points.shape
     n -= 1.0
@@ -50,7 +94,17 @@ def degree_u(control_points):
 
 def degree_v(control_points):
     """
-    Get the degree along the V direction of the Bezier surface.
+    Get the degree along the `v` direction of the Bezier surface.
+
+    Parameters
+    ----------
+    control_points: `jax.Array`
+        The control points of the Bezier surface.
+
+    Returns
+    -------
+    degree: `int`
+        The degree along the `v` direction of the Bezier surface.
     """
     n, m, _ = control_points.shape
     m -= 1.0
@@ -60,9 +114,21 @@ def degree_v(control_points):
 
 def bezier_surface_point(control_points, u, v):
     """
-    Compute a point on a Bezier surface using a series of dot products.
-    control_points is a 3D numpy array of shape (n+1, m+1, 3)
-    u and v are the parameters (between 0 and 1)
+    Evaluate a point on a Bezier surface using a series of dot products.
+    
+    Parameters
+    ----------
+    control_points: `jax.Array`
+        The control points of the Bezier surface in the shape (n+1, m+1, 3).
+    u: `float`
+        The parameter value along the `u` direction in the range [0, 1].
+    v: `float`
+        The parameter value along the `v` direction in the range [0, 1].
+
+    Returns
+    -------
+    point: `jax.Array`
+        The point on the Bezier surface.
     """
     n = degree_u(control_points)
     m = degree_v(control_points)
@@ -83,9 +149,21 @@ def bezier_surface_point(control_points, u, v):
 # Evaluate points
 def evaluate_bezier_surface(control_points, u, v):
     """
-    Sample a series of 3D points on a Bezier surface using vmap.
-    control_points is a 3D numpy array of shape (n+1, m+1, 3)
-    u and v are parameter arrays where to sample (between 0 and 1)
+    Sample a series of 3D points on a Bezier surface with `vmap`.
+
+    Parameters
+    ----------
+    control_points: `jax.Array`
+        The control points of the Bezier surface in the shape (n+1, m+1, 3).
+    u: `jax.Array`
+        The parameter values along the `u` direction in the range [0, 1].
+    v: `jax.Array`
+        The parameter values along the `v` direction in the range [0, 1].
+
+    Returns
+    -------
+    points: `jax.Array`
+        The points on the Bezier surface.
     """
     fn = vmap(vmap(bezier_surface_point,
                    in_axes=(None, 0, None)),
@@ -96,9 +174,21 @@ def evaluate_bezier_surface(control_points, u, v):
 
 def evaluate_bezier_surface_einsum(control_points, u, v):
     """
-    Vectorized computation of a point on a Bezier surface.
-    control_points is a 3D numpy array of shape (n+1, m+1, 3).
-    u and v are arrays of parameters (between 0 and 1).
+    Vectorized computation of a point on a Bezier surface via `einsum`.
+
+    Parameters
+    ----------
+    control_points: `jax.Array`
+        The control points of the Bezier surface in the shape (n+1, m+1, 3).
+    u: `jax.Array`
+        The parameter values along the `u` direction in the range [0, 1].
+    v: `jax.Array`
+        The parameter values along the `v` direction in the range [0, 1].
+
+    Returns
+    -------
+    points: `jax.Array`
+        The points on the Bezier surface.
     """
     n = degree_u(control_points)
     m = degree_v(control_points)
@@ -123,6 +213,12 @@ def evaluate_bezier_surface_einsum(control_points, u, v):
 
 class BezierSurface:
     """
+    A Bezier surface.
+
+    Parameters
+    ----------
+    grid: `PointGrid`
+        The grid of points that define the Bezier surface.
     """
     def __init__(self, grid):
         self.grid = grid
@@ -141,6 +237,14 @@ class BezierSurface:
 
 class BezierSurfaceSymmetric(BezierSurface):
     """
+    A symmetric Bezier surface.
+
+    Parameters
+    ----------
+    size: `int`
+        The size of the grid.
+    num_pts: `int`
+        The number of points along one side of the grid.
     """
     def __init__(self, size, num_pts):
         grid = PointGridSymmetric(size, num_pts)
@@ -149,6 +253,14 @@ class BezierSurfaceSymmetric(BezierSurface):
 
 class BezierSurfaceSymmetricDouble(BezierSurface):
     """
+    A Bezier surface with double symmetry.
+
+    Parameters
+    ----------
+    size: `int`
+        The size of the grid.
+    num_pts: `int`
+        The number of points along one side of the grid.
     """
     def __init__(self, size, num_pts):
         grid = PointGridSymmetricDouble(size, num_pts)
@@ -157,6 +269,14 @@ class BezierSurfaceSymmetricDouble(BezierSurface):
 
 class BezierSurfaceAsymmetric(BezierSurface):
     """
+    A Bezier surface without symmetry.
+
+    Parameters
+    ----------
+    size: `int`
+        The size of the grid.
+    num_pts: `int`
+        The number of points along one side of the grid.
     """
     def __init__(self, size, num_pts):
         grid = PointGridAsymmetric(size, num_pts)

@@ -4,12 +4,14 @@ import jax.random as jrn
 
 import jax.numpy as jnp
 
+from neural_fdm.generators.generator import PointGenerator
+
 
 # ===============================================================================
 # Generators
 # ===============================================================================
 
-class TubePointGenerator:
+class TubePointGenerator(PointGenerator):
     """
     A generator that outputs point evaluated on a wiggled tube.
     """
@@ -19,6 +21,23 @@ class TubePointGenerator:
 class EllipticalTubePointGenerator(TubePointGenerator):
     """
     A generator that outputs point evaluated on a wiggled elliptical tube.
+
+    Parameters
+    ----------
+    height: `float`
+        The height of the tube.
+    radius: `float`
+        The reference radius of the tube.
+    num_sides: `int`
+        The number of sides per ellipse.
+    num_levels: `int`
+        The number of levels along the height of the tube.
+    num_rings: `int`
+        The number of levels that will work as compression rings. The first and last levels are fully supported.
+    minval: `jax.Array`
+        The minimum values of the space of random transformations.
+    maxval: `jax.Array`
+        The maximum values of the space of random transformations.
     """
     def __init__(
             self,
@@ -56,15 +75,31 @@ class EllipticalTubePointGenerator(TubePointGenerator):
     def __call__(self, key, wiggle=True):
         """
         Generate points.
-        """
-        # points = self.points_on_ellipses(key)
+
+        Parameters
+        ----------
+        key: `jax.random.PRNGKey`
+            The random key.
+        wiggle: `bool`, optional
+            Whether to wiggle the points at random.
+
+        Returns
+        -------
+        points: `jax.Array`
+            The points on the tube.
+        """        
         points = self.points_on_tube(key, wiggle)
 
         return jnp.ravel(points)
 
     def _levels_rings_tension(self):
         """
-        Compute the level indices of all the tension rings.
+        Compute the integer indices of the levels that work as tension rings.
+
+        Returns
+        -------
+        indices: `jax.Array`
+            The indices.
         """
         indices = [i for i in range(self.num_levels) if i not in self.levels_rings_comp]
         indices = jnp.array(indices, dtype=jnp.int64)
@@ -75,7 +110,12 @@ class EllipticalTubePointGenerator(TubePointGenerator):
 
     def _levels_rings_compression(self):
         """
-        Compute the level indices of all the compression rings.
+        Compute the integer indices of the levels that work as compression rings.
+
+        Returns
+        -------
+        indices: `jax.Array`
+            The indices.
         """
         step = int(self.num_levels / (self.num_rings - 1))
 
@@ -88,7 +128,12 @@ class EllipticalTubePointGenerator(TubePointGenerator):
 
     def _indices_rings_compression_ravel(self):
         """
-        Compute the indices of the vertices in all the compression rings.
+        Compute the integer indices of the vertices in the compression rings.
+
+        Returns
+        -------
+        indices: `jax.Array`
+            The indices.
         """
         indices = []
         for index in self.levels_rings_comp:
@@ -102,7 +147,12 @@ class EllipticalTubePointGenerator(TubePointGenerator):
 
     def _indices_rings_compression_interior_ravel(self):
         """
-        Compute the indices of the vertices in the interior compression rings.
+        Compute the integer indices of the vertices in the unsupported compression rings.
+
+        Returns
+        -------
+        indices: `jax.Array`
+            The indices.
         """
         indices = []
         for index in self.levels_rings_comp[1:-1]:
@@ -116,13 +166,33 @@ class EllipticalTubePointGenerator(TubePointGenerator):
 
     def wiggle(self, key):
         """
-        Sample transformation vectors from a uniform distribution.
+        Sample random radii and angles from a uniform distribution.
+
+        Parameters
+        ----------
+        key: `jax.random.PRNGKey`
+            The random key.
+
+        Returns
+        -------
+        transform: tuple of `jax.Array`
+            The transformation factors for the radii and angles.
         """
         return self.wiggle_radii(key), self.wiggle_angle(key)
 
     def wiggle_radii(self, key):
         """
-        Sample a 2D transformation vector from a uniform distribution.
+        Sample random radii from a uniform distribution.
+
+        Parameters
+        ----------
+        key: `jax.random.PRNGKey`
+            The random key.
+
+        Returns
+        -------
+        radii: `jax.Array`
+            The random radii.
         """
         shape = (self.num_rings, 2)
         minval = self.minval[:2]
@@ -132,7 +202,17 @@ class EllipticalTubePointGenerator(TubePointGenerator):
 
     def wiggle_angle(self, key):
         """
-        Sample a transformation vector from a uniform distribution.
+        Sample random angles from a uniform distribution.
+
+        Parameters
+        ----------
+        key: `jax.random.PRNGKey`
+            The random key.
+
+        Returns
+        -------
+        angles: `jax.Array`
+            The random angles.
         """
         shape = (self.num_rings,)
         minval = self.minval[2]
@@ -142,7 +222,17 @@ class EllipticalTubePointGenerator(TubePointGenerator):
 
     def evaluate_points(self, transform):
         """
-        Generate transformed points.
+        Generate wiggled points.
+
+        Parameters
+        ----------
+        transform: tuple of `jax.Array`
+            The random radii and angles.
+
+        Returns
+        -------
+        points: `jax.Array`
+            The points.
         """
         heights = jnp.linspace(0.0, self.height, self.num_levels)
         radii = jnp.ones(shape=(self.num_levels, 2)) * self.radius
@@ -165,6 +255,19 @@ class EllipticalTubePointGenerator(TubePointGenerator):
 
     def points_on_tube(self, key=None, wiggle=False):
         """
+        Evaluate wiggled points on the tube.
+
+        Parameters
+        ----------
+        key: `jax.random.PRNGKey`
+            The random key.
+        wiggle: `bool`, optional
+            Whether to wiggle the points at random.
+
+        Returns
+        -------
+        points: `jax.Array`
+            The points on the tube.
         """
         heights = jnp.linspace(0.0, self.height, self.num_levels)
         radii = jnp.ones(shape=(self.num_levels, 2)) * self.radius
@@ -186,27 +289,18 @@ class EllipticalTubePointGenerator(TubePointGenerator):
 
         return points
 
-    def points_on_ellipses(self, key):
-        """
-        """
-        heights = jnp.linspace(0.0, self.height, self.num_rings)
-
-        radii, angles = self.wiggle(key)
-        radii = radii * self.radius
-
-        points = points_on_ellipses(
-            radii[:, 0],
-            radii[:, 1],
-            heights,
-            self.num_sides,
-            angles,
-        )
-
-        return points
-
     def _check_array_shapes(self, num_rings, minval, maxval):
         """
         Verify that input shapes are consistent.
+
+        Parameters
+        ----------
+        num_rings: `int`
+            The number of rings.
+        minval: `jax.Array`
+            The minimum values of the space of random transformations.
+        maxval: `jax.Array`
+            The maximum values of the space of random transformations.
         """
         shape = (3, )
         minval_shape = minval.shape
@@ -218,11 +312,21 @@ class EllipticalTubePointGenerator(TubePointGenerator):
 
 class CircularTubePointGenerator(EllipticalTubePointGenerator):
     """
-    A generator that outputs point evaluated on a wiggled elliptical tube.
+    A generator that outputs point evaluated on a wiggled circular tube.
     """
     def wiggle_radii(self, key):
         """
-        Sample a 2D transformation vector from a uniform distribution.
+        Sample random radii from a uniform distribution.
+
+        Parameters
+        ----------
+        key: `jax.random.PRNGKey`
+            The random key.
+
+        Returns
+        -------
+        radii: `jax.Array`
+            The random radii.
         """
         shape = (self.num_rings,)
         minval = self.minval[0]
@@ -232,6 +336,19 @@ class CircularTubePointGenerator(EllipticalTubePointGenerator):
 
     def points_on_tube(self, key=None, wiggle=False):
         """
+        Evaluate wiggled points on the tube.
+
+        Parameters
+        ----------
+        key: `jax.random.PRNGKey`
+            The random key.
+        wiggle: `bool`, optional
+            Whether to wiggle the points at random.
+
+        Returns
+        -------
+        points: `jax.Array`
+            The points on the tube.
         """
         heights = jnp.linspace(0.0, self.height, self.num_levels)
         radii = jnp.ones(shape=(self.num_levels,)) * self.radius
@@ -253,24 +370,6 @@ class CircularTubePointGenerator(EllipticalTubePointGenerator):
 
         return points
 
-    def points_on_ellipses(self, key):
-        """
-        """
-        heights = jnp.linspace(0.0, self.height, self.num_rings)
-
-        radii, angles = self.wiggle(key)
-        radii = radii * self.radius
-
-        points = points_on_ellipses(
-            radii,
-            radii,
-            heights,
-            self.num_sides,
-            angles,
-        )
-
-        return points
-
 
 # ===============================================================================
 # Helper functions
@@ -278,7 +377,23 @@ class CircularTubePointGenerator(EllipticalTubePointGenerator):
 
 def points_on_ellipse_xy(radius_1, radius_2, num_sides, angle=0.0):
     """
-    Sample points on an ellipse.
+    Sample points on an ellipse on the XY plane.
+
+    Parameters
+    ----------
+    radius_1: `float`
+        The radius of the ellipse along the X axis.
+    radius_2: `float`
+        The radius of the ellipse along the Y axis.
+    num_sides: `int`
+        The number of sides of the ellipse.
+    angle: `float`, optional
+        The angle of the ellipse in degrees relative to the X axis.
+
+    Returns
+    -------
+    points: `jax.Array`
+        The points.
 
     Notes
     -----
@@ -306,7 +421,25 @@ def points_on_ellipse_xy(radius_1, radius_2, num_sides, angle=0.0):
 
 def points_on_ellipse(radius_1, radius_2, height, num_sides, angle=0.0):
     """
-    Sample points on an ellipse at a given z coordinate.
+    Sample points on a planar ellipse at a given height.
+
+    Parameters
+    ----------
+    radius_1: `float`
+        The radius of the ellipse along the X axis.
+    radius_2: `float`
+        The radius of the ellipse along the Y axis.
+    height: `float`
+        The height of the ellipse.
+    num_sides: `int`
+        The number of sides of the ellipse.
+    angle: `float`, optional
+        The angle of the ellipse in degrees relative to the X axis.
+
+    Returns
+    -------
+    points: `jax.Array`
+        The points.
 
     Notes
     -----
@@ -321,6 +454,24 @@ def points_on_ellipse(radius_1, radius_2, height, num_sides, angle=0.0):
 def points_on_ellipses(radius_1, radius_2, heights, num_sides, angles):
     """
     Sample points on an sequence of ellipses distributed over an array of heights.
+
+    Parameters
+    ----------
+    radius_1: `jax.Array`
+        The radii of the ellipses along the X axis.
+    radius_2: `jax.Array`
+        The radii of the ellipses along the Y axis.
+    heights: `jax.Array`
+        The heights of the ellipses.
+    num_sides: `int`
+        The number of sides of the ellipses.
+    angles: `jax.Array`
+        The angles of the ellipses in degrees relative to the X axis.
+
+    Returns
+    -------
+    points: `jax.Array`
+        The points on the ellipses.
 
     Notes
     -----
