@@ -66,7 +66,7 @@ def optimize_batch(
         slice=(0, -1),
         save=False,
         view=False,
-        edgecolor="force",
+        edgecolor=None,
         show_reactions=False,
         edgewidth=(0.01, 0.25),
         fmax=None,
@@ -143,14 +143,22 @@ def optimize_batch(
         If `True`, print to stdout intermediary results.
     record: `bool`, optional
         If `True`, record the loss history.
-    edgecolor: `str`, optional
+    edgecolor: `str` or `None`, optional
         The color palette for the edges.
         Supported color palettes are fd to display force densities, and force to show forces.
+        If `None`, the edges are colored by the force density in the shells tasks, and by the force in the tower tasks.
     save_metrics: `bool`, optional
         If `True`, saves the calcualted batch metrics in text files.
     """
+    if edgecolor is None:
+        if task_name == "bezier":
+            EDGECOLOR = "fd"
+        elif task_name == "tower":
+            EDGECOLOR = "force"
+    else:
+        EDGECOLOR = edgecolor
+
     START, STOP = slice
-    EDGECOLOR = edgecolor  # force, fd
     SAVE = save
     QMIN = blow
     QMAX = bup
@@ -365,7 +373,6 @@ def optimize_batch(
             forces_all = []
             forces_comp_all = []
             forces_tens_all = []
-            qs_all = []
 
             for edge in network_hat.edges():
 
@@ -376,9 +383,6 @@ def optimize_batch(
                     forces_comp_all.append(force_abs)
                 else:
                     forces_tens_all.append(force_abs)
-
-                if mesh_hat.edge_attribute(edge, "tag") != "ring":
-                    qs_all.append(fabs(network_hat.edge_forcedensity(edge)))
 
             fmin = 0.0
             fmin_comp = 0.0
@@ -395,10 +399,6 @@ def optimize_batch(
                     fmax_comp = max(forces_comp_all)
                 else:
                     fmax_comp = 0.0
-            if qmin is None:
-                qmin = min(qs_all)
-            if qmax is None:
-                qmax = max(qs_all)
 
             # edge width
             width_min, width_max = EDGEWIDTH
@@ -409,20 +409,7 @@ def optimize_batch(
 
             # edge colors
             edgecolor = EDGECOLOR
-            if edgecolor == "fd_minmax":
-                edgecolor = {}
-
-                cmap = ColorMap.from_mpl("viridis")
-                _edges = [edge for edge in mesh_hat.edges() if mesh_hat.edge_attribute(edge, "tag") != "ring"]
-                values = [fabs(mesh_hat.edge_forcedensity(edge)) for edge in _edges]
-                ratios = remap_values(values, original_min=qmin, original_max=qmax)
-                edgecolor = {edge: cmap(ratio) for edge, ratio in zip(_edges, ratios)}
-
-                for edge in mesh_hat.edges():
-                    if mesh_hat.edge_attribute(edge, "tag") == "ring":
-                        edgecolor[edge] = Color.grey()  # .darkened()
-
-            elif edgecolor == "force":
+            if edgecolor == "force":
                 edgecolor = {}
 
                 color_start = Color.white()
@@ -493,19 +480,6 @@ def optimize_batch(
             print(f"{label.capitalize()} over {num_opts} optimizations: {mean(errors):.4f} (+-{stdev(errors):.4f})")
 
     if save_metrics:
-        metric_names = ["loadpath"]
-        for name in metric_names:
-
-            metrics = [f"{terms[name].item()}\n" for terms in loss_terms_batch]
-
-            filename = f"{optimizer}_{task_name}_{'_'.join(name.split())}_eval.txt"
-            filepath = os.path.join(DATA, filename)
-
-            with open(filepath, 'w') as output:
-                output.writelines(metrics)
-
-            print(f"Saved batch {name} metric to {filepath}")
-
         # Export force densities
         filename = f"{optimizer}_{task_name}_q_eval.txt"
         filepath = os.path.join(DATA, filename)
@@ -514,7 +488,7 @@ def optimize_batch(
         with open(filepath, 'w') as output:
             output.writelines(metrics)
 
-        print(f"Saved batch {name} metric to {filepath}")
+        print(f"Saved batch qs to {filepath}")
 
 
 # ===============================================================================
