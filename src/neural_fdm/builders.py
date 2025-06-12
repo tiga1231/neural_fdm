@@ -295,7 +295,7 @@ def build_tube_point_generator(generator_params):
     Parameters
     ----------
     generator_params: `dict`
-        The parameters for the generator.
+        The hyperparameters for the generator.
 
     Returns
     -------
@@ -336,7 +336,7 @@ def build_bezier_point_generator(generator_params):
     Parameters
     ----------
     generator_params: `dict`
-        The parameters for the generator.
+        The hyperparameters for the generator.
 
     Returns
     -------
@@ -455,7 +455,7 @@ def build_connectivity_structure_from_generator(config, generator):
     Returns
     -------
     structure: `jax_fdm.EquilibriumStructure`
-        The structure.
+        A structure with the discretization of the shape.
     """
     # generate base FD mesh
     mesh = build_mesh_from_generator(config, generator)
@@ -573,7 +573,7 @@ def build_loss_function(config, generator):
     config: `dict`
         The configuration for the loss function.
     generator: `PointGenerator`
-        The generator.
+        A generator.
 
     Returns
     -------
@@ -700,11 +700,11 @@ def build_fd_decoder_parametrized(q0, mesh, params):
     mesh: `jax_fdm.FDMesh`
         The mesh.
     params: `dict`
-        The parameters for the decoder.
+        The hyperparameters for the decoder.
 
     Returns
     -------
-    decoder: `jax_fdm.FDDecoder`
+    decoder: `eqx.Module`
         The force density decoder.
     """
     # unpack hyperparams
@@ -736,11 +736,11 @@ def build_fd_decoder(mesh, params):
     mesh: `jax_fdm.FDMesh`
         The mesh.
     params: `dict`
-        The parameters for the decoder.
+        The hyperparameters for the decoder.
 
     Returns
     -------
-    decoder: `Decoder`
+    decoder: `eqx.Module`
         The force density decoder.
     """
     # unpack hyperparams
@@ -773,11 +773,11 @@ def build_neural_decoder(mesh, key, params):
     key: `jax.random.PRNGKey`
         The random key.
     params: `dict`
-        The parameters for the decoder.
+        The hyperparameters for the decoder.
 
     Returns
     -------
-    decoder: `Decoder`
+    decoder: `eqx.Module`
         The decoder.
     """
     # unpack hyperparameters
@@ -840,13 +840,13 @@ def build_neural_encoder(mesh, key, params, generator):
     key: `jax.random.PRNGKey`
         The random key.
     params: `dict`
-        The parameters for the decoder.
+        The hyperparameters for the decoder.
     generator: `PointGenerator`
         The generator.
 
     Returns
     -------
-    encoder: `Encoder`
+    encoder: `eqx.Module`
         The encoder.
     """
     # unpack hyperparameters
@@ -920,7 +920,7 @@ def build_neural_formfinder(mesh, key, params, generator):
 
     Returns
     -------
-    model: `AutoEncoder`
+    model: `eqx.Module`
         The autoencoder model.
     """
     # Unpack hyperparams
@@ -955,7 +955,7 @@ def build_neural_autoencoder(mesh, key, params, generator):
 
     Returns
     -------
-    model: `AutoEncoder`
+    model: `eqx.Module`
         The autoencoder model.
     """
     # Unpack hyperparams
@@ -990,7 +990,7 @@ def build_neural_autoencoder_piggy(mesh, key, params, generator):
 
     Returns
     -------
-    model: `AutoEncoder`
+    model: `eqx.Module`
         The autoencoder model.
     """
     # Unpack hyperparams
@@ -1029,7 +1029,7 @@ def build_neural_model(name, config, generator, model_key):
 
     Returns
     -------
-    model: `AutoEncoder`
+    model: `eqx.Module`
         The autoencoder model.
     """
     # generate base FD mesh
