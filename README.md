@@ -122,12 +122,12 @@ The target tower shapes are described in turn by a vertical sequence of planar c
 The tower rings are deformed and rotated depending on the generator `name` and `bounds`.
 
 - `name`: The generator name. Use `tower_ellipse` to make target shapes with elliptical rings, and `tower_circles` to keep the rings as circles.
-- `bounds`: Either `straight` or `twisted`. The former scales the rings on the plane at random. The latter scales and rotates the rings randomly.
+- `bounds`: Either `straight` or `twisted`. The former only scales the rings on the plane at random. The latter scales and rotates the rings at random.
 - `height`: The tower height.
 - `radius`: The start radius of the all the generated circles.
 - `num_sides`: The number of segments to discretize each circle with.
 - `num_levels`: The number of circles to create along the tower's height. Equidistantly spaced.
-- `num_rings`: The number of circles to be morphed during training. Must be `>2` since two of these rings are, by default, the top and bottom of the tower.
+- `num_rings`: The number of circles to be morphed during training. Must be `>2` since two of these rings are, by default, at the top and bottom of the tower.
 
 ### Building a model
 
@@ -142,13 +142,16 @@ We employ one of the simplest possible neural networks, the MLP, to quantify the
 This sets a baseline from which we can build upon with beefier architectures like graph neural networks, transformers, and beyond.
 
 The encoder hyperparameters are:
-- `shift`: The lower bound shift in output of the last layer of the encoder. This is precisely what we call `tau` in the [paper](https://arxiv.org/abs/2409.02606).
+- `shift`: The lower bound shift in output of the last layer of the encoder. This is what we call `tau` in the [paper](https://arxiv.org/abs/2409.02606).
 - `hidden_layer_size`: The width of every fully-connected hidden layer. We restrict the size to `256` in all the experiments.
-- `hidden_layer_num`: The number of hidden layers, output layer inclusive.
+- `hidden_layer_num`: The number of hidden layers, output layer included.
 - `activation_fn_name`: The name of the activation function after each hidden layer. We typically resort to `elu`.
 - `final_activation_fn_name`: The activation function name after the output layer. We use `softplus` to ensure a strictly positive output, as needed by the simulator decoder.
 
-The neural decoder's setup mirrors the encoder's, except for the `include_params_xl` flag. If set to `True`, then the decoder expects the latents and boundary conditions as inputs. Otherwise, it only decodes the latents. We fix this hyperparameter to `True` in the [paper](https://arxiv.org/abs/2409.02606).
+The neural decoder's setup mirrors the encoder's, except for the `include_params_xl` flag.
+If set to `True`, then the decoder expects the latents and boundary conditions as inputs.
+Otherwise, it only decodes the latents.
+We fix this hyperparameter to `True` in the [paper](https://arxiv.org/abs/2409.02606).
 
 #### Simulator
 
@@ -163,7 +166,7 @@ The training setup is also defined in the configuration file of the task, includ
 The `loss` function is the sum of multiple terms, that for the most part are a shape loss and a physics loss, as we explain in the [paper](https://arxiv.org/abs/2409.02606).
 We allow for more refined control on the scaling of each loss term in the file:
 - `include`: Whether or not to include the loss term during training. If set to `False`, then the value of the loss term is not calculated, saving some computation resources. By default, `include=True`.
-- `weight`: The scalar weight of the loss term used for callibrating model performance, called `kappa` in the [paper](https://arxiv.org/abs/2409.02606). It is particularly useful to tune the scale of the physics loss whent raining the PINN baseline. The weight is `weight=1.0` by default unless otherwise stated.
+- `weight`: The scalar weight of the loss term used for callibrating model performance, called `kappa` in the [paper](https://arxiv.org/abs/2409.02606). It is particularly useful to tune the scale of the physics loss when training the PINN baseline. The `weight=1.0` by default.
 
 The `optimizer` hyperparameters are:
 - `name`: the name of the gradient-based optimizer. We currently support `adam` and `sgd` from the `optax` library, but only use `adam` in the [paper](https://arxiv.org/abs/2409.02606).
@@ -171,7 +174,7 @@ The `optimizer` hyperparameters are:
 - `clip_norm`: The global norm for gradient clipping. If set to `0.0`, then gradient clipping is ignored.
 
 And for the `training` routine:
-- `steps`: The number of optimization steps to train a model for (i.e., the number of times the model parameters are updated). We mostly train the models for `10000` steps.
+- `steps`: The number of optimization steps for model training (i.e., the number of times the model parameters are updated). We mostly train the models for `10000` steps.
 - `batch_size`: The batch size of the input data.
 
 [Table of contents](#table-of-contents) ⬆️
@@ -205,7 +208,7 @@ They would allow you to warmstart the training from an existing pretrained model
 
 ## Testing
 
-To evaluate the trained models at inference time on a test batch, run:
+To evaluate the trained models on a test batch, run:
 
 ```bash
 python predict.py <model_name> <task_name> --batch_size=<batch_size> --seed=<test_seed>
@@ -221,14 +224,14 @@ Feel free to specify other seed values to test the model on different test datas
 
 An image is worth more than a thousand words, or in this case, more than a thousand numbers in a JAX array.
 
-You can visualize the prediction a model makes, either ours or the baselines, with a dedicated script that lets you take control over the styling of the rendered prediction:
+You can visualize the prediction a model makes, either ours or the baselines, with a dedicated script that lets you take control over the style of the rendered prediction:
 
 ```bash
 python visualize.py <model_name> <task_name> --shape_index=<shape_index> --seed=<test_seed>
 ```
 
 The shape to display is selected by inputting its index relative to the batch size with the `<shape_index>` argument.
-Check out the docstring of `visualize.py` for the nitty-gritty details of how to control color palettes, linewidths, and arrow scales to make pretty pictures.
+Check out the docstring of `visualize.py` for the nitty-gritty details of how to control color palettes, linewidths, and arrow scales for making pretty pictures.
 
 [Table of contents](#table-of-contents) ⬆️
 
@@ -242,7 +245,7 @@ Take an optimizer for a ride via:
 python optimize.py <optimizer_name> <task_name> --batch_size=<batch_size> --seed=<test_seed> --blow=<blow> --bup=<bup> --param_init=<param_init> --maxiter=<maxiter> --tol=<tol>
 ```
 
-We support two constrained gradient-based algorithms as implemented in `jaxopt` (they effectively are `scipy` wrappers).
+We support two constrained gradient-based algorithms as implemented in `jaxopt`.
 Select one of them through their `optimizer_name`: 
 - `slsqp`: The sequential least squares quadratic programming algorithm.
 - `lbfgsb`: The limited-memory Broyden–Fletcher–Goldfarb–Shanno algorithm.
@@ -255,17 +258,18 @@ Both optimizers run for `maxiter=5000` iterations at most and stop early if they
 We're in the business of local optimization, so the inialization affects convergence. 
 You can pick between two initialization schemes with `param_init` that respect the force density signs of a task (compression or tension):
 
--  If specified as a scalar, it determines the starting constant value of all the simulation parameters.
+- If specified as a scalar, it determines the starting constant value of all the simulation parameters.
 - If set to `None`, the initialization samples starting parameters between `blow` and `bup` from a uniform distribution.
     
 In the shells task, we apply `slsqp`, set `blow=0.0` and `bup=20.0`, and `param_init=None`.
 
 In contrast, the towers task uses `lbfgsb` and `blow=1.0` to match the value of `tau` we used in this task in the paper.
-The towers task is too more nuanced because we explore three different initialization schemes:
+The towers task is more nuanced because we explore three different initialization schemes:
 - Randomized: `param_init=None`
 - Expert: `param_init=1.0`
 
 The third initialization type relies on the predictions of a pre-trained model and, to use it, we need to invoke a different script.
+See [Predict then optimize](#predict-then-optimize) below.
 
 [Table of contents](#table-of-contents) ⬆️
 
@@ -295,7 +299,7 @@ Don't worry, it's free.
 @inproceedings{
     pastrana_2025_diffmechanics,
     title={Real-time design of architectural structures with differentiable mechanics and neural networks},
-    author={Rafael Pastrana and Eder Medina and Isabel M. de Oliveira and Sigrid Adriaenssens and Ryan P Adams},
+    author={Rafael Pastrana and Eder Medina and Isabel M. de Oliveira and Sigrid Adriaenssens and Ryan P. Adams},
     booktitle={The Thirteenth International Conference on Learning Representations},
     year={2025},
     url={https://openreview.net/forum?id=Tpjq66xwTq}
