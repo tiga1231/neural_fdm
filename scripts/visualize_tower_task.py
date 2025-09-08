@@ -1,31 +1,24 @@
 """
 Generate diagrams for the cablenet tower prediction task.
 """
-import yaml
 
 import jax
-from jax import vmap
 import jax.numpy as jnp
-
 import jax.random as jrn
-
+import yaml
+from camera import CAMERA_CONFIG_TOWER as CAMERA_CONFIG
 from compas.colors import Color
-from compas.geometry import Polygon
-from compas.geometry import Polyline
-from compas.geometry import Plane
-
+from compas.geometry import Plane, Polygon, Polyline
+from jax import vmap
 from jax_fdm.visualization import Viewer
 
 from neural_fdm.builders import build_data_generator
-
 from neural_fdm.generators import points_on_ellipse
-
-from camera import CAMERA_CONFIG_TOWER as CAMERA_CONFIG
-
 
 # ===============================================================================
 # Script function
 # ===============================================================================
+
 
 def view_tower_task(seed=None, batch_size=None, shape_index=0):
     """
@@ -40,10 +33,10 @@ def view_tower_task(seed=None, batch_size=None, shape_index=0):
         The size of the batch of target shapes.
         If `None`, it defaults to the task hyperparameters file.
     shape_index: `int`
-        The index of the shape to view.        
+        The index of the shape to view.
     """
     # pick camera configuration for task
-    task_name = "tower"    
+    task_name = "tower"
     _width = 450
 
     # load yaml file with hyperparameters
@@ -71,12 +64,7 @@ def view_tower_task(seed=None, batch_size=None, shape_index=0):
     # view task
 
     # create viewer
-    viewer = Viewer(
-        width=_width,
-        height=900,
-        show_grid=False,
-        viewmode="lighted"
-    )
+    viewer = Viewer(width=_width, height=900, show_grid=False, viewmode="lighted")
 
     # modify view
     viewer.view.camera.position = CAMERA_CONFIG["position"]
@@ -92,35 +80,30 @@ def view_tower_task(seed=None, batch_size=None, shape_index=0):
     for ring in rings:
         ring = ring.tolist()
         polygon = Polygon(ring)
-        
+
         viewer.add(polygon, opacity=0.5)
         viewer.add(
-            Polyline(ring + ring[:1]),
-            linewidth=4.0,
-            color=Color.black().lightened()
+            Polyline(ring + ring[:1]), linewidth=4.0, color=Color.black().lightened()
         )
 
     # draw planes, transparent, thick-ish boundary
-    heights = jnp.linspace(0.0, generator.height, generator.num_levels)        
-    
+    heights = jnp.linspace(0.0, generator.height, generator.num_levels)
+
     for i, height in enumerate(heights):
 
         plane = Plane([0.0, 0.0, height], [0.0, 0.0, 1.0])
 
         circle = points_on_ellipse(
-            generator.radius,
-            generator.radius,
-            height,
-            generator.num_sides
-            )
+            generator.radius, generator.radius, height, generator.num_sides
+        )
         circle = circle.tolist()
 
         if i in generator.levels_rings_comp:
             viewer.add(
                 Polyline(circle + circle[:1]),
                 linewidth=2.0,
-                color=Color.grey().lightened()
-                )
+                color=Color.grey().lightened(),
+            )
             # skip plane drawing for compression rings to avoid overlap
             continue
 
@@ -129,7 +112,8 @@ def view_tower_task(seed=None, batch_size=None, shape_index=0):
             size=1.0,
             linewidth=0.1,
             color=Color.grey().lightened(10),
-            opacity=0.1)
+            opacity=0.1,
+        )
 
     # show viewer
     viewer.show()

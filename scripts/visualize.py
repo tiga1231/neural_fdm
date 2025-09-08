@@ -1,80 +1,59 @@
 """
 Visualize the predictions of a model on a target shape.
 """
+
 import os
 from math import fabs
-import yaml
-
-import matplotlib.cm as cm
-import numpy as np
 
 import jax
 import jax.numpy as jnp
-
-from jax import vmap
-
 import jax.random as jrn
-
-from compas.colors import Color
-from compas.colors import ColorMap
+import matplotlib.cm as cm
+import numpy as np
+import yaml
+from camera import (CAMERA_CONFIG_BEZIER, CAMERA_CONFIG_BEZIER_TOP,
+                    CAMERA_CONFIG_TOWER)
+from compas.colors import Color, ColorMap
 from compas.datastructures import mesh_transformed
-from compas.geometry import Line
-from compas.geometry import Polygon
-from compas.geometry import Polyline
-from compas.geometry import distance_point_point
-from compas.geometry import length_vector
+from compas.geometry import (Line, Polygon, Polyline, distance_point_point,
+                             length_vector)
 from compas.utilities import remap_values
-
+from jax import vmap
 from jax_fdm.datastructures import FDNetwork
-
 from jax_fdm.equilibrium import datastructure_updated
+from jax_fdm.visualization import Plotter, Viewer
+from shapes import BEZIERS, TOWERS
 
-from jax_fdm.visualization import Viewer
-from jax_fdm.visualization import Plotter
-
-from neural_fdm import DATA
-from neural_fdm import FIGURES
-
-from neural_fdm.builders import build_loss_function
-from neural_fdm.builders import build_mesh_from_generator
-from neural_fdm.builders import build_data_generator
-from neural_fdm.builders import build_connectivity_structure_from_generator
-from neural_fdm.builders import build_neural_model
-
+from neural_fdm import DATA, FIGURES
+from neural_fdm.builders import (build_connectivity_structure_from_generator,
+                                 build_data_generator, build_loss_function,
+                                 build_mesh_from_generator, build_neural_model)
 from neural_fdm.losses import print_loss_summary
-
 from neural_fdm.serialization import load_model
-
-from camera import CAMERA_CONFIG_BEZIER
-from camera import CAMERA_CONFIG_BEZIER_TOP
-from camera import CAMERA_CONFIG_TOWER
-
-from shapes import BEZIERS
-from shapes import TOWERS
-
 
 # ===============================================================================
 # Script function
 # ===============================================================================
 
+
 def visualize(
-        model_names,
-        task_name,
-        shape_name=None,
-        shape_index=0,
-        seed=None,
-        batch_size=None,
-        view=True,
-        use_camera_top=False,
-        plot=False,
-        save=False,
-        edgewidth=(0.01, 0.25),
-        edgecolor=None,
-        show_reactions=True,
-        reactionscale=1.0,
-        plot_prediction=False,
-        plot_target=True,
-        plot_metric=None,
+    model_names,
+    task_name,
+    shape_name=None,
+    shape_index=0,
+    seed=None,
+    batch_size=None,
+    view=True,
+    use_camera_top=False,
+    plot=False,
+    save=False,
+    edgewidth=(0.01, 0.25),
+    edgecolor=None,
+    show_reactions=True,
+    reactionscale=1.0,
+    plot_prediction=False,
+    plot_target=True,
+    plot_metric=None,
 ):
     """
     Visualize model predictions for one target shape.
@@ -126,7 +105,7 @@ def visualize(
         If `True`, plot the target shape.
     plot_metric: `str`, optional
         The name of the metric to plot.
-        Supported metrics are forces, residuals, and deltas.        
+        Supported metrics are forces, residuals, and deltas.
     """
     if edgecolor is None:
         if task_name == "bezier":
@@ -148,8 +127,8 @@ def visualize(
     training_params = config["training"]
     batch_size = batch_size or training_params["batch_size"]
 
-    generator_name = config['generator']['name']
-    bounds_name = config['generator']['bounds']
+    generator_name = config["generator"]["name"]
+    bounds_name = config["generator"]["bounds"]
 
     # randomness
     key = jrn.PRNGKey(seed)
@@ -163,11 +142,13 @@ def visualize(
 
     # print info
     print(f"Making predictions on {generator_name} dataset with {bounds_name} bounds\n")
-    print(f"Structure size: {structure.num_vertices} vertices, {structure.num_edges} edges")
+    print(
+        f"Structure size: {structure.num_vertices} vertices, {structure.num_edges} edges"
+    )
 
-# ===============================================================================
-# Create target
-# ===============================================================================
+    # ===============================================================================
+    # Create target
+    # ===============================================================================
 
     # sample target points
     if shape_name is not None and "bezier" in task_name:
@@ -189,9 +170,9 @@ def visualize(
     for idx, key in mesh.index_key().items():
         mesh_target.vertex_attributes(key, "xyz", _xyz[idx])
 
-# ===============================================================================
-# Load models
-# ===============================================================================
+    # ===============================================================================
+    # Load models
+    # ===============================================================================
 
     print("\nLoading models")
     if isinstance(model_names, str):
@@ -205,9 +186,9 @@ def visualize(
         model = load_model(filepath, model_skeleton)
         models_data[model_name]["model"] = model
 
-# ===============================================================================
-# Predictions
-# ===============================================================================
+    # ===============================================================================
+    # Predictions
+    # ===============================================================================
 
     for model_name, data in models_data.items():
         print(f"\nPredicting with {model_name}")
@@ -216,12 +197,7 @@ def visualize(
         model = data["model"]
 
         # calculate loss
-        _, loss_terms = compute_loss(
-            model,
-            structure,
-            xyz[None, :],
-            aux_data=True
-        )
+        _, loss_terms = compute_loss(model, structure, xyz[None, :], aux_data=True)
         print_loss_summary(loss_terms)
 
         # predict equilibrium states for viz and i/o
@@ -237,9 +213,9 @@ def visualize(
         models_data[model_name]["mesh"] = mesh_hat
         models_data[model_name]["network"] = network_hat
 
-# ===============================================================================
-# Predictions
-# ===============================================================================
+    # ===============================================================================
+    # Predictions
+    # ===============================================================================
 
     deltas_all = []
     residuals_all = []
@@ -293,9 +269,9 @@ def visualize(
     fmin_tens = 0.0
     fmax_tens = max(forces_tens_all)
 
-# ===============================================================================
-# Viewing
-# ===============================================================================
+    # ===============================================================================
+    # Viewing
+    # ===============================================================================
 
     # visualization
     if view:
@@ -315,10 +291,7 @@ def visualize(
         # view target mesh alone
         if task_name == "bezier":
             viewer = Viewer(
-                width=_width,
-                height=900,
-                show_grid=False,
-                viewmode="lighted"
+                width=_width, height=900, show_grid=False, viewmode="lighted"
             )
 
             # modify view
@@ -340,11 +313,11 @@ def visualize(
             if use_camera_top:
                 MESH_TARGET_OPACITY = 0.4
             viewer.add(
-                 mesh_target,
-                 show_points=False,
-                 show_edges=False,
-                 opacity=MESH_TARGET_OPACITY,
-                 color=MESH_TARGET_COLOR,
+                mesh_target,
+                show_points=False,
+                show_edges=False,
+                opacity=MESH_TARGET_OPACITY,
+                color=MESH_TARGET_COLOR,
             )
 
             if not use_camera_top:
@@ -353,8 +326,8 @@ def visualize(
                     as_wireframe=True,
                     show_points=False,
                     linewidth=4.0,  # 4.0 for 3d, 1.0 for top
-                    color=Color.black().lightened()
-                    )
+                    color=Color.black().lightened(),
+                )
 
             viewer.show()
 
@@ -363,10 +336,7 @@ def visualize(
 
             print(f"\nViewing {model_name} prediction...")
             viewer = Viewer(
-                width=_width,
-                height=900,
-                show_grid=False,
-                viewmode="lighted"
+                width=_width, height=900, show_grid=False, viewmode="lighted"
             )
 
             # modify view
@@ -388,13 +358,23 @@ def visualize(
             # vertices to view
             vertices_2_view = list(mesh.vertices())
             if EDGECOLOR == "fd" and task_name == "bezier":
-                vertices_2_view = [vkey for vkey in vertices_2_view if not mesh.is_vertex_on_boundary(vkey)]
+                vertices_2_view = [
+                    vkey
+                    for vkey in vertices_2_view
+                    if not mesh.is_vertex_on_boundary(vkey)
+                ]
             elif EDGECOLOR == "force" and task_name == "tower":
-                vertices_2_view = [vkey for vkey in vertices_2_view if not mesh.is_vertex_on_boundary(vkey)]
+                vertices_2_view = [
+                    vkey
+                    for vkey in vertices_2_view
+                    if not mesh.is_vertex_on_boundary(vkey)
+                ]
 
             # edges to view
             # NOTE: we are not visualizing edges on boundaries since they are supported
-            edges_2_view = [edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)]
+            edges_2_view = [
+                edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)
+            ]
 
             # edge width
             width_min, width_max = EDGEWIDTH
@@ -480,7 +460,7 @@ def visualize(
                 loadscale=1.0,
                 show_reactions=show_reactions,
                 reactionscale=_reactionscale,
-                reactioncolor=reactioncolor
+                reactioncolor=reactioncolor,
             )
 
             viewer.add(
@@ -495,11 +475,13 @@ def visualize(
                 viewer.add(
                     Polyline([mesh_hat.vertex_coordinates(vkey) for vkey in _vertices]),
                     linewidth=4.0,
-                    color=Color.black().lightened()
-                    )
+                    color=Color.black().lightened(),
+                )
 
             if task_name == "tower":
-                rings = jnp.reshape(xyz, generator.shape_tube)[generator.levels_rings_comp, :, :]
+                rings = jnp.reshape(xyz, generator.shape_tube)[
+                    generator.levels_rings_comp, :, :
+                ]
                 for ring in rings:
                     ring = ring.tolist()
                     polygon = Polygon(ring)
@@ -508,20 +490,24 @@ def visualize(
                     viewer.add(
                         Polyline(ring + ring[:1]),
                         linewidth=4.0,
-                        color=Color.black().lightened()
+                        color=Color.black().lightened(),
                     )
 
             # show la crème
             viewer.show()
 
-# ===============================================================================
-# Plotting
-# ===============================================================================
+    # ===============================================================================
+    # Plotting
+    # ===============================================================================
 
     if plot:
 
-        nodes_to_plot = [node for node in mesh.vertices() if len(mesh.vertex_neighbors(node)) > 2]
-        edges_to_plot = [edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)]
+        nodes_to_plot = [
+            node for node in mesh.vertices() if len(mesh.vertex_neighbors(node)) > 2
+        ]
+        edges_to_plot = [
+            edge for edge in mesh.edges() if not mesh.is_edge_on_boundary(*edge)
+        ]
         nodesize = 12.0
 
         for name, data in models_data.items():
@@ -541,14 +527,16 @@ def visualize(
 
             if plot_prediction:
                 mesh = mesh_transformed(mesh, T)
-                plotter.add(mesh,
-                            show_vertices=True,
-                            vertexsize=nodesize,
-                            vertexcolor={vkey: Color.white() for vkey in mesh.vertices()},
-                            edgecolor={edge: Color(0.1, 0.1, 0.1) for edge in mesh.edges()},
-                            edgewidth={edge: 1.0 for edge in mesh.edges()},
-                            show_edges=True,
-                            facecolor={fkey: Color(0.95, 0.95, 0.95) for fkey in mesh.faces()})
+                plotter.add(
+                    mesh,
+                    show_vertices=True,
+                    vertexsize=nodesize,
+                    vertexcolor={vkey: Color.white() for vkey in mesh.vertices()},
+                    edgecolor={edge: Color(0.1, 0.1, 0.1) for edge in mesh.edges()},
+                    edgewidth={edge: 1.0 for edge in mesh.edges()},
+                    show_edges=True,
+                    facecolor={fkey: Color(0.95, 0.95, 0.95) for fkey in mesh.faces()},
+                )
 
             if plot_target:
 
@@ -564,13 +552,14 @@ def visualize(
                     a, b = mesh_target.edge_coordinates(u, v)
                     line = Line(a, b)
 
-                    plotter.add(line,
-                                draw_as_segment=True,
-                                color=lc,
-                                linestyle=ls,
-                                linewidth=1.0,
-                                zorder=1300,
-                                )
+                    plotter.add(
+                        line,
+                        draw_as_segment=True,
+                        color=lc,
+                        linestyle=ls,
+                        linewidth=1.0,
+                        zorder=1300,
+                    )
 
             # zoom in
             plotter.zoom_extents()
@@ -579,7 +568,7 @@ def visualize(
                 shape_id = shape_name or str(shape_index)
                 parts = [generator_name, bounds_name, shape_id]
                 if generator_name == "bezier_lerp":
-                    parts.insert(1, str(int(10.0 * config['generator']['lerp_factor'])))
+                    parts.insert(1, str(int(10.0 * config["generator"]["lerp_factor"])))
                 if plot_prediction:
                     parts.append(name)
                 if plot_target:
@@ -597,10 +586,7 @@ def visualize(
 
             print(f"\nPlotting {PLOT_MODE} for {name}")
 
-            plotter = Plotter(
-                figsize=(9, 9),
-                dpi=150
-            )
+            plotter = Plotter(figsize=(9, 9), dpi=150)
 
             # node work
             network_hat = data["network"]
@@ -610,7 +596,7 @@ def visualize(
             nodecolor = Color.white()
             if PLOT_MODE == "fd":
 
-                edgecolor = PLOT_MODE                
+                edgecolor = PLOT_MODE
                 edges_to_plot = list(mesh.edges())
                 edgewidth = (1.0, 9.0)
 
@@ -620,10 +606,12 @@ def visualize(
                 if name == "autoencoder":
                     reaction_scale = 0.1
 
-                plotter.add(mesh_hat,
-                            show_vertices=False,
-                            show_edges=False,
-                            facecolor={fkey: Color(0.95, 0.95, 0.95) for fkey in mesh.faces()})
+                plotter.add(
+                    mesh_hat,
+                    show_vertices=False,
+                    show_edges=False,
+                    facecolor={fkey: Color(0.95, 0.95, 0.95) for fkey in mesh.faces()},
+                )
 
             elif PLOT_MODE == "residual":
 
@@ -643,16 +631,16 @@ def visualize(
 
                 residuals = []
                 for vkey in mesh.vertices():
-                    residual_vector = mesh_hat.vertex_attributes(vkey, ["rx", "ry", "rz"])
+                    residual_vector = mesh_hat.vertex_attributes(
+                        vkey, ["rx", "ry", "rz"]
+                    )
                     residual = length_vector(residual_vector)
                     if mesh.is_vertex_on_boundary(vkey):
                         residual = 0.0
                     residuals.append(residual)
 
                 scales = remap_values(
-                    residuals,
-                    original_min=residual_min,
-                    original_max=residual_max
+                    residuals, original_min=residual_min, original_max=residual_max
                 )
 
                 z = residuals
@@ -679,9 +667,7 @@ def visualize(
                     deltas.append(delta)
 
                 scales = remap_values(
-                    deltas,
-                    original_min=delta_min,
-                    original_max=delta_max
+                    deltas, original_min=delta_min, original_max=delta_max
                 )
 
                 vmin = delta_min
@@ -706,7 +692,7 @@ def visualize(
                     Z,
                     vmin=vmin,
                     vmax=vmax,
-                    shading='gouraud',
+                    shading="gouraud",
                     cmap=cmap,
                     zorder=1,
                 )

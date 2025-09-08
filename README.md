@@ -1,3 +1,15 @@
+# Run Note
+- download pretrained models to `data/`, then
+
+```
+cd scripts
+python visualize.py formfinder bezier
+```
+
+
+# Original README
+---
+
 # Real-time design of architectural simulations with differentiable mechanics and neural networks
 
 [![arXiv](https://img.shields.io/badge/arXiv-2409.02606-b31b1b.svg)](https://arxiv.org/abs/2409.02606)
